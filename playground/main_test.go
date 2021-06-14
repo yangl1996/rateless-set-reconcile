@@ -6,15 +6,20 @@ import (
 	"testing"
 )
 
-func BenchmarkHashing(b *testing.B) {
-	// populate with tests with random data
-	data := make([][]byte, b.N)
-	for i := 0; i < b.N; i++ {
+func setupData(n int) [][]byte {
+	data := make([][]byte, n)
+	for i := 0; i < n; i++ {
 		data[i] = make([]byte, 512)
 		rand.Read(data[i])
 	}
+	return data
+}
+
+func BenchmarkHashing(b *testing.B) {
+	data := setupData(b.N)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		blake2b.Sum256(data[i])
 	}
 }
+
