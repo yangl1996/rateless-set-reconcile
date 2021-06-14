@@ -37,6 +37,7 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 // ProduceCodeword selects transactions where the idx-th byte of its hash is
 // less than frac, and XORs them together. idx must be an integer in [0, 32)
 // and frac must be an integer in [0, 256].
+// TODO: my design is stupid. I should use btree to pre-sort the transactions.
 func (p *TransactionPool) ProduceCodeword(idx int, frac int) [TxSize]byte {
 	res := [TxSize]byte{}
 	for _, v := range p.Transactions {

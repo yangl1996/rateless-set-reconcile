@@ -25,7 +25,7 @@ func BenchmarkHashing(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.ProduceCodeword(2, 30)
+		p.ProduceCodeword(2, 256)
 	}
 }
 
