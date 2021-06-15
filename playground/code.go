@@ -51,7 +51,7 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 // because we cannot precompute the hash. We should come up with some way to
 // efficiently extract randomness from the hash itself. There must be enough
 // randomness there.
-func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) [TxSize]byte {
+func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
 	res := [TxSize]byte{}
 	for _, v := range p.Transactions {
 		p.hasher.Reset()
@@ -64,5 +64,9 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) [TxSize]byte {
 			}
 		}
 	}
-	return res
+	return Codeword {
+		Symbol: res,
+		Threshold: frac,
+		Salt: salt[:],
+	}
 }
