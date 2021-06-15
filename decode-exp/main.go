@@ -13,11 +13,11 @@ import (
 func main() {
 	thresholdInt := flag.Int("t", 20, "threshold to filter txs in a codeword, must be in [0, 256)")
 	srcSize := flag.Int("s", 10000, "source pool transation count")
-	destSize := flag.Int("d", 10000, "destination pool transaction count")
+	destSize := flag.Int("d", 9900, "destination pool transaction count")
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("r", 1, "number of parallel runs")
-	//outputPrefix := flag.String("out", "", "output data path prefix, no output if empty")
+	outputPrefix := flag.String("out", "", "output data path prefix, no output if empty")
 	flag.Parse()
 	var threshold byte
 	if *thresholdInt > 255 || *thresholdInt < 0 {
@@ -48,10 +48,33 @@ func main() {
 			}
 		}()
 	}
+	var d []int
 	for i := 0; i < *runs; i++ {
-		<-ch
+		nd := <-ch	// new data
+		if d == nil {
+			d = nd
+		} else {
+			for idx, _ := range d {
+				if idx < len(nd) {
+					d[idx] += nd[idx]
+				}
+			}
+		}
 	}
 
+	// output data
+	if *outputPrefix != "" {
+		f, err := os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
+		for idx, rnd := range d {
+			fmt.Fprintf(f, "%v        %v\n", idx, rnd / *runs)
+		}
+	}
 	return
 }
 
