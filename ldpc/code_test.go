@@ -1,4 +1,4 @@
-package playground
+package ldpc
 
 import (
 	"math/rand"

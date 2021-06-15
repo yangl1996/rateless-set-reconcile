@@ -1,4 +1,4 @@
-package playground
+package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
