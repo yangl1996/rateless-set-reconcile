@@ -60,11 +60,15 @@ func main() {
 	}
 	// compare if p1 is a subset of p2; we take a shortcut by checking if the last differenceSize elements in p2
 	// exist in p1
+	nc := 0
 	for i := *destSize; i < len(p2.Transactions); i++ {
 		if !p1.Exists(p2.Transactions[i].Transaction) {
-			fmt.Println("found decoded transaction in p2 that does not appear in p1")
-			os.Exit(1)
+			nc += 1
 		}
+	}
+	if nc > 0 {
+		fmt.Println("found", nc, "decoded transactions in p2 that does not appear in p1")
+		os.Exit(1)
 	}
 	return
 }
