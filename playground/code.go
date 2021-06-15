@@ -7,11 +7,21 @@ import (
 
 const TxSize = 512
 
+// HashedTransaction holds the transaction content and its blake2b hash.
+// For now, the hash is just computed as a future-proof thing.
 type HashedTransaction struct {
 	Transaction [TxSize]byte
 	Hash [blake2b.Size256]byte
 }
 
+// Codeword holds a codeword (symbol), its threshold, and its salt.
+type Codeword struct {
+	Symbol [TxSize]byte
+	Threshold byte
+	Salt []byte
+}
+
+// TransactionPool holds the transactions a node has received and validated.
 type TransactionPool struct {
 	Transactions []HashedTransaction
 	hasher hash.Hash
@@ -34,14 +44,21 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 	p.Transactions = append(p.Transactions, tx)
 }
 
-// ProduceCodeword selects transactions where the idx-th byte of its hash is
-// less than frac, and XORs them together. idx must be an integer in [0, 32)
-// and frac must be an integer in [0, 256].
-// TODO: my design is stupid. I should use btree to pre-sort the transactions.
-func (p *TransactionPool) ProduceCodeword(idx int, frac int) [TxSize]byte {
+// ProduceCodeword selects transactions where the first byte of the hash
+// with a give salt is no bigger than frac, and XORs the selected transactions
+// together.
+// TODO: using salting to intro randomness into the selection process is bad,
+// because we cannot precompute the hash. We should come up with some way to
+// efficiently extract randomness from the hash itself. There must be enough
+// randomness there.
+func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) [TxSize]byte {
 	res := [TxSize]byte{}
 	for _, v := range p.Transactions {
-		if int(v.Hash[idx]) < frac {
+		p.hasher.Reset()
+		p.hasher.Write(v.Transaction[:])
+		p.hasher.Write(salt[:])
+		h := p.hasher.Sum(nil)
+		if h[0] <= frac {
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ v.Transaction[i]
 			}
