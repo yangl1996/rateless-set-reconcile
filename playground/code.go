@@ -19,6 +19,7 @@ type Codeword struct {
 	Symbol [TxSize]byte
 	Threshold byte
 	Salt []byte
+	Counter int
 }
 
 // TransactionPool holds the transactions a node has received and validated.
@@ -53,6 +54,7 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 // randomness there.
 func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
 	res := [TxSize]byte{}
+	count := 0
 	for _, v := range p.Transactions {
 		p.hasher.Reset()
 		p.hasher.Write(v.Transaction[:])
@@ -68,5 +70,6 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
 		Symbol: res,
 		Threshold: frac,
 		Salt: salt[:],
+		Counter: count,
 	}
 }
