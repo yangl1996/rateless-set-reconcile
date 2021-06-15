@@ -25,6 +25,7 @@ type Codeword struct {
 // TransactionPool holds the transactions a node has received and validated.
 type TransactionPool struct {
 	Transactions []HashedTransaction
+	Codewords []Codeword
 	hasher hash.Hash
 }
 
@@ -35,14 +36,70 @@ func NewTransactionPool() (*TransactionPool, error) {
 	return p, err
 }
 
-func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
+func (p *TransactionPool) hashWithSalt(salt []byte, data [TxSize]byte) []byte {
 	p.hasher.Reset()
-	p.hasher.Write(t[:])
-	h := p.hasher.Sum(nil)
+	p.hasher.Write(data[:])
+	p.hasher.Write(salt[:])
+	return p.hasher.Sum(nil)
+}
+
+// AddTransaction adds the transaction into the pool, and XORs it from any
+// codeword that fits its hash.
+func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
+	h := p.hashWithSalt(nil, t)
 	tx := HashedTransaction{}
 	tx.Transaction = t
 	copy(tx.Hash[:], h)
 	p.Transactions = append(p.Transactions, tx)
+	// XOR from existing codes
+	for _, c := range p.Codewords {
+		h := p.hashWithSalt(c.Salt, t)
+		if h[0] < c.Threshold {
+			for i := 0; i < TxSize; i++ {
+				c.Symbol[i] = c.Symbol[i] ^ t[i]
+			}
+			c.Counter -= 1
+		}
+	}
+}
+
+// InputCodeword takes an incoming codeword, scans the transactions in the
+// pool, and XOR those that fits the codeword into the codeword symbol.
+func (p *TransactionPool) InputCodeword(c Codeword) {
+	for _, v := range p.Transactions {
+		h := p.hashWithSalt(c.Salt, v.Transaction)
+		if h[0] < c.Threshold {
+			for i := 0; i < TxSize; i++ {
+				c.Symbol[i] = c.Symbol[i] ^ v.Transaction[i]
+			}
+			c.Counter -= 1
+		}
+	}
+	p.Codewords = append(p.Codewords, c)
+}
+
+// TryDecode recursively tries to decode any codeword that we have received
+// so far, and puts those decoded into the pool.
+func (p *TransactionPool) TryDecode() {
+	decoded := [][TxSize]byte{}
+	codes := []Codeword{}
+	// scan through the codewords to find ones with counter=1
+	// and removes those with counter <= 0
+	for _, c := range p.Codewords {
+		if c.Counter == 1 {
+			decoded = append(decoded, c.Symbol)
+		} else if c.Counter > 1 {
+			codes = append(codes, c)
+		}
+	}
+	p.Codewords = codes
+	// add newly decoded transactions
+	for _, t := range decoded {
+		p.AddTransaction(t)
+	}
+	if len(decoded) > 0 {
+		p.TryDecode()
+	}
 }
 
 // ProduceCodeword selects transactions where the first byte of the hash
@@ -56,10 +113,7 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
 	res := [TxSize]byte{}
 	count := 0
 	for _, v := range p.Transactions {
-		p.hasher.Reset()
-		p.hasher.Write(v.Transaction[:])
-		p.hasher.Write(salt[:])
-		h := p.hasher.Sum(nil)
+		h := p.hashWithSalt(salt, v.Transaction)
 		if h[0] <= frac {
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ v.Transaction[i]
