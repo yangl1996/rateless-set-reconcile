@@ -17,7 +17,7 @@ func main() {
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("r", 1, "number of parallel runs")
-	outputPrefix := flag.String("out", "", "output data path prefix, no output if empty")
+	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	flag.Parse()
 	var threshold byte
 	if *thresholdInt > 255 || *thresholdInt < 0 {
@@ -70,6 +70,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
+		fmt.Fprintf(f, "# |p1|=%v, |p2|=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *differenceSize, *thresholdInt)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 		for idx, rnd := range d {
 			fmt.Fprintf(f, "%v        %v\n", idx, rnd / *runs)
