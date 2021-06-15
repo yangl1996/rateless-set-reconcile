@@ -48,7 +48,7 @@ func (p *TransactionPool) hashWithSalt(salt []byte, data [TxSize]byte) []byte {
 func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 	h := p.hashWithSalt(nil, t)
 	tx := HashedTransaction{}
-	tx.Transaction = t
+	copy(tx.Transaction[:], t[:])
 	copy(tx.Hash[:], h)
 	p.Transactions = append(p.Transactions, tx)
 	// XOR from existing codes
