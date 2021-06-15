@@ -2,6 +2,7 @@ package ldpc
 
 import (
 	"math/rand"
+	"math"
 	"testing"
 	"bytes"
 )
@@ -26,7 +27,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.ProduceCodeword([]byte{2}, 30)
+		p.ProduceCodeword([]byte{2}, math.MaxUint64/5)
 	}
 }
 
@@ -53,7 +54,7 @@ func TestLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := p.ProduceCodeword([]byte{1, 2, 3}, 30)
+	c := p.ProduceCodeword([]byte{1, 2, 3}, math.MaxUint64/5)
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
@@ -83,7 +84,7 @@ func TestOneoff(t *testing.T) {
 		s2.AddTransaction(s1.Transactions[i].Transaction)
 	}
 	missing := s1.Transactions[len(s1.Transactions)-2]
-	c := s1.ProduceCodeword([]byte{1, 2, 3}, 255) // we want the codeword to cover all elements
+	c := s1.ProduceCodeword([]byte{1, 2, 3}, math.MaxUint64) // we want the codeword to cover all elements
 	if c.Counter != len(s1.Transactions) {
 		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.Transactions))
 	}

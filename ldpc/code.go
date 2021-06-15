@@ -2,6 +2,7 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
+	"encoding/binary"
 	"hash"
 	"bytes"
 )
@@ -18,7 +19,7 @@ type HashedTransaction struct {
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
 	Symbol [TxSize]byte
-	Threshold byte
+	Threshold uint64
 	Salt []byte
 	Counter int
 }
@@ -53,6 +54,11 @@ func (p *TransactionPool) hashWithSalt(salt []byte, data [TxSize]byte) []byte {
 	return p.hasher.Sum(nil)
 }
 
+func (p *TransactionPool) uintWithSalt(salt []byte, data [TxSize]byte) uint64 {
+	h := p.hashWithSalt(salt, data)
+	return binary.LittleEndian.Uint64(h[0:8])
+}
+
 // AddTransaction adds the transaction into the pool, and XORs it from any
 // codeword that fits its hash.
 func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
@@ -63,8 +69,8 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 	p.Transactions = append(p.Transactions, tx)
 	// XOR from existing codes
 	for _, c := range p.Codewords {
-		h := p.hashWithSalt(c.Salt, t)
-		if h[0] <= c.Threshold {
+		h := p.uintWithSalt(c.Salt, t)
+		if h <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ t[i]
 			}
@@ -77,8 +83,8 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	for _, v := range p.Transactions {
-		h := p.hashWithSalt(c.Salt, v.Transaction)
-		if h[0] <= c.Threshold {
+		h := p.uintWithSalt(c.Salt, v.Transaction)
+		if h <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ v.Transaction[i]
 			}
@@ -112,19 +118,19 @@ func (p *TransactionPool) TryDecode() {
 	}
 }
 
-// ProduceCodeword selects transactions where the first byte of the hash
+// ProduceCodeword selects transactions where the first 8 byte of the hash
 // with a give salt is no bigger than frac, and XORs the selected transactions
 // together.
 // TODO: using salting to intro randomness into the selection process is bad,
 // because we cannot precompute the hash. We should come up with some way to
 // efficiently extract randomness from the hash itself. There must be enough
 // randomness there.
-func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
+func (p *TransactionPool) ProduceCodeword(salt []byte, frac uint64) Codeword {
 	res := [TxSize]byte{}
 	count := 0
 	for _, v := range p.Transactions {
-		h := p.hashWithSalt(salt, v.Transaction)
-		if h[0] <= frac {
+		h := p.uintWithSalt(salt, v.Transaction)
+		if h <= frac {
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ v.Transaction[i]
 			}
