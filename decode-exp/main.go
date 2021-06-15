@@ -16,6 +16,7 @@ func main() {
 	destSize := flag.Int("d", 10000, "destination pool transaction count")
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
+	runs := flag.Int("r", 1, "number of parallel runs")
 	//outputPrefix := flag.String("out", "", "output data path prefix, no output if empty")
 	flag.Parse()
 	var threshold byte
@@ -35,10 +36,20 @@ func main() {
 		rand.Seed(*seed)
 	}
 
-	_, err := runExperiment(*srcSize, *destSize, *differenceSize, threshold)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	ch := make(chan []int)
+	for i := 0; i < *runs; i++ {
+		go func() {
+			res, err := runExperiment(*srcSize, *destSize, *differenceSize, threshold, *runs==1)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			} else {
+				ch <- res
+			}
+		}()
+	}
+	for i := 0; i < *runs; i++ {
+		<-ch
 	}
 
 	return
@@ -46,7 +57,7 @@ func main() {
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, x int, th byte) ([]int, error) {
+func runExperiment(s, d, x int, th byte, log bool) ([]int, error) {
 	p1, err := buildRandomPool(s)
 	if err != nil {
 		return nil, err
@@ -68,7 +79,9 @@ func runExperiment(s, d, x int, th byte) ([]int, error) {
 		c := p1.ProduceCodeword(salt[:], th)
 		p2.InputCodeword(c)
 		p2.TryDecode()
-		fmt.Printf("Iteration=%v, codewords=%v, transactions=%v\n", i, len(p2.Codewords), len(p2.Transactions))
+		if log {
+			fmt.Printf("Iteration=%v, codewords=%v, transactions=%v\n", i, len(p2.Codewords), len(p2.Transactions))
+		}
 		if len(p2.Transactions) > last {
 			for cnt := last; cnt < len(p2.Transactions); cnt++ {
 				res = append(res, i)
