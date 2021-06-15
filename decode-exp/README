@@ -1,0 +1,14 @@
+The plotting scripts plot all data files in the directory, one curve per
+file. The curve title is the prefix of the filename, ending at (not incl.)
+the first dash.
+
+For example, to explore how coding threshold affects the decoding
+performance, run a series of experiments with
+
+./decode-exp -t 1 -out t=1
+./decode-exp -t 2 -out t=2
+./decode-exp -t 3 -out t=3
+
+Then, run the plotting script. The output plot will contain three
+curves: t=1, t=2, t=3, plus plot-specific curves such as the theoretical
+optimum.
