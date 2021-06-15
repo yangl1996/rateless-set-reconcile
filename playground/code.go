@@ -54,7 +54,7 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 	// XOR from existing codes
 	for _, c := range p.Codewords {
 		h := p.hashWithSalt(c.Salt, t)
-		if h[0] < c.Threshold {
+		if h[0] <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ t[i]
 			}
@@ -68,7 +68,7 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	for _, v := range p.Transactions {
 		h := p.hashWithSalt(c.Salt, v.Transaction)
-		if h[0] < c.Threshold {
+		if h[0] <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ v.Transaction[i]
 			}
@@ -118,6 +118,7 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac byte) Codeword {
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ v.Transaction[i]
 			}
+			count += 1
 		}
 	}
 	return Codeword {
