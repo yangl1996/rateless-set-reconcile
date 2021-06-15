@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 	"math/rand"
+	"math"
 	"errors"
 )
 
 func main() {
-	thresholdInt := flag.Int("t", 20, "threshold to filter txs in a codeword, must be in [0, 256)")
+	thresholdFloat := flag.Float64("t", 0.05, "threshold to filter txs in a codeword, must be within [0, 0.5]")
 	srcSize := flag.Int("s", 10000, "source pool transation count")
 	destSize := flag.Int("d", 9900, "destination pool transaction count")
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
@@ -19,12 +20,12 @@ func main() {
 	runs := flag.Int("r", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	flag.Parse()
-	var threshold byte
-	if *thresholdInt > 255 || *thresholdInt < 0 {
-		fmt.Println("threshold must be in [0, 256)")
+	var threshold uint64
+	if *thresholdFloat > 0.5 || *thresholdFloat < 0 {
+		fmt.Println("threshold must be in [0, 0.5]")
 		os.Exit(1)
 	} else {
-		threshold = byte(*thresholdInt)
+		threshold = uint64(*thresholdFloat * float64(math.MaxUint64))
 	}
 	if *destSize < *srcSize - *differenceSize {
 		fmt.Println("destination pool must be no smaller than source pool minus the difference (d >= s-x)")
@@ -70,7 +71,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "# |p1|=%v, |p2|=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *differenceSize, *thresholdInt)
+		fmt.Fprintf(f, "# |p1|=%v, |p2|=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *differenceSize, *thresholdFloat)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 		for idx, rnd := range d {
 			fmt.Fprintf(f, "%v        %v\n", idx, rnd / *runs)
@@ -81,7 +82,7 @@ func main() {
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, x int, th byte, log bool) ([]int, error) {
+func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
 	p1, err := buildRandomPool(s)
 	if err != nil {
 		return nil, err
