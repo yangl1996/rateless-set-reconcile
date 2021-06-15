@@ -5,5 +5,11 @@ set output "iter-to-decode.pdf"
 set xlabel "#tx decoded"
 set ylabel "#codeword rcvd"
 set notitle
+set key top left
 
-plot "out-mean-iter-to-decode.dat" using 1:2 with lines title 1 lw 2
+files = system("ls -1 *-mean-iter-to-decode.dat")
+
+# get the prefix of a string ending (not incl.) at "-"
+getTitle(s) = substr(s, 0, strstrt(s, "-")-1)
+
+plot for [file in files] file using 1:2 with lines title getTitle(file) lw 2
