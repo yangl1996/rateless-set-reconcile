@@ -19,7 +19,7 @@ func setupData(n int) (*TransactionPool, error) {
 	return p, nil
 }
 
-func BenchmarkHashing(b *testing.B) {
+func BenchmarkProduceCodeword(b *testing.B) {
 	p, err := setupData(15000)
 	if err != nil {
 		b.Fatal(err)
@@ -38,7 +38,6 @@ func TestLoopback(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := p.ProduceCodeword([]byte{1, 2, 3}, 30)
-	t.Log("produced codeword with", c.Counter, "input elements")
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
@@ -49,5 +48,45 @@ func TestLoopback(t *testing.T) {
 	empty := [TxSize]byte{}
 	if bytes.Compare(p.Codewords[0].Symbol[:], empty[:]) != 0 {
 		t.Error("codeword has nonzero byte remaining")
+	}
+}
+
+// TestOneOff sets up two sets with just one element missing in the second
+// set, and then sends a codeword covering all elements in the first set to
+// the second set. It then verifies that the second set can decode the element.
+func TestOneoff(t *testing.T) {
+	s1, err := setupData(1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := NewTransactionPool()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(s1.Transactions)-1; i++ {
+		s2.AddTransaction(s1.Transactions[i].Transaction)
+	}
+	missing := s1.Transactions[len(s1.Transactions)-2]
+	c := s1.ProduceCodeword([]byte{1, 2, 3}, 255) // we want the codeword to cover all elements
+	if c.Counter != len(s1.Transactions) {
+		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.Transactions))
+	}
+	s2.InputCodeword(c)
+	s2.TryDecode()
+	if len(s2.Transactions) != len(s1.Transactions) {
+		t.Error("pool 2 contains", len(s2.Transactions), "transactions, less than pool 1")
+	}
+	if len(s2.Codewords) != 0 {
+		t.Error("pool 2 contains", len(s2.Codewords), "codewords, not zero")
+	}
+	found := false
+	for _, v := range s2.Transactions {
+		if bytes.Compare(missing.Transaction[:], v.Transaction[:]) == 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("cannot find the missing transaction in pool 2")
 	}
 }
