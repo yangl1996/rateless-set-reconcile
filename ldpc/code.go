@@ -3,6 +3,7 @@ package ldpc
 import (
 	"golang.org/x/crypto/blake2b"
 	"hash"
+	"bytes"
 )
 
 const TxSize = 512
@@ -34,6 +35,15 @@ func NewTransactionPool() (*TransactionPool, error) {
 	var err error
 	p.hasher, err = blake2b.New256(nil)
 	return p, err
+}
+
+func (p *TransactionPool) Exists(t [TxSize]byte) bool {
+	for _, v := range p.Transactions {
+		if bytes.Compare(v.Transaction[:], t[:]) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *TransactionPool) hashWithSalt(salt []byte, data [TxSize]byte) []byte {

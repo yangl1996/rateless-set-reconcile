@@ -30,6 +30,22 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	}
 }
 
+// TestExists tests if the Exists method is correct.
+func TestExists(t *testing.T) {
+	p, err := setupData(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := [TxSize]byte{}
+	rand.Read(d[:])
+	if !p.Exists(p.Transactions[0].Transaction) {
+		t.Error("failed to locate a transaction that exists in the pool")
+	}
+	if p.Exists(d) {
+		t.Error("mistakenly located a transaction that does not exist in the pool")
+	}
+}
+
 // TestLoopback sends codewords back to itself, so the codeword should have
 // counter=0 after being received.
 func TestLoopback(t *testing.T) {
@@ -79,14 +95,7 @@ func TestOneoff(t *testing.T) {
 	if len(s2.Codewords) != 0 {
 		t.Error("pool 2 contains", len(s2.Codewords), "codewords, not zero")
 	}
-	found := false
-	for _, v := range s2.Transactions {
-		if bytes.Compare(missing.Transaction[:], v.Transaction[:]) == 0 {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !s2.Exists(missing.Transaction) {
 		t.Error("cannot find the missing transaction in pool 2")
 	}
 }
