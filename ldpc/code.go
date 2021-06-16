@@ -5,9 +5,90 @@ import (
 	"encoding/binary"
 	"hash"
 	"bytes"
+	"crypto/md5"
+	"sync"
 )
 
+var hasherPool = sync.Pool {
+	New: func() interface{} {
+		h, _ := blake2b.New256(nil)	// this fn never returns error when key=nil
+		return h
+	},
+}
+
 const TxSize = 512
+const TxDataSize = TxSize-md5.Size
+
+type Transaction struct {
+	Data [TxDataSize]byte
+	Checksum [md5.Size]byte
+}
+
+func NewTransaction(d [TxDataSize]byte) Transaction {
+	t := Transaction{}
+	copy(t.Data[:], d[:])
+	t.Checksum = md5.Sum(d[:])
+	return t
+}
+
+func (t Transaction) HashWithSalt(salt []byte) []byte {
+	h := hasherPool.Get().(hash.Hash)
+	defer hasherPool.Put(h)
+	h.Reset()
+	h.Write(t.Data[:])
+	h.Write(t.Checksum[:])
+	h.Write(salt)
+	return h.Sum(nil)
+}
+
+func (t Transaction) UintWithSalt(salt []byte) uint64 {
+	h := t.HashWithSalt(salt)
+	return binary.LittleEndian.Uint64(h[0:8])
+}
+
+type ChecksumError struct {
+	given [md5.Size]byte
+	correct [md5.Size]byte
+}
+
+func (e ChecksumError) Error() string {
+	return "incorrect transaction checksum"
+}
+
+type WrongDataSizeError struct {
+	length int
+}
+
+func (e WrongDataSizeError) Error() string {
+	return "incorrect data size given to unmarshaler"
+}
+
+// MarshalBinary implements BinaryMarshaler. The current implementation
+// is quite inefficient, involving multiple allocations. It always return
+// a byte array of TxSize and the error is always nil.
+func (t Transaction) MarshalBinary() (data []byte, err error) {
+	b := []byte{}
+	b = append(b, t.Data[:]...)
+	b = append(b, t.Checksum[:]...)
+	return b, nil
+}
+
+// UnmarshalBinary implements BinaryUnmarshaler. It returns an error exactly
+// under two conditions: (1) the input data is shorter than TxSize (2) the
+// checksum does not match.
+func (t Transaction) UnmarshalBinary(data []byte) error {
+	if len(data) != TxSize {
+		return WrongDataSizeError{len(data)}
+	}
+	copy(t.Data[:], data[0:TxDataSize])
+	copy(t.Checksum[:], data[TxDataSize:TxSize])
+	cs := md5.Sum(t.Data[:])
+	if bytes.Compare(cs[:], t.Checksum[:]) != 0 {
+		return ChecksumError{t.Checksum, cs}
+	} else {
+		return nil
+	}
+}
 
 // HashedTransaction holds the transaction content and its blake2b hash.
 // For now, the hash is just computed as a future-proof thing.
