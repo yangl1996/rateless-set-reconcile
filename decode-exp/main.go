@@ -141,10 +141,10 @@ func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 	return nil
 }
 
-func getRandomTransaction() [ldpc.TxSize]byte {
-	d := [ldpc.TxSize]byte{}
+func getRandomTransaction() ldpc.Transaction {
+	d := [ldpc.TxDataSize]byte{}
 	rand.Read(d[:])
-	return d
+	return ldpc.NewTransaction(d)
 }
 
 func buildRandomPool(n int) (*ldpc.TransactionPool, error) {
@@ -170,9 +170,7 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
 		p.AddTransaction(src.Transactions[i].Transaction)
 	}
 	for ; i < n; i++ {
-                d := [ldpc.TxSize]byte{}
-                rand.Read(d[:])
-                p.AddTransaction(d)
+                p.AddTransaction(getRandomTransaction())
 	}
 	return p, nil
 }
