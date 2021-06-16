@@ -112,6 +112,10 @@ func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
 		}
 		if len(p2.Transactions) > last {
 			for cnt := last; cnt < len(p2.Transactions); cnt++ {
+				// check if the tx that p2 just decoded is actually in p1
+				if !p1.Exists(p2.Transactions[cnt].Transaction) {
+					return nil, errors.New(fmt.Sprint("p2 decoded a bogus transaction"))
+				}
 				res = append(res, i)
 			}
 			last = len(p2.Transactions)
@@ -119,17 +123,6 @@ func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
 		if len(p2.Transactions) == d + x {
 			break
 		}
-	}
-	// compare if p1 is a subset of p2; we take a shortcut by checking if the last differenceSize elements in p2
-	// exist in p1
-	nc := 0
-	for i := d; i < len(p2.Transactions); i++ {
-		if !p1.Exists(p2.Transactions[i].Transaction) {
-			nc += 1
-		}
-	}
-	if nc > 0 {
-		return nil, errors.New(fmt.Sprint("found", nc, "decoded transactions in p2 that does not appear in p1"))
 	}
 	return res, nil
 }
