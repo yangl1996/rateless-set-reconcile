@@ -42,7 +42,7 @@ func (t Transaction) HashWithSalt(salt []byte) []byte {
 	defer hasherPool.Put(h)
 	h.Reset()
 	h.Write(t.Data[:])
-	h.Write(t.Checksum[:])
+	h.Write(t.checksum[:])
 	h.Write(salt)
 	return h.Sum(nil)
 }
@@ -80,7 +80,7 @@ func (e WrongDataSizeError) Error() string {
 func (t Transaction) MarshalBinary() (data []byte, err error) {
 	b := []byte{}
 	b = append(b, t.Data[:]...)
-	b = append(b, t.Checksum[:]...)
+	b = append(b, t.checksum[:]...)
 	return b, nil
 }
 
@@ -92,10 +92,10 @@ func (t Transaction) UnmarshalBinary(data []byte) error {
 		return WrongDataSizeError{len(data)}
 	}
 	copy(t.Data[:], data[0:TxDataSize])
-	copy(t.Checksum[:], data[TxDataSize:TxSize])
+	copy(t.checksum[:], data[TxDataSize:TxSize])
 	cs := md5.Sum(t.Data[:])
-	if bytes.Compare(cs[:], t.Checksum[:]) != 0 {
-		return ChecksumError{t.Checksum, cs}
+	if bytes.Compare(cs[:], t.checksum[:]) != 0 {
+		return ChecksumError{t.checksum, cs}
 	} else {
 		return nil
 	}

@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"hash"
 	"bytes"
-	"crypto/md5"
-	"sync"
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
