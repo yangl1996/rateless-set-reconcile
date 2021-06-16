@@ -37,7 +37,7 @@ func NewTransaction(d [TxDataSize]byte) Transaction {
 }
 
 // HashWithSalt calculates the hash of the transaction suffixed by the salt.
-func (t Transaction) HashWithSalt(salt []byte) []byte {
+func (t *Transaction) HashWithSalt(salt []byte) []byte {
 	h := hasherPool.Get().(hash.Hash)
 	defer hasherPool.Put(h)
 	h.Reset()
@@ -49,7 +49,7 @@ func (t Transaction) HashWithSalt(salt []byte) []byte {
 
 // UintWithSalt calculates the Uint64 representation of the first 8 bytes of
 // the hash.
-func (t Transaction) UintWithSalt(salt []byte) uint64 {
+func (t *Transaction) UintWithSalt(salt []byte) uint64 {
 	h := t.HashWithSalt(salt)
 	return binary.LittleEndian.Uint64(h[0:8])
 }
@@ -64,20 +64,20 @@ func (e ChecksumError) Error() string {
 	return "incorrect transaction checksum"
 }
 
-// WrongDataSizeError is returned when trying to unmarshal a byte slice that
+// DataSizeError is returned when trying to unmarshal a byte slice that
 // is not TxSize in length.
-type WrongDataSizeError struct {
+type DataSizeError struct {
 	length int
 }
 
-func (e WrongDataSizeError) Error() string {
+func (e DataSizeError) Error() string {
 	return "incorrect data size given to unmarshaler"
 }
 
 // MarshalBinary implements BinaryMarshaler. The current implementation
 // is quite inefficient, involving multiple allocations. It always return
 // a byte array of TxSize and the error is always nil.
-func (t Transaction) MarshalBinary() (data []byte, err error) {
+func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := []byte{}
 	b = append(b, t.Data[:]...)
 	b = append(b, t.checksum[:]...)
@@ -87,9 +87,9 @@ func (t Transaction) MarshalBinary() (data []byte, err error) {
 // UnmarshalBinary implements BinaryUnmarshaler. It returns an error exactly
 // under two conditions: (1) the input data is shorter than TxSize (2) the
 // checksum does not match.
-func (t Transaction) UnmarshalBinary(data []byte) error {
+func (t *Transaction) UnmarshalBinary(data []byte) error {
 	if len(data) != TxSize {
-		return WrongDataSizeError{len(data)}
+		return DataSizeError{len(data)}
 	}
 	copy(t.Data[:], data[0:TxDataSize])
 	copy(t.checksum[:], data[TxDataSize:TxSize])
