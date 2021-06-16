@@ -8,11 +8,12 @@ import (
 	"time"
 	"math/rand"
 	"math"
+	"math/big"
 	"errors"
 )
 
 func main() {
-	thresholdFloat := flag.Float64("t", 0.05, "threshold to filter txs in a codeword, must be within [0, 0.5]")
+	thresholdFloat := flag.Float64("t", 0.05, "threshold to filter txs in a codeword, must be within [0, 1]")
 	srcSize := flag.Int("s", 10000, "source pool transation count")
 	destSize := flag.Int("d", 9900, "destination pool transaction count")
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
@@ -21,11 +22,13 @@ func main() {
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	flag.Parse()
 	var threshold uint64
-	if *thresholdFloat > 0.5 || *thresholdFloat < 0 {
-		fmt.Println("threshold must be in [0, 0.5]")
+	if *thresholdFloat > 1 || *thresholdFloat < 0 {
+		fmt.Println("threshold must be in [0, 1]")
 		os.Exit(1)
 	} else {
-		threshold = uint64(*thresholdFloat * float64(math.MaxUint64))
+		trat := new(big.Float).SetFloat64(*thresholdFloat)
+		maxt := new(big.Float).SetUint64(math.MaxUint64)
+		threshold, _ = new(big.Float).Mul(trat, maxt).Uint64()
 	}
 	if *destSize < *srcSize - *differenceSize {
 		fmt.Println("destination pool must be no smaller than source pool minus the difference (d >= s-x)")
