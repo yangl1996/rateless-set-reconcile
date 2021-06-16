@@ -21,6 +21,7 @@ func main() {
 	runs := flag.Int("r", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal")
+	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
 	flag.Parse()
 	var threshold uint64
 	if *thresholdFloat > 1 || *thresholdFloat < 0 {
@@ -46,7 +47,7 @@ func main() {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
 		go func() {
-			err := runExperiment(*srcSize, *destSize, *differenceSize, threshold, ch)
+			err := runExperiment(*srcSize, *destSize, *differenceSize, *refillTransaction, threshold, ch)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -62,7 +63,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "# |p1|=%v, |p2|=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *differenceSize, *thresholdFloat)
+		fmt.Fprintf(f, "# |src|=%v, |dst|=%v, refill=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *refillTransaction, *differenceSize, *thresholdFloat)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 	}
 	// for each tx idx, range over res channels to collect data and dump to file
@@ -96,7 +97,7 @@ func main() {
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, x int, th uint64, res chan int) error {
+func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 	defer close(res)	// close when the experiment ends
 	p1, err := buildRandomPool(s)
 	if err != nil {
@@ -122,9 +123,13 @@ func runExperiment(s, d, x int, th uint64, res chan int) error {
 			for cnt := last; cnt < len(p2.Transactions); cnt++ {
 				// check if the tx that p2 just decoded is actually in p1
 				if !p1.Exists(p2.Transactions[cnt].Transaction) {
-					return errors.New(fmt.Sprint("p2 decoded a bogus transaction"))
+					return errors.New(fmt.Sprint("dest decoded a bogus transaction"))
 				} else {
 					res <- i
+				}
+				if f > 0 {
+					p1.AddTransaction(getRandomTransaction())
+					f -= 1
 				}
 			}
 			last = len(p2.Transactions)
@@ -136,15 +141,19 @@ func runExperiment(s, d, x int, th uint64, res chan int) error {
 	return nil
 }
 
+func getRandomTransaction() [ldpc.TxSize]byte {
+	d := [ldpc.TxSize]byte{}
+	rand.Read(d[:])
+	return d
+}
+
 func buildRandomPool(n int) (*ldpc.TransactionPool, error) {
 	p, err := ldpc.NewTransactionPool()
         if err != nil {
                 return nil, err
         }
         for i := 0; i < n; i++ {
-                d := [ldpc.TxSize]byte{}
-                rand.Read(d[:])
-                p.AddTransaction(d)
+                p.AddTransaction(getRandomTransaction())
         }
         return p, nil
 }
