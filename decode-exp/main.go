@@ -20,6 +20,7 @@ func main() {
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("r", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
+	noTermOut := flag.Bool("q", false, "do not print log to terminal")
 	flag.Parse()
 	var threshold uint64
 	if *thresholdFloat > 1 || *thresholdFloat < 0 {
@@ -40,35 +41,22 @@ func main() {
 		rand.Seed(*seed)
 	}
 
-	ch := make(chan []int)
+	var chs []chan int
 	for i := 0; i < *runs; i++ {
+		ch := make(chan int, *differenceSize)
+		chs = append(chs, ch)
 		go func() {
-			res, err := runExperiment(*srcSize, *destSize, *differenceSize, threshold, *runs==1)
+			err := runExperiment(*srcSize, *destSize, *differenceSize, threshold, ch)
 			if err != nil {
 				fmt.Println(err)
-				os.Exit(1)
-			} else {
-				ch <- res
 			}
 		}()
 	}
-	var d []int
-	for i := 0; i < *runs; i++ {
-		nd := <-ch	// new data
-		if d == nil {
-			d = nd
-		} else {
-			for idx, _ := range d {
-				if idx < len(nd) {
-					d[idx] += nd[idx]
-				}
-			}
-		}
-	}
 
-	// output data
+	var f *os.File
 	if *outputPrefix != "" {
-		f, err := os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
+		var err error
+		f, err = os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -76,27 +64,50 @@ func main() {
 		defer f.Close()
 		fmt.Fprintf(f, "# |p1|=%v, |p2|=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *differenceSize, *thresholdFloat)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
-		for idx, rnd := range d {
-			fmt.Fprintf(f, "%v        %v\n", idx, rnd / *runs)
+	}
+	// for each tx idx, range over res channels to collect data and dump to file
+	for idx := 0;; idx++ {
+		nClosed := 0
+		d := 0
+		for _, ch := range chs {
+			td, more := <-ch
+			if more {
+				d += td
+			} else {
+				nClosed += 1
+			}
+		}
+		if nClosed >= len(chs) {
+			return
+		} else if nClosed == 0 {
+			if f != nil {
+				fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
+			}
+			if !*noTermOut {
+				fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
+			}
+		} else {
+			fmt.Println(nClosed, "of", *runs, "runs have stopped, waiting for all to stop")
 		}
 	}
+
 	return
 }
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
+func runExperiment(s, d, x int, th uint64, res chan int) error {
+	defer close(res)	// close when the experiment ends
 	p1, err := buildRandomPool(s)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	p2, err := copyPoolWithDifference(p1, d, x)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	res := []int{}
-	res = append(res, 0)	// at iteration 0, we have decoded 0 transactions
+	res <- 0 // at iteration 0, we have decoded 0 transactions
 	// start sending codewords from p1 to p2
 	i := 0
 	last := len(p2.Transactions)
@@ -107,16 +118,14 @@ func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
 		c := p1.ProduceCodeword(salt[:], th)
 		p2.InputCodeword(c)
 		p2.TryDecode()
-		if log {
-			fmt.Printf("Iteration=%v, codewords=%v, transactions=%v\n", i, len(p2.Codewords), len(p2.Transactions))
-		}
 		if len(p2.Transactions) > last {
 			for cnt := last; cnt < len(p2.Transactions); cnt++ {
 				// check if the tx that p2 just decoded is actually in p1
 				if !p1.Exists(p2.Transactions[cnt].Transaction) {
-					return nil, errors.New(fmt.Sprint("p2 decoded a bogus transaction"))
+					return errors.New(fmt.Sprint("p2 decoded a bogus transaction"))
+				} else {
+					res <- i
 				}
-				res = append(res, i)
 			}
 			last = len(p2.Transactions)
 		}
@@ -124,7 +133,7 @@ func runExperiment(s, d, x int, th uint64, log bool) ([]int, error) {
 			break
 		}
 	}
-	return res, nil
+	return nil
 }
 
 func buildRandomPool(n int) (*ldpc.TransactionPool, error) {
