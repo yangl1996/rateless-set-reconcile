@@ -2,15 +2,13 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
-	"encoding/binary"
-	"hash"
 	"bytes"
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
 // For now, the hash is just computed as a future-proof thing.
 type HashedTransaction struct {
-	Transaction [TxSize]byte
+	Transaction
 	Hash [blake2b.Size256]byte
 }
 
@@ -26,51 +24,37 @@ type Codeword struct {
 type TransactionPool struct {
 	Transactions []HashedTransaction
 	Codewords []Codeword
-	hasher hash.Hash
 }
 
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
-	var err error
-	p.hasher, err = blake2b.New256(nil)
-	return p, err
+	return p, nil
 }
 
-func (p *TransactionPool) Exists(t [TxSize]byte) bool {
+func (p *TransactionPool) Exists(t Transaction) bool {
 	for _, v := range p.Transactions {
-		if bytes.Compare(v.Transaction[:], t[:]) == 0 {
+		if bytes.Compare(v.Data[:], t.Data[:]) == 0 {
 			return true
 		}
 	}
 	return false
 }
 
-func (p *TransactionPool) hashWithSalt(salt []byte, data [TxSize]byte) []byte {
-	p.hasher.Reset()
-	p.hasher.Write(data[:])
-	p.hasher.Write(salt[:])
-	return p.hasher.Sum(nil)
-}
-
-func (p *TransactionPool) uintWithSalt(salt []byte, data [TxSize]byte) uint64 {
-	h := p.hashWithSalt(salt, data)
-	return binary.LittleEndian.Uint64(h[0:8])
-}
-
 // AddTransaction adds the transaction into the pool, and XORs it from any
 // codeword that fits its hash.
-func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
-	h := p.hashWithSalt(nil, t)
+func (p *TransactionPool) AddTransaction(t Transaction) {
+	h := t.HashWithSalt(nil)
 	tx := HashedTransaction{}
-	copy(tx.Transaction[:], t[:])
-	copy(tx.Hash[:], h)
+	tx.Transaction = t
+	copy(tx.Hash[:], h[:])
 	p.Transactions = append(p.Transactions, tx)
 	// XOR from existing codes
+	m, _ := t.MarshalBinary()
 	for _, c := range p.Codewords {
-		h := p.uintWithSalt(c.Salt, t)
+		h := tx.UintWithSalt(c.Salt)
 		if h <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
-				c.Symbol[i] = c.Symbol[i] ^ t[i]
+				c.Symbol[i] = c.Symbol[i] ^ m[i]
 			}
 			c.Counter -= 1
 		}
@@ -81,10 +65,11 @@ func (p *TransactionPool) AddTransaction(t [TxSize]byte) {
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	for _, v := range p.Transactions {
-		h := p.uintWithSalt(c.Salt, v.Transaction)
+		h := v.UintWithSalt(c.Salt)
+		m, _ := v.MarshalBinary()
 		if h <= c.Threshold {
 			for i := 0; i < TxSize; i++ {
-				c.Symbol[i] = c.Symbol[i] ^ v.Transaction[i]
+				c.Symbol[i] = c.Symbol[i] ^ m[i]
 			}
 			c.Counter -= 1
 		}
@@ -95,13 +80,17 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 // TryDecode recursively tries to decode any codeword that we have received
 // so far, and puts those decoded into the pool.
 func (p *TransactionPool) TryDecode() {
-	decoded := [][TxSize]byte{}
+	decoded := []Transaction{}
 	codes := []Codeword{}
 	// scan through the codewords to find ones with counter=1
 	// and removes those with counter <= 0
 	for _, c := range p.Codewords {
 		if c.Counter == 1 {
-			decoded = append(decoded, c.Symbol)
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				decoded = append(decoded, *tx)
+			}
 		} else if c.Counter > 1 {
 			codes = append(codes, c)
 		}
@@ -127,10 +116,11 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac uint64) Codeword {
 	res := [TxSize]byte{}
 	count := 0
 	for _, v := range p.Transactions {
-		h := p.uintWithSalt(salt, v.Transaction)
+		h := v.UintWithSalt(salt)
 		if h <= frac {
+			m, _ := v.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
-				res[i] = res[i] ^ v.Transaction[i]
+				res[i] = res[i] ^ m[i]
 			}
 			count += 1
 		}

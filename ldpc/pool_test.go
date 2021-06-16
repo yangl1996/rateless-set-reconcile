@@ -13,9 +13,9 @@ func setupData(n int) (*TransactionPool, error) {
 		return nil, err
 	}
 	for i := 0; i < n; i++ {
-		d := [TxSize]byte{}
+		d := [TxDataSize]byte{}
 		rand.Read(d[:])
-		p.AddTransaction(d)
+		p.AddTransaction(NewTransaction(d))
 	}
 	return p, nil
 }
@@ -37,12 +37,12 @@ func TestExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := [TxSize]byte{}
+	d := [TxDataSize]byte{}
 	rand.Read(d[:])
 	if !p.Exists(p.Transactions[0].Transaction) {
 		t.Error("failed to locate a transaction that exists in the pool")
 	}
-	if p.Exists(d) {
+	if p.Exists(NewTransaction(d)) {
 		t.Error("mistakenly located a transaction that does not exist in the pool")
 	}
 }
