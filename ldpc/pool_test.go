@@ -36,11 +36,17 @@ func TestExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := [TxDataSize]byte{}
-	rand.Read(d[:])
-	if !p.Exists(p.Transactions[0].Transaction) {
+	// pick one transaction from the pool
+	var there Transaction
+	for k, _ := range p.Transactions {
+		there = k.Transaction
+		break
+	}
+	if !p.Exists(there) {
 		t.Error("failed to locate a transaction that exists in the pool")
 	}
+	d := [TxDataSize]byte{}
+	rand.Read(d[:])
 	if p.Exists(NewTransaction(d)) {
 		t.Error("mistakenly located a transaction that does not exist in the pool")
 	}
@@ -78,10 +84,17 @@ func TestOneoff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < len(s1.Transactions)-1; i++ {
-		s2.AddTransaction(s1.Transactions[i].Transaction)
+	count := 0
+	var missing Transaction
+	for tx, _ := range s1.Transactions {
+		if count >= len(s1.Transactions)-1 {
+			missing = tx.Transaction
+			break
+		} else {
+			s2.AddTransaction(tx.Transaction)
+			count += 1
+		}
 	}
-	missing := s1.Transactions[len(s1.Transactions)-2]
 	c := s1.ProduceCodeword([]byte{1, 2, 3}, math.MaxUint64) // we want the codeword to cover all elements
 	if c.Counter != len(s1.Transactions) {
 		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.Transactions))
@@ -94,7 +107,7 @@ func TestOneoff(t *testing.T) {
 	if len(s2.Codewords) != 0 {
 		t.Error("pool 2 contains", len(s2.Codewords), "codewords, not zero")
 	}
-	if !s2.Exists(missing.Transaction) {
+	if !s2.Exists(missing) {
 		t.Error("cannot find the missing transaction in pool 2")
 	}
 }

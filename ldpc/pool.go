@@ -23,22 +23,29 @@ type Codeword struct {
 
 // TransactionPool holds the transactions a node has received and validated.
 type TransactionPool struct {
-	Transactions []HashedTransaction
+	Transactions map[HashedTransaction]struct{}
 	Codewords []Codeword
 }
 
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
+	p.Transactions = make(map[HashedTransaction]struct{})
 	return p, nil
 }
 
 func (p *TransactionPool) Exists(t Transaction) bool {
-	for _, v := range p.Transactions {
-		if v.Data == t.Data {
-			return true
-		}
-	}
-	return false
+	// TODO: remove this nonsense
+	h := t.HashWithSalt(nil)
+	tx := HashedTransaction{}
+	tx.Transaction = t
+	copy(tx.Hash[:], h[:])
+	_, yes := p.Transactions[tx]
+	return yes
+}
+
+// RemoveTransaction removes the transaction from the pool, by XORing it
+// back into all codewords we have received.
+func (p *TransactionPool) RemoveTransaction(t Transaction) {
 }
 
 // AddTransaction adds the transaction into the pool, and XORs it from any
@@ -48,7 +55,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	tx := HashedTransaction{}
 	tx.Transaction = t
 	copy(tx.Hash[:], h[:])
-	p.Transactions = append(p.Transactions, tx)
+	p.Transactions[tx] = struct{}{}
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
 	for _, c := range p.Codewords {
@@ -65,7 +72,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 // InputCodeword takes an incoming codeword, scans the transactions in the
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
-	for _, v := range p.Transactions {
+	for v, _ := range p.Transactions {
 		h := v.UintWithSalt(c.Salt)
 		m, _ := v.MarshalBinary()
 		if h <= c.Threshold {
@@ -132,7 +139,7 @@ func (p *TransactionPool) TryDecode() {
 func (p *TransactionPool) ProduceCodeword(salt []byte, frac uint64) Codeword {
 	res := [TxSize]byte{}
 	count := 0
-	for _, v := range p.Transactions {
+	for v, _ := range p.Transactions {
 		h := v.UintWithSalt(salt)
 		if h <= frac {
 			m, _ := v.MarshalBinary()
