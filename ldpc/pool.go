@@ -82,6 +82,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 // so far, and puts those decoded into the pool.
 func (p *TransactionPool) TryDecode() {
 	decoded := []Transaction{}
+	onlyus := []Transaction{}
 	codes := []Codeword{}
 	// scan through the codewords to find ones with counter=1 or -1
 	// and remove those with counter and symbol=0
@@ -92,8 +93,17 @@ func (p *TransactionPool) TryDecode() {
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
 				decoded = append(decoded, *tx)
+			} else {
+				codes = append(codes, c)
 			}
 		case -1:
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				onlyus = append(onlyus, *tx)
+			} else {
+				codes = append(codes, c)
+			}
 		case 0:
 			if c.Symbol != emptySymbol {
 				codes = append(codes, c)
