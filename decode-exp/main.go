@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"math"
 	"math/big"
-	"errors"
 )
 
 func main() {
@@ -121,12 +120,7 @@ func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 		p2.TryDecode()
 		if len(p2.Transactions) > last {
 			for cnt := last; cnt < len(p2.Transactions); cnt++ {
-				// check if the tx that p2 just decoded is actually in p1
-				if !p1.Exists(p2.Transactions[cnt].Transaction) {
-					return errors.New(fmt.Sprint("dest decoded a bogus transaction"))
-				} else {
-					res <- i
-				}
+				res <- i
 				if f > 0 {
 					p1.AddTransaction(getRandomTransaction())
 					f -= 1
@@ -166,8 +160,12 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
 		return nil, err
 	}
 	i := 0
-	for ; i < len(src.Transactions)-x; i++ {
-		p.AddTransaction(src.Transactions[i].Transaction)
+	for tx, _ := range src.Transactions {
+		p.AddTransaction(tx.Transaction)
+		i += 1
+		if i >= len(src.Transactions)-x {
+			break
+		}
 	}
 	for ; i < n; i++ {
                 p.AddTransaction(getRandomTransaction())
