@@ -2,6 +2,7 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
+	"fmt"
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
