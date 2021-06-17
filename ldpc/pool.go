@@ -2,7 +2,6 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
-	"bytes"
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
@@ -11,6 +10,8 @@ type HashedTransaction struct {
 	Transaction
 	Hash [blake2b.Size256]byte
 }
+
+var emptySymbol = [TxSize]byte{}
 
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
@@ -33,7 +34,7 @@ func NewTransactionPool() (*TransactionPool, error) {
 
 func (p *TransactionPool) Exists(t Transaction) bool {
 	for _, v := range p.Transactions {
-		if bytes.Compare(v.Data[:], t.Data[:]) == 0 {
+		if v.Data == t.Data {
 			return true
 		}
 	}
@@ -82,16 +83,22 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 func (p *TransactionPool) TryDecode() {
 	decoded := []Transaction{}
 	codes := []Codeword{}
-	// scan through the codewords to find ones with counter=1
-	// and removes those with counter <= 0
+	// scan through the codewords to find ones with counter=1 or -1
+	// and remove those with counter and symbol=0
 	for _, c := range p.Codewords {
-		if c.Counter == 1 {
+		switch c.Counter {
+		case 1:
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
 				decoded = append(decoded, *tx)
 			}
-		} else if c.Counter > 1 {
+		case -1:
+		case 0:
+			if c.Symbol != emptySymbol {
+				codes = append(codes, c)
+			}
+		default:
 			codes = append(codes, c)
 		}
 	}

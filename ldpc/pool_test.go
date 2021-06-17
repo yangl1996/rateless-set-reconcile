@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"math"
 	"testing"
-	"bytes"
 )
 
 func setupData(n int) (*TransactionPool, error) {
@@ -62,8 +61,7 @@ func TestLoopback(t *testing.T) {
 	if p.Codewords[0].Counter != 0 {
 		t.Error("codeword contains", p.Codewords[0].Counter, "transactions, should be 0")
 	}
-	empty := [TxSize]byte{}
-	if bytes.Compare(p.Codewords[0].Symbol[:], empty[:]) != 0 {
+	if p.Codewords[0].Symbol != emptySymbol {
 		t.Error("codeword has nonzero byte remaining")
 	}
 }

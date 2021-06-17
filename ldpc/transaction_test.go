@@ -59,10 +59,10 @@ func TestMarshal(t *testing.T) {
 	if err != nil {
 		t.Error("error unmarshalling transaction")
 	}
-	if bytes.Compare(tx.Data[:], un.Data[:]) != 0 {
+	if tx.Data != un.Data {
 		t.Error("incorrect unmarshaled Data")
 	}
-	if bytes.Compare(tx.checksum[:], un.checksum[:]) != 0 {
+	if tx.checksum != un.checksum {
 		t.Error("incorrect unmarshaled checksum")
 	}
 }
