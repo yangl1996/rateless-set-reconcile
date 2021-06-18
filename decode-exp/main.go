@@ -111,6 +111,7 @@ func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 	// start sending codewords from p1 to p2
 	i := 0
 	last := len(p2.Transactions)
+	lastUs := len(p2.UniqueToUs)
 	for ;; {
 		i += 1
 		salt := [4]byte{}	// use 32-bit salt, should be enough
@@ -118,16 +119,18 @@ func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 		c := p1.ProduceCodeword(salt[:], th)
 		p2.InputCodeword(c)
 		p2.TryDecode()
-		if len(p2.Transactions) > last {
-			for cnt := last; cnt < len(p2.Transactions); cnt++ {
-				res <- i
-				if f > 0 {
-					p1.AddTransaction(getRandomTransaction())
-					f -= 1
-				}
+		for cnt := 0; cnt < len(p2.Transactions)-last; cnt++ {
+			res <- i
+			if f > 0 {
+				p1.AddTransaction(getRandomTransaction())
+				f -= 1
 			}
-			last = len(p2.Transactions)
 		}
+		for cnt := 0; cnt < len(p2.UniqueToUs)-lastUs; cnt++ {
+			res <- i
+		}
+		last = len(p2.Transactions)
+		lastUs = len(p2.UniqueToUs)
 		if len(p2.Transactions) == d + x {
 			break
 		}
