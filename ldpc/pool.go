@@ -24,12 +24,14 @@ type Codeword struct {
 // TransactionPool holds the transactions a node has received and validated.
 type TransactionPool struct {
 	Transactions map[HashedTransaction]struct{}
+	UniqueToUs map[HashedTransaction]struct{}
 	Codewords []Codeword
 }
 
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.Transactions = make(map[HashedTransaction]struct{})
+	p.UniqueToUs = make(map[HashedTransaction]struct{})
 	return p, nil
 }
 
@@ -43,9 +45,26 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 	return yes
 }
 
-// RemoveTransaction removes the transaction from the pool, by XORing it
-// back into all codewords we have received.
-func (p *TransactionPool) RemoveTransaction(t Transaction) {
+// MarkTransactionUnique marks a transaction as unique to us, which causes
+// this transaction to be not XOR'ed from future codewords. It also XORs
+// the transaction from all existing codewords.
+func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
+	h := t.HashWithSalt(nil)
+	tx := HashedTransaction{}
+	tx.Transaction = t
+	copy(tx.Hash[:], h[:])
+	p.UniqueToUs[tx] = struct{}{}
+	// XOR from existing codes
+	m, _ := t.MarshalBinary()
+	for _, c := range p.Codewords {
+		h := tx.UintWithSalt(c.Salt)
+		if h <= c.Threshold {
+			for i := 0; i < TxSize; i++ {
+				c.Symbol[i] = c.Symbol[i] ^ m[i]
+			}
+			c.Counter += 1
+		}
+	}
 }
 
 // AddTransaction adds the transaction into the pool, and XORs it from any
@@ -124,7 +143,10 @@ func (p *TransactionPool) TryDecode() {
 	for _, t := range decoded {
 		p.AddTransaction(t)
 	}
-	if len(decoded) > 0 {
+	for _, t := range onlyus {
+		p.MarkTransactionUnique(t)
+	}
+	if len(decoded) > 0 || len(onlyus) > 0 {
 		p.TryDecode()
 	}
 }
