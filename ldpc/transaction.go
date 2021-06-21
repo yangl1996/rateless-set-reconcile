@@ -9,8 +9,8 @@ import (
 	"sync"
 )
 
-const TxSize = 512
-const TxDataSize = TxSize-md5.Size
+const TxSize = 512	// the size of a transaction, including the checksum
+const TxDataSize = TxSize-md5.Size	// transaction size minus the checksum size
 
 var hasherPool = sync.Pool {
 	New: func() interface{} {
@@ -74,19 +74,18 @@ func (e DataSizeError) Error() string {
 	return "incorrect data size given to unmarshaler"
 }
 
-// MarshalBinary implements BinaryMarshaler. The current implementation
-// is quite inefficient, involving multiple allocations. It always return
+// MarshalBinary implements BinaryMarshaler. It always return
 // a byte array of TxSize and the error is always nil.
 func (t *Transaction) MarshalBinary() (data []byte, err error) {
-	b := []byte{}
-	b = append(b, t.Data[:]...)
-	b = append(b, t.checksum[:]...)
+	b := make([]byte, TxSize)
+	copy(b[0:TxDataSize], t.Data[:])
+	copy(b[TxDataSize:TxSize], t.checksum[:])
 	return b, nil
 }
 
 // UnmarshalBinary implements BinaryUnmarshaler. It returns an error exactly
-// under two conditions: (1) the input data is shorter than TxSize (2) the
-// checksum does not match.
+// under two conditions: (1) the input data is unequal to TxSize (2) the
+// checksum does not match the transaction data.
 func (t *Transaction) UnmarshalBinary(data []byte) error {
 	if len(data) != TxSize {
 		return DataSizeError{len(data)}

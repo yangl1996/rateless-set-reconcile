@@ -5,10 +5,17 @@ import (
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
-// For now, the hash is just computed as a future-proof thing.
 type HashedTransaction struct {
 	Transaction
 	Hash [blake2b.Size256]byte
+}
+
+func WrapTransaction(t Transaction) HashedTransaction {
+	h := t.HashWithSalt(nil)
+	tx := HashedTransaction{}
+	tx.Transaction = t
+	copy(tx.Hash[:], h[:])
+	return tx
 }
 
 var emptySymbol = [TxSize]byte{}
@@ -36,11 +43,7 @@ func NewTransactionPool() (*TransactionPool, error) {
 }
 
 func (p *TransactionPool) Exists(t Transaction) bool {
-	// TODO: remove this nonsense
-	h := t.HashWithSalt(nil)
-	tx := HashedTransaction{}
-	tx.Transaction = t
-	copy(tx.Hash[:], h[:])
+	tx := WrapTransaction(t)
 	_, yes := p.Transactions[tx]
 	return yes
 }
@@ -49,10 +52,7 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // this transaction to be not XOR'ed from future codewords. It also XORs
 // the transaction from all existing codewords.
 func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
-	h := t.HashWithSalt(nil)
-	tx := HashedTransaction{}
-	tx.Transaction = t
-	copy(tx.Hash[:], h[:])
+	tx := WrapTransaction(t)
 	p.UniqueToUs[tx] = struct{}{}
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
@@ -70,10 +70,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 // AddTransaction adds the transaction into the pool, and XORs it from any
 // codeword that fits its hash.
 func (p *TransactionPool) AddTransaction(t Transaction) {
-	h := t.HashWithSalt(nil)
-	tx := HashedTransaction{}
-	tx.Transaction = t
-	copy(tx.Hash[:], h[:])
+	tx := WrapTransaction(t)
 	p.Transactions[tx] = struct{}{}
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
