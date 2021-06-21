@@ -75,14 +75,14 @@ func TestUnmarshalFails(t *testing.T) {
 	un := Transaction{}
 	err = un.UnmarshalBinary(m[0:TxSize-1])
 	_, isLen := err.(DataSizeError)
-	if !isLen {
+	if !isLen || err.Error() != "incorrect data size given to unmarshaler" {
 		t.Error("unmarshal did not report wrong length error")
 	}
 	zeros := [20]byte{0}
 	copy(m[0:20], zeros[:]) // zero out the first 20 bytes
 	err = un.UnmarshalBinary(m)
 	_, isCS := err.(ChecksumError)
-	if !isCS {
+	if !isCS || err.Error() != "incorrect transaction checksum" {
 		t.Error("unmarshal did not report checksum error")
 	}
 }
