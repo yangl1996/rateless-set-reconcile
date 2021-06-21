@@ -13,7 +13,7 @@ import (
 
 const (
 	uniform = iota
-	solition
+	soliton
 )
 
 func fracToThreshold(f float64) uint64 {
@@ -25,7 +25,7 @@ func fracToThreshold(f float64) uint64 {
 
 func main() {
 	thresholdFloat := flag.Float64("t", 0.01, "threshold to filter txs in a codeword if degree distribution is uniform, must be within [0, 1]")
-	solitionK := flag.Uint64("k", 5, "parameter 'k' if degree distribution is solution, must be greater than 0")
+	solitonK := flag.Uint64("k", 5, "parameter 'k' if degree distribution is solution, must be greater than 0")
 	srcSize := flag.Int("s", 10000, "sender pool transation count")
 	differenceSize := flag.Int("x", 100, "number of transactions that appear in the sender but not in the receiver")
 	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
@@ -34,7 +34,7 @@ func main() {
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
-	degreeDistString := flag.String("dist", "solition", "distribution of parity check degrees (solition, uniform)")
+	degreeDistString := flag.String("dist", "soliton", "distribution of parity check degrees (soliton, uniform)")
 	flag.Parse()
 	var degreeDist int
 	switch *degreeDistString {
@@ -44,10 +44,10 @@ func main() {
 			fmt.Println("threshold must be in [0, 1]")
 			os.Exit(1)
 		}
-	case "solition":
-		degreeDist = solition
-		if *solitionK <= 0 {
-			fmt.Println("solition parameter K must be greater than 0")
+	case "soliton":
+		degreeDist = soliton
+		if *solitonK <= 0 {
+			fmt.Println("soliton parameter K must be greater than 0")
 			os.Exit(1)
 		}
 	default:
@@ -66,7 +66,7 @@ func main() {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
 		go func() {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, threshold, *solitionK, ch, degreeDist)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, threshold, *solitonK, ch, degreeDist)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -127,7 +127,7 @@ func runExperiment(s, d, r, f int, th, k uint64, res chan int, dist int) error {
 		return err
 	}
 
-	so := ldpc.NewSolition(k)	// solitition distribution, unused if dist!=solition
+	so := ldpc.NewSoliton(k)	// solitition distribution, unused if dist!=soliton
 
 
 	res <- 0 // at iteration 0, we have decoded 0 transactions
@@ -143,14 +143,15 @@ func runExperiment(s, d, r, f int, th, k uint64, res chan int, dist int) error {
 		switch dist {
 		case uniform:
 			c = p1.ProduceCodeword(salt[:], th)	// if uniform, just use the given threshold integer
-		case solition:
+		case soliton:
 			sk := so.Uint64()
-			// given a draw, sk, from solition, we want to set the threshold such that sk differences are xor'ed into the codeword
+			// given a draw, sk, from soliton, we want to set the threshold such that sk differences are xor'ed into the codeword
 			// we use d+r to "estimate" the set difference, so we want the fraction to be sk/(d+r)
 			// in the real world, we can only get an estimation of the set diff, because d, r are unknown
 			th := fracToThreshold(float64(sk)/float64(d+r))
 			c = p1.ProduceCodeword(salt[:], th)
 		}
+		fmt.Println(c.Counter)
 		p2.InputCodeword(c)
 		p2.TryDecode()
 		for cnt := 0; cnt < len(p2.Transactions)-last; cnt++ {

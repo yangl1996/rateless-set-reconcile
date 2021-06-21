@@ -6,17 +6,17 @@ import (
 	"sort"
 )
 
-// Solition implements the Solition distribution. It has a single parameter, K,
+// Soliton implements the Soliton distribution. It has a single parameter, K,
 // and the probability density function P is
 //  P(1)=1/K
 //  P(x)=1/x(x-1) for x=2 to K
-type Solition struct {
+type Soliton struct {
 	k uint64
 	splits []float64	// the entire range of [0, 1) is cut into k pieces with k-1 splits
 
 }
 
-func NewSolition(k uint64) *Solition {
+func NewSoliton(k uint64) *Soliton {
 	var s []float64
 	last := new(big.Float).SetUint64(0)
 	var i uint64
@@ -37,11 +37,11 @@ func NewSolition(k uint64) *Solition {
 		s = append(s, rounded)
 	}
 	s = append(s, 1.0)
-	return &Solition{k, s}
+	return &Soliton{k, s}
 }
 
-// Uint64 returns a value drawn from the given Solition distribution.
-func (s *Solition) Uint64() uint64 {
+// Uint64 returns a value drawn from the given Soliton distribution.
+func (s *Soliton) Uint64() uint64 {
 	r := rand.Float64()
 	idx := sort.SearchFloat64s(s.splits, r)
 	if uint64(idx) >= s.k {
