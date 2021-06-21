@@ -13,6 +13,7 @@ import (
 type Solition struct {
 	k uint64
 	splits []float64	// the entire range of [0, 1) is cut into k pieces with k-1 splits
+
 }
 
 func NewSolition(k uint64) *Solition {

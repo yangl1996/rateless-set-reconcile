@@ -12,16 +12,21 @@ import (
 )
 
 func main() {
-	thresholdFloat := flag.Float64("t", 0.05, "threshold to filter txs in a codeword, must be within [0, 1]")
-	srcSize := flag.Int("s", 10000, "source pool transation count")
-	destSize := flag.Int("d", 9900, "destination pool transaction count")
-	differenceSize := flag.Int("x", 100, "number of transactions that appear in the source but not in the destination")
+	thresholdFloat := flag.Float64("t", 0.01, "threshold to filter txs in a codeword if degree distribution is uniform, must be within [0, 1]")
+	srcSize := flag.Int("s", 10000, "sender pool transation count")
+	differenceSize := flag.Int("x", 100, "number of transactions that appear in the sender but not in the receiver")
+	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
-	runs := flag.Int("r", 1, "number of parallel runs")
+	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
-	noTermOut := flag.Bool("q", false, "do not print log to terminal")
+	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
+	degreeDist := flag.String("dist", "solition", "distribution of parity check degrees (solition, uniform)")
 	flag.Parse()
+	if *degreeDist != "uniform" && *degreeDist != "solition" {
+		fmt.Println("undefined distribution")
+		os.Exit(1)
+	}
 	var threshold uint64
 	if *thresholdFloat > 1 || *thresholdFloat < 0 {
 		fmt.Println("threshold must be in [0, 1]")
@@ -30,10 +35,6 @@ func main() {
 		trat := new(big.Float).SetFloat64(*thresholdFloat)
 		maxt := new(big.Float).SetUint64(math.MaxUint64)
 		threshold, _ = new(big.Float).Mul(trat, maxt).Uint64()
-	}
-	if *destSize < *srcSize - *differenceSize {
-		fmt.Println("destination pool must be no smaller than source pool minus the difference (d >= s-x)")
-		os.Exit(1)
 	}
 	if *seed == 0 {
 		rand.Seed(time.Now().UTC().UnixNano())
@@ -46,7 +47,7 @@ func main() {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
 		go func() {
-			err := runExperiment(*srcSize, *destSize, *differenceSize, *refillTransaction, threshold, ch)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, threshold, ch)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -62,7 +63,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "# |src|=%v, |dst|=%v, refill=%v, diff=%v, frac=%v\n", *srcSize, *destSize, *refillTransaction, *differenceSize, *thresholdFloat)
+		fmt.Fprintf(f, "# |src|=%v, |S\\D|=%v, |D\\S|=%v, refill=%v, dist=%s, frac=%v\n", *srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, *degreeDist, *thresholdFloat)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 	}
 	// for each tx idx, range over res channels to collect data and dump to file
@@ -96,13 +97,13 @@ func main() {
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, x, f int, th uint64, res chan int) error {
+func runExperiment(s, d, r, f int, th uint64, res chan int) error {
 	defer close(res)	// close when the experiment ends
 	p1, err := buildRandomPool(s)
 	if err != nil {
 		return err
 	}
-	p2, err := copyPoolWithDifference(p1, d, x)
+	p2, err := copyPoolWithDifference(p1, s-d+r, d)
 	if err != nil {
 		return err
 	}
@@ -131,7 +132,7 @@ func runExperiment(s, d, x, f int, th uint64, res chan int) error {
 		}
 		last = len(p2.Transactions)
 		lastUs = len(p2.UniqueToUs)
-		if len(p2.Transactions) == d + x {
+		if len(p2.Transactions) == s+r {
 			break
 		}
 	}
