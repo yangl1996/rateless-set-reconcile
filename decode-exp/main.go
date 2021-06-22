@@ -10,6 +10,7 @@ import (
 	"sync"
 	"encoding/json"
 	"encoding/base64"
+	"bufio"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
 	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
+	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
 	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize)
 	if err != nil {
@@ -32,6 +34,14 @@ func main() {
 		rand.Seed(time.Now().UTC().UnixNano())
 	} else {
 		rand.Seed(*seed)
+	}
+	if *readConfig != "" {
+		cmdArgs, err := readConfigString(*readConfig)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Println(cmdArgs)
 	}
 
 	var chs []chan int	// channels for the interation-#decoded result
@@ -216,4 +226,23 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
                 p.AddTransaction(getRandomTransaction())
 	}
 	return p, nil
+}
+
+func readConfigString(prefix string) ([]string, error) {
+	// read the first line and strip "# " to get the base64 encoded json
+	ef, err := os.Open(prefix+"-mean-iter-to-decode.dat")
+	if err != nil {
+		return nil, err
+	}
+	defer ef.Close()
+	scanner := bufio.NewScanner(ef)
+	scanner.Scan()
+	b64 := scanner.Text()
+	data, err := base64.StdEncoding.DecodeString(b64[2:len(b64)])	// strip the prefix "# "
+	if err != nil {
+		return nil, err
+	}
+	var cmdArgs []string
+	err = json.Unmarshal(data, &cmdArgs)
+	return cmdArgs, err
 }
