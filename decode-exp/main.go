@@ -44,6 +44,15 @@ func main() {
 		fmt.Println(cmdArgs)
 	}
 
+	config := Config {
+		*srcSize,
+		*differenceSize,
+		*reverseDifferenceSize,
+		*seed,
+		*runs,
+		*refillTransaction,
+		*degreeDistString,
+	}
 	var chs []chan int	// channels for the interation-#decoded result
 	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
 	for i := 0; i < *runs; i++ {
@@ -68,7 +77,7 @@ func main() {
 		}
 		defer f.Close()
 		// dump the experiment setup
-		jsonStr, err := json.Marshal(os.Args)
+		jsonStr, err := json.Marshal(config)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -228,11 +237,23 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
 	return p, nil
 }
 
-func readConfigString(prefix string) ([]string, error) {
+type Config struct {
+	SrcSize int
+	DifferenceSize int
+	ReverseDifferenceSize int
+	Seed int64
+	Runs int
+	RefillTransaction int
+	DegreeDistString string
+}
+
+
+func readConfigString(prefix string) (Config, error) {
+	config := Config{}
 	// read the first line and strip "# " to get the base64 encoded json
 	ef, err := os.Open(prefix+"-mean-iter-to-decode.dat")
 	if err != nil {
-		return nil, err
+		return config, err
 	}
 	defer ef.Close()
 	scanner := bufio.NewScanner(ef)
@@ -240,9 +261,8 @@ func readConfigString(prefix string) ([]string, error) {
 	b64 := scanner.Text()
 	data, err := base64.StdEncoding.DecodeString(b64[2:len(b64)])	// strip the prefix "# "
 	if err != nil {
-		return nil, err
+		return config, err
 	}
-	var cmdArgs []string
-	err = json.Unmarshal(data, &cmdArgs)
-	return cmdArgs, err
+	err = json.Unmarshal(data, &config)
+	return config, err
 }
