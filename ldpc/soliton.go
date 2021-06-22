@@ -14,7 +14,6 @@ import (
 type Soliton struct {
 	k uint64
 	splits []float64	// the entire range of [0, 1) is cut into k pieces with k-1 splits
-
 }
 
 // NewRobustSoliton creates a "robust" soliton distribution. delta controls the decoding
