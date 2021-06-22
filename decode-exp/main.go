@@ -25,6 +25,26 @@ func main() {
 	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
+
+	// we want to overwrite the defaults with the values from the past results
+	if *readConfig != "" {
+		c, err := readConfigString(*readConfig)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		*srcSize = c.SrcSize
+		*differenceSize = c.DifferenceSize
+		*reverseDifferenceSize = c.ReverseDifferenceSize
+		*seed = c.Seed
+		*runs = c.Runs
+		*refillTransaction = c.RefillTransaction
+		*degreeDistString = c.DegreeDistString
+		// we then parse the command line args again, so that only the ones explicitly given
+		// in the command line will be overwritten
+		flag.Parse()
+	}
+
 	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize)
 	if err != nil {
 		fmt.Println(err)
@@ -34,14 +54,6 @@ func main() {
 		rand.Seed(time.Now().UTC().UnixNano())
 	} else {
 		rand.Seed(*seed)
-	}
-	if *readConfig != "" {
-		cmdArgs, err := readConfigString(*readConfig)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		fmt.Println(cmdArgs)
 	}
 
 	config := Config {
