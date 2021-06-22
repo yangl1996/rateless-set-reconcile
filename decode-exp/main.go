@@ -8,6 +8,8 @@ import (
 	"time"
 	"math/rand"
 	"sync"
+	"encoding/json"
+	"encoding/base64"
 )
 
 func main() {
@@ -19,7 +21,7 @@ func main() {
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
-	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k, u(f) for uniform with fraction=f)")
+	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
 	flag.Parse()
 	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize)
 	if err != nil {
@@ -55,6 +57,13 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
+		// dump the experiment setup
+		jsonStr, err := json.Marshal(os.Args)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
 		fmt.Fprintf(f, "# |src|=%v, |S\\D|=%v, |D\\S|=%v, refill=%v, dist=%s\n", *srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, *degreeDistString)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 
