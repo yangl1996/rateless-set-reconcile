@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"math/rand"
+	"sync"
 )
 
 func main() {
@@ -31,12 +32,13 @@ func main() {
 		rand.Seed(*seed)
 	}
 
-	var chs []chan int
+	var chs []chan int	// channels for the interation-#decoded result
+	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
 	for i := 0; i < *runs; i++ {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
 		go func() {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, ch, degreeDist)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, ch, degreeCh, degreeDist)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -44,6 +46,7 @@ func main() {
 	}
 
 	var f *os.File
+	var degreeF *os.File
 	if *outputPrefix != "" {
 		var err error
 		f, err = os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
@@ -54,39 +57,76 @@ func main() {
 		defer f.Close()
 		fmt.Fprintf(f, "# |src|=%v, |S\\D|=%v, |D\\S|=%v, refill=%v, dist=%s\n", *srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, *degreeDistString)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
-	}
-	// for each tx idx, range over res channels to collect data and dump to file
-	for idx := 0;; idx++ {
-		nClosed := 0
-		d := 0
-		for _, ch := range chs {
-			td, more := <-ch
-			if more {
-				d += td
-			} else {
-				nClosed += 1
-			}
+
+		degreeF, err = os.Create(*outputPrefix+"-codeword-degree-dist.dat")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
-		if nClosed >= len(chs) {
-			return
-		} else if nClosed == 0 {
-			if f != nil {
-				fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
-			}
-			if !*noTermOut {
-				fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
-			}
-		} else {
-			fmt.Println(nClosed, "of", *runs, "runs have stopped, waiting for all to stop")
-		}
+		fmt.Fprintf(degreeF, "# codeword degree     count\n")
+		defer degreeF.Close()
 	}
 
+	// monitor and dump to files
+	wg := &sync.WaitGroup{}
+	// for each tx idx, range over res channels to collect data and dump to file
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(degreeCh)	// we are sure that after all res channels close, no gorountine will write to degreeCh
+		for idx := 0;; idx++ {
+			nClosed := 0
+			d := 0
+			for _, ch := range chs {
+				td, more := <-ch
+				if more {
+					d += td
+				} else {
+					nClosed += 1
+				}
+			}
+			if nClosed >= len(chs) {
+				return
+			} else if nClosed == 0 {
+				if f != nil {
+					fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
+				}
+				if !*noTermOut {
+					fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
+				}
+			} else {
+				fmt.Println(nClosed, "of", *runs, "runs have stopped, waiting for all to stop")
+			}
+		}
+	}()
+	// collect and dump codeword degree distribution
+	wg.Add(1)
+	go func() {
+		hist := make(map[int]int)
+		maxd := 0
+		defer wg.Done()
+		for d := range degreeCh {
+			hist[d] += 1
+			if maxd < d {
+				maxd = d
+			}
+		}
+		if degreeF != nil {
+			for i:=0; i <=maxd; i++ {
+				if val, there := hist[i]; there {
+					fmt.Fprintf(degreeF, "%v         %v\n", i, val)
+				}
+			}
+		}
+	}()
+
+	wg.Wait()
 	return
 }
 
 // runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
 // where the i-th item is decoded.
-func runExperiment(s, d, r, f int, res chan int, dist thresholdPicker) error {
+func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) error {
 	defer close(res)	// close when the experiment ends
 	p1, err := buildRandomPool(s)
 	if err != nil {
@@ -107,6 +147,7 @@ func runExperiment(s, d, r, f int, res chan int, dist thresholdPicker) error {
 		salt := [4]byte{}	// use 32-bit salt, should be enough
 		rand.Read(salt[:])
 		c := p1.ProduceCodeword(salt[:], dist.generate())
+		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()
 		for cnt := 0; cnt < len(p2.Transactions)-last; cnt++ {
