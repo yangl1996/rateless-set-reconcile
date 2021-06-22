@@ -104,17 +104,19 @@ func main() {
 	go func() {
 		hist := make(map[int]int)
 		maxd := 0
+		tot := 0
 		defer wg.Done()
 		for d := range degreeCh {
 			hist[d] += 1
 			if maxd < d {
 				maxd = d
 			}
+			tot += 1
 		}
 		if degreeF != nil {
 			for i:=0; i <=maxd; i++ {
 				if val, there := hist[i]; there {
-					fmt.Fprintf(degreeF, "%v         %v\n", i, val)
+					fmt.Fprintf(degreeF, "%v         %v\n", i, float64(val)/float64(tot))
 				}
 			}
 		}

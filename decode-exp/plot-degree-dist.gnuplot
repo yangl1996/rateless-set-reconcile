@@ -3,7 +3,7 @@
 set term pdf size 4.0,2.47 enhanced
 set output "degree-dist.pdf"
 set xlabel "#codeword degree"
-set ylabel "count"
+set ylabel "fraction"
 set notitle
 set key top left
 
