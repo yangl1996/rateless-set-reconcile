@@ -20,41 +20,47 @@ type Soliton struct {
 // NewRobustSoliton creates a "robust" soliton distribution. delta controls the decoding
 // error probability, and the expected ripple size is c*log(k/delta)sqrt(k).
 func NewRobustSoliton(k uint64, c, delta float64) *Soliton {
-	p := make([]float64, k)
-	tot := 0.0
+	var sum []*big.Float
+	tot := new(big.Float)
 	var i uint64
 	for i = 1; i <= k; i++ {
-		r, _ := rho(k, i).Float64()
-		p[i-1] = r + tau(c, delta, k, i)
-		tot += p[i-1]
+		x := new(big.Float).Copy(tot)
+		sum = append(sum, x)
+		tot.Add(tot, rho(k, i))
+		tot.Add(tot, tau(c, delta, k, i))
 	}
 	var s []float64
-	last := 0.0
 	for i = 1; i < k; i++ {
-		last += p[i-1]
-		s = append(s, last/tot)
+		val, _ := new(big.Float).Quo(sum[i], tot).Float64()
+		s = append(s, val)
 	}
 	s = append(s, 1.0)
 	return &Soliton{k, s}
 }
 
-// TODO: consider precision
-func tau(c, delta float64, k, i uint64) float64 {
+// tau implements the function tau for the robust Soliton distribution
+func tau(c, delta float64, k, i uint64) *big.Float {
 	r := ripple(c, delta, k)
-	th := uint64(float64(k)/r)
+	rf := new(big.Float).SetFloat64(r)
+	th := uint64(math.Round(float64(k)/r))	// k/R
 	if i < th {	// 1 to k/R-1
-		return r/(float64(i*k))
+		ik := new(big.Float).SetUint64(i*k)
+		return new(big.Float).Quo(rf, ik)
 	} else if i == th {	// k/R
-		return r * math.Log(r/delta) / float64(k)
+		log := math.Log(r) - math.Log(delta)
+		logf := new(big.Float).SetFloat64(log)
+		r1 := new(big.Float).Mul(rf, logf)
+		return new(big.Float).Quo(r1, new(big.Float).SetUint64(k))
 	} else {	// k/R+1 to k
-		return 0
+		return new(big.Float).SetUint64(0)
 	}
 }
 
 // ripple calculates the expected ripple size of a robust soliton distribution.
 func ripple(c, delta float64, k uint64) float64 {
 	kf := float64(k)
-	return c * math.Log(kf / delta) * math.Sqrt(kf)
+	res := c * math.Log(kf / delta) * math.Sqrt(kf)
+	return res
 }
 
 // rho implements the rho(i) function in soliton distribution.
