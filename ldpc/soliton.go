@@ -100,3 +100,19 @@ func (s *Soliton) Uint64() uint64 {
 	}
 	return uint64(idx+1)
 }
+
+// Equals compares the two soliton distributions.
+func (s *Soliton) Equals(s2 *Soliton) bool {
+	if s.k != s2.k {
+		return false
+	}
+	if len(s.splits) != len(s2.splits) {
+		return false
+	}
+	for i := 0; i < len(s.splits); i++ {
+		if s.splits[i] != s2.splits[i] {
+			return false
+		}
+	}
+	return true
+}

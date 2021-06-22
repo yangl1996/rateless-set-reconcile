@@ -73,3 +73,17 @@ func TestSolitonUint64(t *testing.T) {
 		t.Error("drawing from k=1 soliton distribution is not 1")
 	}
 }
+
+// TestSolitonEqual tests the comparator of two Soliton distributions.
+func TestSolitonEqual(t *testing.T) {
+	s1 := NewSoliton(4)
+	s2 := NewSoliton(4)
+	if s1.Equals(s2) != true {
+		t.Error("comparator returns false when two distributions equal")
+	}
+
+	s3 := NewSoliton(5)
+	if s1.Equals(s3) != false {
+		t.Error("comparator returns true when two distributions differ")
+	}
+}
