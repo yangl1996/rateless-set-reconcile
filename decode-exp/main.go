@@ -55,11 +55,6 @@ func main() {
 	} else {
 		rand.Seed(*seed)
 	}
-	// TODO: deal with it
-	if *refillTransaction != 0 {
-		fmt.Println("refilling is disabled because of a bug: if the receiver decodes a transaction before it decodes all original transactions, it might think the refilled transaction to be unique to itself and do strange things")
-		os.Exit(1)
-	}
 
 	config := Config {
 		*srcSize,
@@ -187,7 +182,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 	res <- 0 // at iteration 0, we have decoded 0 transactions
 	// start sending codewords from p1 to p2
 	i := 0
-	last := len(p2.Transactions)
+	received := len(p2.Transactions)
 	for ;; {
 		i += 1
 		salt := [4]byte{}	// use 32-bit salt, should be enough
@@ -196,16 +191,17 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()
-		for cnt := 0; cnt < len(p2.Transactions)-last; cnt++ {
+		thisBatch := len(p2.Transactions) - received
+		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i
+			received += 1
 			if f > 0 {
 				p1.AddTransaction(getRandomTransaction())
 				f -= 1
 			}
-		}
-		last = len(p2.Transactions)
-		if len(p2.Transactions)-r == s {
-			break
+			if received-r >= s {
+				return nil
+			}
 		}
 	}
 	return nil
