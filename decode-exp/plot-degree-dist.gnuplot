@@ -17,3 +17,8 @@ getTitle(s) = substr(s, 0, strstrt(s, "-")-1)
 #set style fill transparent solid 0.3 noborder
 plot for [file in files] file using 1:2 with linespoints title getTitle(file) lw 2 ps 0.7, \
     soliton(x) with lines title "Ideal Soliton" lw 2 dt 3 lc 0
+
+set xrange [0:30]
+plot for [file in files] file using 1:2 with linespoints title getTitle(file) lw 2 ps 0.7, \
+    soliton(x) with lines title "Ideal Soliton" lw 2 dt 3 lc 0
+unset xrange
