@@ -76,15 +76,20 @@ func TestAddTransaction(t *testing.T) {
 		t.Error("AddTransaction touch codewords that it should not change")
 	}
 	// cwm should be updated
-	shouldbe := [TxSize]byte{}
-	m, _ := tx.MarshalBinary()
-	for i := 0; i < TxSize; i++ {
-		shouldbe[i] = cwm.Symbol[i] ^ m[i]
+	var shouldbe [TxSize]byte
+	copy(shouldbe[:], cwm.Symbol[:])
+	shouldbeCounter := cwm.Counter
+	for t, _ := range p.Transactions {
+		shouldbeCounter -= 1
+		m, _ := t.MarshalBinary()
+		for i := 0; i < TxSize; i++ {
+			shouldbe[i] ^= m[i]
+		}
 	}
 	if p.Codewords[1].Symbol != shouldbe {
 		t.Error("AddTransaction not updating symbol")
 	}
-	if p.Codewords[1].Counter != cwm.Counter - 1 {
+	if p.Codewords[1].Counter != shouldbeCounter {
 		t.Error("AddTransaction not updating counter")
 	}
 	// tx should be in the pool
