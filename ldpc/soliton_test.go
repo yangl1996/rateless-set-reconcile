@@ -72,6 +72,16 @@ func TestSolitonUint64(t *testing.T) {
 	if r != 1 {
 		t.Error("drawing from k=1 soliton distribution is not 1")
 	}
+
+	// test the sanity check that k should be larger than k
+	// we want to test if the function panicked. we want it to panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("uint64 did not panic when returning a value larger than k")
+		}
+	}()
+	s.k = 0
+	s.Uint64()
 }
 
 // TestSolitonEqual tests the comparator of two Soliton distributions.
@@ -86,4 +96,14 @@ func TestSolitonEqual(t *testing.T) {
 	if s1.Equals(s3) != false {
 		t.Error("comparator returns true when two distributions differ")
 	}
+	s4 := NewSoliton(5)
+	s4.k = 4	// we want to trigger the slice length check
+	if s1.Equals(s4) != false {
+		t.Error("comparator returns true when two distributions differ")
+	}
+	s5 := NewRobustSoliton(4, 0.01, 0.02)
+	if s1.Equals(s5) != false {
+		t.Error("comparator returns true when two distributions differ")
+	}
+
 }
