@@ -52,6 +52,47 @@ func TestExists(t *testing.T) {
 	}
 }
 
+// TestAddTransaction tests the AddTransaction function.
+func TestAddTransaction(t *testing.T) {
+	p, err := setupData(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// create a random transaction
+	d := [TxDataSize]byte{}
+	rand.Read(d[:])
+	tx := NewTransaction(d)
+
+	// send to ourself two codewords, one with threshold close to 0, one with threshold=maxuint
+	cw0 := p.ProduceCodeword([]byte{1, 2, 3}, 0)
+	cwm := p.ProduceCodeword([]byte{4, 5, 6}, math.MaxUint64)
+	p.InputCodeword(cw0)
+	p.InputCodeword(cwm)
+
+	p.AddTransaction(tx)
+
+	// now, cw0 should be untouched
+	if p.Codewords[0].Symbol != cw0.Symbol || p.Codewords[0].Counter != cw0.Counter {
+		t.Error("AddTransaction touch codewords that it should not change")
+	}
+	// cwm should be updated
+	shouldbe := [TxSize]byte{}
+	m, _ := tx.MarshalBinary()
+	for i := 0; i < TxSize; i++ {
+		shouldbe[i] = cwm.Symbol[i] ^ m[i]
+	}
+	if p.Codewords[1].Symbol != shouldbe {
+		t.Error("AddTransaction not updating symbol")
+	}
+	if p.Codewords[1].Counter != cwm.Counter - 1 {
+		t.Error("AddTransaction not updating counter")
+	}
+	// tx should be in the pool
+	if !p.Exists(tx) {
+		t.Error("AddTransaction did not add new transaction to the pool")
+	}
+}
+
 // TestLoopback sends codewords back to itself, so the codeword should have
 // counter=0 after being received.
 func TestLoopback(t *testing.T) {
