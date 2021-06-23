@@ -181,7 +181,8 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 
 	res <- 0 // at iteration 0, we have decoded 0 transactions
 	// start sending codewords from p1 to p2
-	i := 0
+	i := 0	// iteration counter
+	toFill := f
 	received := len(p2.Transactions)
 	for ;; {
 		i += 1
@@ -195,11 +196,11 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i
 			received += 1
-			if f > 0 {
+			if toFill > 0 {
 				p1.AddTransaction(getRandomTransaction())
-				f -= 1
+				toFill -= 1
 			}
-			if received-r >= s {
+			if received-r >= s+f {
 				return nil
 			}
 		}
