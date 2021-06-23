@@ -248,8 +248,12 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
 			break
 		}
 	}
-	for ; i < n; i++ {
+	for ;; {
                 p.AddTransaction(getRandomTransaction())
+		i += 1
+		if i >= n {
+			break
+		}
 	}
 	return p, nil
 }
