@@ -205,7 +205,6 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 			}
 		}
 	}
-	return nil
 }
 
 func getRandomTransaction() ldpc.Transaction {
