@@ -1,7 +1,7 @@
 #!/opt/homebrew/bin/gnuplot
 
 set term pdf size 4.0,2.47 enhanced
-set output "iter-to-decode.pdf"
+set output "fig-iter-to-decode.pdf"
 set xlabel "#tx decoded"
 set ylabel "#codeword rcvd"
 set notitle

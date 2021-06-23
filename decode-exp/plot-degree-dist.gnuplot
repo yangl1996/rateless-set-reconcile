@@ -1,7 +1,7 @@
 #!/opt/homebrew/bin/gnuplot
 
 set term pdf size 4.0,2.47 enhanced
-set output "degree-dist.pdf"
+set output "fig-degree-dist.pdf"
 set xlabel "codeword degree"
 set ylabel "fraction"
 set notitle
