@@ -105,8 +105,8 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 // TryDecode recursively tries to decode any codeword that we have received
 // so far, and puts those decoded into the pool.
 func (p *TransactionPool) TryDecode() {
-	decoded := []Transaction{}
-	onlyus := []Transaction{}
+	decoded := make(map[Transaction]struct{})
+	onlyus := make(map[Transaction]struct{})
 	codes := []Codeword{}
 	// scan through the codewords to find ones with counter=1 or -1
 	// and remove those with counter and symbol=0
@@ -116,7 +116,7 @@ func (p *TransactionPool) TryDecode() {
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
-				decoded = append(decoded, *tx)
+				decoded[*tx] = struct{}
 			} else {
 				codes = append(codes, c)
 			}
@@ -124,7 +124,7 @@ func (p *TransactionPool) TryDecode() {
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
-				onlyus = append(onlyus, *tx)
+				onlyus[*tx] = struct{}
 			} else {
 				codes = append(codes, c)
 			}
@@ -136,12 +136,13 @@ func (p *TransactionPool) TryDecode() {
 			codes = append(codes, c)
 		}
 	}
+	// add the remaining codes
 	p.Codewords = codes
 	// add newly decoded transactions
-	for _, t := range decoded {
+	for t, _ := range decoded {
 		p.AddTransaction(t)
 	}
-	for _, t := range onlyus {
+	for t, _ := range onlyus {
 		p.MarkTransactionUnique(t)
 	}
 	if len(decoded) > 0 || len(onlyus) > 0 {
