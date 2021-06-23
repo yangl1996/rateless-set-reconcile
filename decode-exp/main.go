@@ -188,7 +188,6 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 	// start sending codewords from p1 to p2
 	i := 0
 	last := len(p2.Transactions)
-	lastUs := len(p2.UniqueToUs)
 	for ;; {
 		i += 1
 		salt := [4]byte{}	// use 32-bit salt, should be enough
@@ -204,12 +203,8 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 				f -= 1
 			}
 		}
-		for cnt := 0; cnt < len(p2.UniqueToUs)-lastUs; cnt++ {
-			res <- i
-		}
 		last = len(p2.Transactions)
-		lastUs = len(p2.UniqueToUs)
-		if len(p2.Transactions) == s+r {
+		if len(p2.Transactions)-r == s {
 			break
 		}
 	}
@@ -242,18 +237,18 @@ func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.Tran
 	}
 	i := 0
 	for tx, _ := range src.Transactions {
-		p.AddTransaction(tx.Transaction)
-		i += 1
 		if i >= len(src.Transactions)-x {
 			break
 		}
+		p.AddTransaction(tx.Transaction)
+		i += 1
 	}
 	for ;; {
-                p.AddTransaction(getRandomTransaction())
-		i += 1
 		if i >= n {
 			break
 		}
+                p.AddTransaction(getRandomTransaction())
+		i += 1
 	}
 	return p, nil
 }

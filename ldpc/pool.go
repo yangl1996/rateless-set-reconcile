@@ -51,8 +51,13 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // MarkTransactionUnique marks a transaction as unique to us, which causes
 // this transaction to be not XOR'ed from future codewords. It also XORs
 // the transaction from all existing codewords.
+// It returns without changing TransactionPool
+// if the transaction is already there.
 func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	tx := WrapTransaction(t)
+	if _, there := p.UniqueToUs[tx]; there {
+		return
+	}
 	p.UniqueToUs[tx] = struct{}{}
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
@@ -68,9 +73,13 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 }
 
 // AddTransaction adds the transaction into the pool, and XORs it from any
-// codeword that fits its hash.
+// codeword that fits its hash. It returns without changing TransactionPool
+// if the transaction is already there.
 func (p *TransactionPool) AddTransaction(t Transaction) {
 	tx := WrapTransaction(t)
+	if _, there := p.Transactions[tx]; there {
+		return
+	}
 	p.Transactions[tx] = struct{}{}
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
@@ -90,6 +99,9 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	for v, _ := range p.Transactions {
+		if _, there := p.UniqueToUs[v]; there {
+			continue
+		}
 		h := v.UintWithSalt(c.Salt)
 		m, _ := v.MarshalBinary()
 		if h <= c.Threshold {
