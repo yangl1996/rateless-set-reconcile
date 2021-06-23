@@ -116,7 +116,7 @@ func (p *TransactionPool) TryDecode() {
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
-				decoded[*tx] = struct{}
+				decoded[*tx] = struct{}{}
 			} else {
 				codes = append(codes, c)
 			}
@@ -124,7 +124,7 @@ func (p *TransactionPool) TryDecode() {
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
-				onlyus[*tx] = struct{}
+				onlyus[*tx] = struct{}{}
 			} else {
 				codes = append(codes, c)
 			}
