@@ -20,6 +20,7 @@ func setupData(n int) (*TransactionPool, error) {
 }
 
 func BenchmarkProduceCodeword(b *testing.B) {
+	b.SetBytes(TxSize)
 	p, err := setupData(15000)
 	if err != nil {
 		b.Fatal(err)
