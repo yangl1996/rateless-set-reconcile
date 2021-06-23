@@ -55,6 +55,11 @@ func main() {
 	} else {
 		rand.Seed(*seed)
 	}
+	// TODO: deal with it
+	if *refillTransaction != 0 {
+		fmt.Println("refilling is disabled because of a bug: if the receiver decodes a transaction before it decodes all original transactions, it might think the refilled transaction to be unique to itself and do strange things")
+		os.Exit(1)
+	}
 
 	config := Config {
 		*srcSize,
