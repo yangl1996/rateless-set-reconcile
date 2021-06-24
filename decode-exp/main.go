@@ -186,9 +186,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 	received := len(p2.Transactions)
 	for ;; {
 		i += 1
-		salt := [4]byte{}	// use 32-bit salt, should be enough
-		rand.Read(salt[:])
-		c := p1.ProduceCodeword(salt[:], dist.generate())
+		c := p1.ProduceCodeword(rand.Uint64(), dist.generate())
 		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()

@@ -25,14 +25,13 @@ func TestNewHashRange(t *testing.T) {
 func TestCovers(t *testing.T) {
 	// case 1: no cyclic
 	r1 := NewHashRange(10, 20)
-	if (!r1.Covers(15)) || r1.Covers(40) {
+	if (!r1.Covers(10)) || r1.Covers(40) || r1.Covers(31) {
 		t.Error("incorrect bound check for non-cyclic hash range")
 	}
 
-
 	// case 2: cyclic
 	r2 := NewHashRange(math.MaxUint64-10, 20)
-	if (!r2.Covers(math.MaxUint64)) || r2.Covers(15) {
+	if (!r2.Covers(math.MaxUint64)) || r2.Covers(15) || r2.Covers(10) {
 		t.Error("incorrect bound check for cyclic hash range")
 	}
 }
