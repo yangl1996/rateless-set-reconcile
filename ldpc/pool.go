@@ -84,13 +84,9 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	}
 	p.UniqueToUs[tx] = struct{}{}
 	// XOR from existing codes
-	m, _ := t.MarshalBinary()
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
-			for i := 0; i < TxSize; i++ {
-				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
-			}
-			p.Codewords[cidx].Counter += 1
+			p.Codewords[cidx].ApplyTransaction(&t, Into)
 		}
 	}
 }
@@ -105,14 +101,10 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	}
 	p.Transactions[tx] = struct{}{}
 	// XOR from existing codes
-	m, _ := t.MarshalBinary()
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
-			for i := 0; i < TxSize; i++ {
-				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
-			}
-			p.Codewords[cidx].Counter -= 1
+			p.Codewords[cidx].ApplyTransaction(&t, From)
 		}
 	}
 }
@@ -125,11 +117,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			continue
 		}
 		if c.Covers(v.Uint(c.UintIdx)) {
-			m, _ := v.MarshalBinary()
-			for i := 0; i < TxSize; i++ {
-				c.Symbol[i] = c.Symbol[i] ^ m[i]
-			}
-			c.Counter -= 1
+			c.ApplyTransaction(&v.Transaction, From)
 		}
 	}
 	p.Codewords = append(p.Codewords, c)
