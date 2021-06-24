@@ -13,7 +13,7 @@ type HashRange struct {
 // frac+1 hash values.
 func NewHashRange(start, frac uint64) HashRange {
 	// frac+1 is the number of hash values accepted to this range
-	cyclic := (math.MaxUint64 - start + 1) <= frac
+	cyclic := (math.MaxUint64 - start) < frac
 	var end uint64
 	if cyclic {
 		// from start to MaxUint64: MaxUint64-start+1 hashes

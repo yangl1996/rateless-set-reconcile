@@ -8,12 +8,14 @@ import (
 type HashedTransaction struct {
 	Transaction
 	Hash [blake2b.Size256]byte
+	Uint uint64
 }
 
 func WrapTransaction(t Transaction) HashedTransaction {
 	h := t.HashWithSalt(nil)
 	tx := HashedTransaction{}
 	tx.Transaction = t
+	tx.Uint = t.UintWithSalt(nil)
 	copy(tx.Hash[:], h[:])
 	return tx
 }
@@ -23,8 +25,7 @@ var emptySymbol = [TxSize]byte{}
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
 	Symbol [TxSize]byte
-	Threshold uint64
-	Salt []byte
+	HashRange
 	Counter int
 }
 
@@ -62,8 +63,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
 	for cidx := range p.Codewords {
-		h := tx.UintWithSalt(p.Codewords[cidx].Salt)
-		if h <= p.Codewords[cidx].Threshold {
+		if p.Codewords[cidx].Covers(tx.Uint) {
 			for i := 0; i < TxSize; i++ {
 				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
 			}
@@ -85,8 +85,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	m, _ := t.MarshalBinary()
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
-		h := tx.UintWithSalt(p.Codewords[cidx].Salt)
-		if h <= p.Codewords[cidx].Threshold {
+		if p.Codewords[cidx].Covers(tx.Uint) {
 			for i := 0; i < TxSize; i++ {
 				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
 			}
@@ -102,9 +101,8 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		if _, there := p.UniqueToUs[v]; there {
 			continue
 		}
-		h := v.UintWithSalt(c.Salt)
-		m, _ := v.MarshalBinary()
-		if h <= c.Threshold {
+		if c.Covers(v.Uint) {
+			m, _ := v.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ m[i]
 			}
@@ -163,18 +161,14 @@ func (p *TransactionPool) TryDecode() {
 }
 
 // ProduceCodeword selects transactions where the first 8 byte of the hash
-// with a give salt is no bigger than frac, and XORs the selected transactions
-// together.
-// TODO: using salting to intro randomness into the selection process is bad,
-// because we cannot precompute the hash. We should come up with some way to
-// efficiently extract randomness from the hash itself. There must be enough
-// randomness there.
-func (p *TransactionPool) ProduceCodeword(salt []byte, frac uint64) Codeword {
+// within HashRange specified by start and frac, and XORs the selected
+// transactions together.
+func (p *TransactionPool) ProduceCodeword(start, frac uint64) Codeword {
+	rg := NewHashRange(start, frac)
 	res := [TxSize]byte{}
 	count := 0
 	for v, _ := range p.Transactions {
-		h := v.UintWithSalt(salt)
-		if h <= frac {
+		if rg.Covers(v.Uint) {
 			m, _ := v.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ m[i]
@@ -184,8 +178,7 @@ func (p *TransactionPool) ProduceCodeword(salt []byte, frac uint64) Codeword {
 	}
 	return Codeword {
 		Symbol: res,
-		Threshold: frac,
-		Salt: salt[:],
+		HashRange: rg,
 		Counter: count,
 	}
 }
