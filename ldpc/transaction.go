@@ -14,7 +14,7 @@ const TxDataSize = TxSize-md5.Size	// transaction size minus the checksum size
 
 var hasherPool = sync.Pool {
 	New: func() interface{} {
-		h, _ := blake2b.New256(nil)	// this fn never returns error when key=nil
+		h, _ := blake2b.New512(nil)	// this fn never returns error when key=nil
 		return h
 	},
 }

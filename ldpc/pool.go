@@ -8,7 +8,7 @@ import (
 // HashedTransaction holds the transaction content and its blake2b hash.
 type HashedTransaction struct {
 	Transaction
-	Hash [blake2b.Size256]byte
+	Hash [blake2b.Size]byte
 }
 
 func (t *HashedTransaction) Uint(idx int) uint64 {
@@ -25,7 +25,7 @@ func WrapTransaction(t Transaction) HashedTransaction {
 
 var emptySymbol = [TxSize]byte{}
 
-const MaxUintIdx = blake2b.Size256 / 8
+const MaxUintIdx = blake2b.Size/ 8
 
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {

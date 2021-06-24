@@ -33,7 +33,7 @@ func TestHashingAndUint(t *testing.T) {
 	s = append(s, tx.Data[:]...)
 	s = append(s, tx.checksum[:]...)
 	s = append(s, 1, 2, 3)	// salt
-	hash := blake2b.Sum256(s)
+	hash := blake2b.Sum512(s)
 	salt := []byte{1, 2, 3}
 	given := tx.HashWithSalt(salt)
 	if bytes.Compare(hash[:], given[:]) != 0 {
