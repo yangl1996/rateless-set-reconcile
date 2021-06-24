@@ -15,14 +15,14 @@ import (
 
 func main() {
 	srcSize := flag.Int("s", 10000, "sender pool transation count")
-	differenceSize := flag.Int("x", 100, "number of transactions that appear in the sender but not in the receiver")
+	differenceSize := flag.Int("x", 1000, "number of transactions that appear in the sender but not in the receiver")
 	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
-	refillTransaction := flag.Int("f", 100, "refill a transaction immediately after the destination pool has decoded one")
-	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
+	refillTransaction := flag.Int("f", 0, "refill a transaction immediately after the destination pool has decoded one")
+	degreeDistString := flag.String("d", "s(1000)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
 
