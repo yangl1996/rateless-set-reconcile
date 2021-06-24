@@ -2,7 +2,12 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
-	"encoding/binary"
+	"unsafe"
+)
+
+const (
+	Into = 1
+	From = -1
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
@@ -12,7 +17,7 @@ type HashedTransaction struct {
 }
 
 func (t *HashedTransaction) Uint(idx int) uint64 {
-	return binary.LittleEndian.Uint64(t.Hash[idx*8:idx*8+8])
+	return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
 }
 
 func WrapTransaction(t Transaction) HashedTransaction {
@@ -33,6 +38,18 @@ type Codeword struct {
 	HashRange
 	Counter int
 	UintIdx int
+}
+
+// ApplyTransaction adds or removes a transaction into/from the codeword.
+// d must have length TxSize, and dir must be Into or From.
+func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
+	for i:=0; i < TxDataSize/8; i++ {
+		*(*uint64)(unsafe.Pointer(&c.Symbol[i*8])) ^= *(*uint64)(unsafe.Pointer(&t.Data[i*8]))
+	}
+	for i:=0; i < (TxSize-TxDataSize)/8; i++ {
+		*(*uint64)(unsafe.Pointer(&c.Symbol[i*8+TxDataSize])) ^= *(*uint64)(unsafe.Pointer(&t.checksum[i*8]))
+	}
+	c.Counter += dir
 }
 
 // TransactionPool holds the transactions a node has received and validated.
@@ -171,21 +188,14 @@ func (p *TransactionPool) TryDecode() {
 // transactions together.
 func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword {
 	rg := NewHashRange(start, frac)
-	res := [TxSize]byte{}
-	count := 0
+	cw := Codeword{}
+	cw.HashRange = rg
+	cw.UintIdx = idx
 	for v, _ := range p.Transactions {
 		if rg.Covers(v.Uint(idx)) {
-			m, _ := v.MarshalBinary()
-			for i := 0; i < TxSize; i++ {
-				res[i] = res[i] ^ m[i]
-			}
-			count += 1
+			cw.ApplyTransaction(&v.Transaction, Into)
 		}
 	}
-	return Codeword {
-		Symbol: res,
-		HashRange: rg,
-		Counter: count,
-		UintIdx: idx,
-	}
+	return cw
 }
+
