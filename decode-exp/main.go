@@ -186,7 +186,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 	received := len(p2.Transactions)
 	for ;; {
 		i += 1
-		c := p1.ProduceCodeword(rand.Uint64(), dist.generate())
+		c := p1.ProduceCodeword(rand.Uint64(), dist.generate(), rand.Intn(ldpc.MaxUintIdx))
 		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()

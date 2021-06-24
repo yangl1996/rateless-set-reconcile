@@ -2,31 +2,37 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
+	"encoding/binary"
 )
 
 // HashedTransaction holds the transaction content and its blake2b hash.
 type HashedTransaction struct {
 	Transaction
 	Hash [blake2b.Size256]byte
-	Uint uint64
+}
+
+func (t *HashedTransaction) Uint(idx int) uint64 {
+	return binary.LittleEndian.Uint64(t.Hash[idx*8:idx*8+8])
 }
 
 func WrapTransaction(t Transaction) HashedTransaction {
 	h := t.HashWithSalt(nil)
 	tx := HashedTransaction{}
 	tx.Transaction = t
-	tx.Uint = t.UintWithSalt(nil)
 	copy(tx.Hash[:], h[:])
 	return tx
 }
 
 var emptySymbol = [TxSize]byte{}
 
+const MaxUintIdx = blake2b.Size256 / 8
+
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
 	Symbol [TxSize]byte
 	HashRange
 	Counter int
+	UintIdx int
 }
 
 // TransactionPool holds the transactions a node has received and validated.
@@ -63,7 +69,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	// XOR from existing codes
 	m, _ := t.MarshalBinary()
 	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(tx.Uint) {
+		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
 			for i := 0; i < TxSize; i++ {
 				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
 			}
@@ -85,7 +91,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	m, _ := t.MarshalBinary()
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(tx.Uint) {
+		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
 			for i := 0; i < TxSize; i++ {
 				p.Codewords[cidx].Symbol[i] = p.Codewords[cidx].Symbol[i] ^ m[i]
 			}
@@ -101,7 +107,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		if _, there := p.UniqueToUs[v]; there {
 			continue
 		}
-		if c.Covers(v.Uint) {
+		if c.Covers(v.Uint(c.UintIdx)) {
 			m, _ := v.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
 				c.Symbol[i] = c.Symbol[i] ^ m[i]
@@ -160,15 +166,15 @@ func (p *TransactionPool) TryDecode() {
 	}
 }
 
-// ProduceCodeword selects transactions where the first 8 byte of the hash
+// ProduceCodeword selects transactions where the idx-th 8 byte of the hash
 // within HashRange specified by start and frac, and XORs the selected
 // transactions together.
-func (p *TransactionPool) ProduceCodeword(start, frac uint64) Codeword {
+func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword {
 	rg := NewHashRange(start, frac)
 	res := [TxSize]byte{}
 	count := 0
 	for v, _ := range p.Transactions {
-		if rg.Covers(v.Uint) {
+		if rg.Covers(v.Uint(idx)) {
 			m, _ := v.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
 				res[i] = res[i] ^ m[i]
@@ -180,5 +186,6 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64) Codeword {
 		Symbol: res,
 		HashRange: rg,
 		Counter: count,
+		UintIdx: idx,
 	}
 }
