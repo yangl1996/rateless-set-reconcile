@@ -7,7 +7,12 @@ import (
 
 var emptySymbol = [TxSize]byte{}
 
-const MaxUintIdx = blake2b.Size/ 8
+const MaxUintIdx = blake2b.Size / 8
+
+const (
+	Into = 1	// apply a transaction into a codeword
+	From = -1	// remove a transaction from a codeword
+)
 
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {

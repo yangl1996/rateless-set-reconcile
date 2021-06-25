@@ -6,9 +6,16 @@ import (
 )
 
 const (
-	Into = 1
-	From = -1
+	Unknown = 0
+	Exist = 1
+	Missing = 2
 )
+
+// PeerStatus represents the status of a transaction at a peer.
+type PeerStatus struct {
+	Status int	// if the peers has downloaded a transaction
+	Timestamp int	// timestamp associated to this assertion.
+}
 
 // HashedTransaction holds the transaction content and its blake2b hash.
 type HashedTransaction struct {
@@ -30,15 +37,13 @@ func WrapTransaction(t Transaction) HashedTransaction {
 
 // TransactionPool holds the transactions a node has received and validated.
 type TransactionPool struct {
-	Transactions map[HashedTransaction]struct{}
-	UniqueToUs map[HashedTransaction]struct{}
+	Transactions map[HashedTransaction]PeerStatus
 	Codewords []Codeword
 }
 
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
-	p.Transactions = make(map[HashedTransaction]struct{})
-	p.UniqueToUs = make(map[HashedTransaction]struct{})
+	p.Transactions = make(map[HashedTransaction]PeerStatus)
 	return p, nil
 }
 
@@ -55,10 +60,11 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // if the transaction is already there.
 func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	tx := WrapTransaction(t)
-	if _, there := p.UniqueToUs[tx]; there {
+	if s, there := p.Transactions[tx]; there && (s.Status==Missing) {
 		return
 	}
-	p.UniqueToUs[tx] = struct{}{}
+	s := p.Transactions[tx]
+	s.Status = Missing
 	// XOR from existing codes
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
@@ -75,7 +81,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	if _, there := p.Transactions[tx]; there {
 		return
 	}
-	p.Transactions[tx] = struct{}{}
+	p.Transactions[tx] = PeerStatus{}
 	// XOR from existing codes
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
@@ -88,8 +94,8 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 // InputCodeword takes an incoming codeword, scans the transactions in the
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
-	for v, _ := range p.Transactions {
-		if _, there := p.UniqueToUs[v]; there {
+	for v, s := range p.Transactions {
+		if s.Status == Missing {
 			continue
 		}
 		if c.Covers(v.Uint(c.UintIdx)) {
