@@ -20,6 +20,7 @@ type Codeword struct {
 	HashRange
 	Counter int
 	UintIdx int
+	Seq int
 }
 
 // ApplyTransaction adds or removes a transaction into/from the codeword.

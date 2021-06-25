@@ -13,8 +13,8 @@ const (
 
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
-	Status int	// if the peers has downloaded a transaction
-	Timestamp int	// timestamp associated to this assertion.
+	Status int
+	Seq int
 }
 
 // HashedTransaction holds the transaction content and its blake2b hash.
@@ -23,10 +23,14 @@ type HashedTransaction struct {
 	Hash [blake2b.Size]byte
 }
 
+// Uint converts the idx-th 8-byte value into an unsigned int and returns
+// the result.
 func (t *HashedTransaction) Uint(idx int) uint64 {
 	return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
 }
 
+// WrapTransaction computes the hash of the given transaction, and bundles
+// the hash and the transaction into a HashedTransaction.
 func WrapTransaction(t Transaction) HashedTransaction {
 	h := t.HashWithSalt(nil)
 	tx := HashedTransaction{}
@@ -35,18 +39,21 @@ func WrapTransaction(t Transaction) HashedTransaction {
 	return tx
 }
 
-// TransactionPool holds the transactions a node has received and validated.
+// TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	Transactions map[HashedTransaction]PeerStatus
 	Codewords []Codeword
+	Seq int
 }
 
+// NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.Transactions = make(map[HashedTransaction]PeerStatus)
 	return p, nil
 }
 
+// Exists checks if a given transaction exists in the pool.
 func (p *TransactionPool) Exists(t Transaction) bool {
 	tx := WrapTransaction(t)
 	_, yes := p.Transactions[tx]
@@ -161,6 +168,8 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	cw := Codeword{}
 	cw.HashRange = rg
 	cw.UintIdx = idx
+	cw.Seq = p.Seq
+	p.Seq += 1
 	for v, _ := range p.Transactions {
 		if rg.Covers(v.Uint(idx)) {
 			cw.ApplyTransaction(&v.Transaction, Into)
