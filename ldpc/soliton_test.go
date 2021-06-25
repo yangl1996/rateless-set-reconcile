@@ -1,8 +1,8 @@
 package ldpc
 
 import (
-	"testing"
 	"math"
+	"testing"
 )
 
 // TestNewSoliton tests the creation of a soliton distribution.
@@ -55,15 +55,14 @@ func TestNewRobustSoliton(t *testing.T) {
 	t.Log(s2.splits[0])
 	t.Log(s2.splits[1])
 	t.Log(s2.splits[2])
-	e1 := math.Abs(s2.splits[0] - 0.1566493603878993030143281532615261342211803355562430962538559755) < 0.000001
-	e2 := math.Abs(s2.splits[1] - 0.9705998618429641852703276471816809044716254319807433471959590362) < 0.000001
-	e3 := math.Abs(s2.splits[2] - 1.0) < 0.000001
+	e1 := math.Abs(s2.splits[0]-0.1566493603878993030143281532615261342211803355562430962538559755) < 0.000001
+	e2 := math.Abs(s2.splits[1]-0.9705998618429641852703276471816809044716254319807433471959590362) < 0.000001
+	e3 := math.Abs(s2.splits[2]-1.0) < 0.000001
 
 	if !(e1 && e2 && e3) {
 		t.Error("wrong soliton distribution for k=3")
 	}
 }
-
 
 // TestSolitonUint64 tests drawing uint64 values from soliton distribution.
 func TestSolitonUint64(t *testing.T) {
@@ -97,7 +96,7 @@ func TestSolitonEqual(t *testing.T) {
 		t.Error("comparator returns true when two distributions differ")
 	}
 	s4 := NewSoliton(5)
-	s4.k = 4	// we want to trigger the slice length check
+	s4.k = 4 // we want to trigger the slice length check
 	if s1.Equals(s4) != false {
 		t.Error("comparator returns true when two distributions differ")
 	}

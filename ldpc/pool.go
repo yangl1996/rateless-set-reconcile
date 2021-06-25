@@ -7,14 +7,14 @@ import (
 
 const (
 	Unknown = 0
-	Exist = 1
+	Exist   = 1
 	Missing = 2
 )
 
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
 	Status int
-	Seq int
+	Seq    int
 }
 
 // HashedTransaction holds the transaction content and its blake2b hash.
@@ -42,8 +42,8 @@ func WrapTransaction(t Transaction) HashedTransaction {
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	Transactions map[HashedTransaction]PeerStatus
-	Codewords []Codeword
-	Seq int
+	Codewords    []Codeword
+	Seq          int
 }
 
 // NewTransactionPool creates an empty transaction pool.
@@ -67,7 +67,7 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // if the transaction is already there.
 func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	tx := WrapTransaction(t)
-	if s, there := p.Transactions[tx]; there && (s.Status==Missing) {
+	if s, there := p.Transactions[tx]; there && (s.Status == Missing) {
 		return
 	}
 	s := p.Transactions[tx]
@@ -177,4 +177,3 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	}
 	return cw
 }
-

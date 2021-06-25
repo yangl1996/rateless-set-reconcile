@@ -1,10 +1,9 @@
 package ldpc
 
 import (
-	"testing"
 	"math"
+	"testing"
 )
-
 
 func TestNewHashRange(t *testing.T) {
 	// case 1: no cyclic
@@ -16,7 +15,7 @@ func TestNewHashRange(t *testing.T) {
 
 	// case 2: cyclic
 	r2 := NewHashRange(math.MaxUint64-10, 20)
-	c2 := HashRange{math.MaxUint64-10, 9, true}
+	c2 := HashRange{math.MaxUint64 - 10, 9, true}
 	if r2 != c2 {
 		t.Error("incorrect cyclic hash range")
 	}

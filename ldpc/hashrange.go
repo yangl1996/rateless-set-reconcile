@@ -5,8 +5,8 @@ import (
 )
 
 type HashRange struct {
-	start, end uint64	// both bounds are inclusive
-	cyclic bool
+	start, end uint64 // both bounds are inclusive
+	cyclic     bool
 }
 
 // NewHashRange creates a new HashRange start starts at "start" and covers

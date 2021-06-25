@@ -1,8 +1,8 @@
 package ldpc
 
 import (
-	"math/rand"
 	"math"
+	"math/rand"
 	"testing"
 )
 

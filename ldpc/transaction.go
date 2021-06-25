@@ -1,20 +1,20 @@
 package ldpc
 
 import (
-	"golang.org/x/crypto/blake2b"
-	"encoding/binary"
-	"hash"
 	"bytes"
 	"crypto/md5"
+	"encoding/binary"
+	"golang.org/x/crypto/blake2b"
+	"hash"
 	"sync"
 )
 
-const TxSize = 512	// the size of a transaction, including the checksum
-const TxDataSize = TxSize-md5.Size	// transaction size minus the checksum size
+const TxSize = 512                   // the size of a transaction, including the checksum
+const TxDataSize = TxSize - md5.Size // transaction size minus the checksum size
 
-var hasherPool = sync.Pool {
+var hasherPool = sync.Pool{
 	New: func() interface{} {
-		h, _ := blake2b.New512(nil)	// this fn never returns error when key=nil
+		h, _ := blake2b.New512(nil) // this fn never returns error when key=nil
 		return h
 	},
 }
@@ -22,7 +22,7 @@ var hasherPool = sync.Pool {
 // Transaction models a transaction in the system. It embeds a checksum, used
 // to simulate the signatures of real-world transactions.
 type Transaction struct {
-	Data [TxDataSize]byte
+	Data     [TxDataSize]byte
 	checksum [md5.Size]byte
 }
 
@@ -56,7 +56,7 @@ func (t *Transaction) UintWithSalt(salt []byte) uint64 {
 
 // ChecksumError catches a wrong checksum when trying to unmarshal a transaction.
 type ChecksumError struct {
-	given [md5.Size]byte
+	given   [md5.Size]byte
 	correct [md5.Size]byte
 }
 
@@ -99,4 +99,3 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 		return nil
 	}
 }
-

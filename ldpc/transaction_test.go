@@ -1,12 +1,12 @@
 package ldpc
 
 import (
-	"math/rand"
-	"testing"
 	"bytes"
 	"crypto/md5"
-	"golang.org/x/crypto/blake2b"
 	"encoding/binary"
+	"golang.org/x/crypto/blake2b"
+	"math/rand"
+	"testing"
 )
 
 func randomData() [TxDataSize]byte {
@@ -32,7 +32,7 @@ func TestHashingAndUint(t *testing.T) {
 	s := []byte{}
 	s = append(s, tx.Data[:]...)
 	s = append(s, tx.checksum[:]...)
-	s = append(s, 1, 2, 3)	// salt
+	s = append(s, 1, 2, 3) // salt
 	hash := blake2b.Sum512(s)
 	salt := []byte{1, 2, 3}
 	given := tx.HashWithSalt(salt)
@@ -73,7 +73,7 @@ func TestUnmarshalFails(t *testing.T) {
 	tx := NewTransaction(d)
 	m, err := tx.MarshalBinary()
 	un := Transaction{}
-	err = un.UnmarshalBinary(m[0:TxSize-1])
+	err = un.UnmarshalBinary(m[0 : TxSize-1])
 	_, isLen := err.(DataSizeError)
 	if !isLen || err.Error() != "incorrect data size given to unmarshaler" {
 		t.Error("unmarshal did not report wrong length error")

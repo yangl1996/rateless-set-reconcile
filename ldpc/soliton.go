@@ -1,9 +1,9 @@
 package ldpc
 
 import (
-	"math/rand"
-	"math/big"
 	"math"
+	"math/big"
+	"math/rand"
 	"sort"
 )
 
@@ -12,8 +12,8 @@ import (
 //  P(1)=1/K
 //  P(x)=1/x(x-1) for x=2 to K
 type Soliton struct {
-	k uint64
-	splits []float64	// the entire range of [0, 1) is cut into k pieces with k-1 splits
+	k      uint64
+	splits []float64 // the entire range of [0, 1) is cut into k pieces with k-1 splits
 }
 
 // NewRobustSoliton creates a "robust" soliton distribution. delta controls the decoding
@@ -41,16 +41,16 @@ func NewRobustSoliton(k uint64, c, delta float64) *Soliton {
 func tau(c, delta float64, k, i uint64) *big.Float {
 	r := ripple(c, delta, k)
 	rf := new(big.Float).SetFloat64(r)
-	th := uint64(math.Round(float64(k)/r))	// k/R
-	if i < th {	// 1 to k/R-1
-		ik := new(big.Float).SetUint64(i*k)
+	th := uint64(math.Round(float64(k) / r)) // k/R
+	if i < th {                              // 1 to k/R-1
+		ik := new(big.Float).SetUint64(i * k)
 		return new(big.Float).Quo(rf, ik)
-	} else if i == th {	// k/R
+	} else if i == th { // k/R
 		log := math.Log(r) - math.Log(delta)
 		logf := new(big.Float).SetFloat64(log)
 		r1 := new(big.Float).Mul(rf, logf)
 		return new(big.Float).Quo(r1, new(big.Float).SetUint64(k))
-	} else {	// k/R+1 to k
+	} else { // k/R+1 to k
 		return new(big.Float).SetUint64(0)
 	}
 }
@@ -58,7 +58,7 @@ func tau(c, delta float64, k, i uint64) *big.Float {
 // ripple calculates the expected ripple size of a robust soliton distribution.
 func ripple(c, delta float64, k uint64) float64 {
 	kf := float64(k)
-	res := c * math.Log(kf / delta) * math.Sqrt(kf)
+	res := c * math.Log(kf/delta) * math.Sqrt(kf)
 	return res
 }
 
@@ -71,7 +71,7 @@ func rho(k, i uint64) *big.Float {
 	} else {
 		one := new(big.Float).SetFloat64(1.0)
 		t1 := new(big.Float).SetUint64(i)
-		t2 := new(big.Float).SetUint64(i-1)
+		t2 := new(big.Float).SetUint64(i - 1)
 		div := new(big.Float).Mul(t1, t2)
 		return new(big.Float).Quo(one, div)
 	}
@@ -81,7 +81,7 @@ func NewSoliton(k uint64) *Soliton {
 	var s []float64
 	last := new(big.Float).SetUint64(0)
 	var i uint64
-	for i=1; i<k; i++ {	// we only do 1 to k-1 (incl.) because we only need k-1 splits
+	for i = 1; i < k; i++ { // we only do 1 to k-1 (incl.) because we only need k-1 splits
 		p := rho(k, i)
 		last = last.Add(last, p)
 		rounded, _ := last.Float64()
@@ -98,7 +98,7 @@ func (s *Soliton) Uint64() uint64 {
 	if uint64(idx) >= s.k {
 		panic("r should never be larger than the last item in s")
 	}
-	return uint64(idx+1)
+	return uint64(idx + 1)
 }
 
 // Equals compares the two soliton distributions.
