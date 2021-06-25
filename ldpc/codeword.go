@@ -27,7 +27,8 @@ func (c *Codeword) Covers(t *HashedTransaction) bool {
 	return c.HashRange.Covers(t.Uint(c.UintIdx))
 }
 
-// ApplyTransaction adds or removes a transaction into/from the codeword.
+// ApplyTransaction adds or removes a transaction into/from the codeword,
+// and increments/decrements the counter.
 // d must have length TxSize, and dir must be Into or From.
 func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
 	for i := 0; i < TxDataSize/8; i++ {
