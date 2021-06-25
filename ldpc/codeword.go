@@ -23,6 +23,10 @@ type Codeword struct {
 	Seq     int
 }
 
+func (c *Codeword) Covers(t *HashedTransaction) bool {
+	return c.HashRange.Covers(t.Uint(c.UintIdx))
+}
+
 // ApplyTransaction adds or removes a transaction into/from the codeword.
 // d must have length TxSize, and dir must be Into or From.
 func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
@@ -35,8 +39,3 @@ func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
 	c.Counter += dir
 }
 
-// PendingCodeword holds a codeword that is not yet decoded ("released")
-type PendingCodeword struct {
-	Codeword
-	Excluded []HashedTransaction // the set of transaction in the pool that does not belong to this codeword
-}

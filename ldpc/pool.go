@@ -74,7 +74,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	s.Status = Missing
 	// XOR from existing codes
 	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
+		if p.Codewords[cidx].Covers(&tx) {
 			p.Codewords[cidx].ApplyTransaction(&t, Into)
 		}
 	}
@@ -92,7 +92,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	// XOR from existing codes
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(tx.Uint(p.Codewords[cidx].UintIdx)) {
+		if p.Codewords[cidx].Covers(&tx) {
 			p.Codewords[cidx].ApplyTransaction(&t, From)
 		}
 	}
@@ -105,7 +105,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		if s.Status == Missing {
 			continue
 		}
-		if c.Covers(v.Uint(c.UintIdx)) {
+		if c.Covers(&v) {
 			c.ApplyTransaction(&v.Transaction, From)
 		}
 	}
@@ -171,7 +171,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	cw.Seq = p.Seq
 	p.Seq += 1
 	for v, _ := range p.Transactions {
-		if rg.Covers(v.Uint(idx)) {
+		if cw.Covers(&v) {
 			cw.ApplyTransaction(&v.Transaction, Into)
 		}
 	}
