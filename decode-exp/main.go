@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"flag"
 	"os"
 	"fmt"
@@ -49,7 +48,8 @@ func main() {
 		*seed = time.Now().UTC().UnixNano()
 	}
 	rand.Seed(*seed)
-	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize, *seed)
+	// validate the syntax of the dist string
+	_, err := NewDistribution(nil, *degreeDistString, *differenceSize+*reverseDifferenceSize)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -69,12 +69,13 @@ func main() {
 	for i := 0; i < *runs; i++ {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
-		go func() {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, ch, degreeCh, degreeDist)
+		sd := rand.Int63()
+		go func(s int64) {
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, ch, degreeCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
-		}()
+		}(sd)
 	}
 
 	var f *os.File
@@ -165,15 +166,22 @@ func main() {
 	return
 }
 
-// runExperiment runs the experiment and returns an array of data. The i-th element in the array is the iteration
-// where the i-th item is decoded.
-func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) error {
+func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64) error {
 	defer close(res)	// close when the experiment ends
-	p1, err := buildRandomPool(s)
+	rng := rand.New(rand.NewSource(seed))
+	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
 		return err
 	}
-	p2, err := copyPoolWithDifference(p1, s-d+r, d)
+	p1, err := newNode(nil, 0, s, dist1, rng)
+	if err != nil {
+		return err
+	}
+	dist2, err := NewDistribution(rng, dist, d+r)
+	if err != nil {
+		return err
+	}
+	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng)
 	if err != nil {
 		return err
 	}
@@ -185,7 +193,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 	received := len(p2.Transactions)
 	for ;; {
 		i += 1
-		c := p1.ProduceCodeword(rand.Uint64(), dist.generate(), rand.Intn(ldpc.MaxUintIdx))
+		c := p1.produceCodeword()
 		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()
@@ -194,7 +202,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 			res <- i
 			received += 1
 			if toFill > 0 {
-				p1.AddTransaction(getRandomTransaction())
+				p1.AddTransaction(p1.getRandomTransaction())
 				toFill -= 1
 			}
 			if received-r >= s+f {
@@ -202,48 +210,6 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist thresholdPicker) e
 			}
 		}
 	}
-}
-
-func getRandomTransaction() ldpc.Transaction {
-	d := [ldpc.TxDataSize]byte{}
-	rand.Read(d[:])
-	return ldpc.NewTransaction(d)
-}
-
-func buildRandomPool(n int) (*ldpc.TransactionPool, error) {
-	p, err := ldpc.NewTransactionPool()
-        if err != nil {
-                return nil, err
-        }
-        for i := 0; i < n; i++ {
-                p.AddTransaction(getRandomTransaction())
-        }
-        return p, nil
-}
-
-// copyPoolWithDifference copies the transactions from src excluding the last x into a new pool, and
-// fills the new pool with new, random transactions to a total of n.
-func copyPoolWithDifference(src *ldpc.TransactionPool, n int, x int) (*ldpc.TransactionPool, error) {
-	p, err := ldpc.NewTransactionPool()
-	if err != nil {
-		return nil, err
-	}
-	i := 0
-	for tx, _ := range src.Transactions {
-		if i >= len(src.Transactions)-x {
-			break
-		}
-		p.AddTransaction(tx.Transaction)
-		i += 1
-	}
-	for ;; {
-		if i >= n {
-			break
-		}
-                p.AddTransaction(getRandomTransaction())
-		i += 1
-	}
-	return p, nil
 }
 
 type Config struct {

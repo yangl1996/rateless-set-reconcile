@@ -38,19 +38,19 @@ type SolitonThreshold struct {
 	estDiff uint64
 }
 
-func NewSolitonThreshold(seed int64, k int, estDiff int) *SolitonThreshold {
-	return &SolitonThreshold{soliton.NewSoliton(rand.New(rand.NewSource(seed)), uint64(k)), uint64(estDiff)}
+func NewSolitonThreshold(rng *rand.Rand, k int, estDiff int) *SolitonThreshold {
+	return &SolitonThreshold{soliton.NewSoliton(rng, uint64(k)), uint64(estDiff)}
 }
 
-func NewRobustSolitonThreshold(seed int64, k int, c, delta float64, estDiff int) *SolitonThreshold {
-	return &SolitonThreshold{soliton.NewRobustSoliton(rand.New(rand.NewSource(seed)), uint64(k), c, delta), uint64(estDiff)}
+func NewRobustSolitonThreshold(rng *rand.Rand, k int, c, delta float64, estDiff int) *SolitonThreshold {
+	return &SolitonThreshold{soliton.NewRobustSoliton(rng, uint64(k), c, delta), uint64(estDiff)}
 }
 
 func (s *SolitonThreshold) generate() uint64 {
 	return fracToThreshold(float64(s.dist.Uint64()) / float64(s.estDiff))
 }
 
-func NewDistribution(s string, estDiff int, seed int64) (thresholdPicker, error) {
+func NewDistribution(rng *rand.Rand, s string, estDiff int) (thresholdPicker, error) {
 	ds := strings.ReplaceAll(s, " ", "")
 	switch {
 	case strings.HasPrefix(ds, "u("):
@@ -83,7 +83,7 @@ func NewDistribution(s string, estDiff int, seed int64) (thresholdPicker, error)
 		if k <= 0 || c <= 0 || delta <= 0 || delta >= 1 {
 			return nil, errors.New("parameter out of range for robust soliton")
 		}
-		return NewRobustSolitonThreshold(seed, k, c, delta, estDiff), nil
+		return NewRobustSolitonThreshold(rng, k, c, delta, estDiff), nil
 	case strings.HasPrefix(ds, "s("):
 		param := strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "s(")
 		k, err := strconv.Atoi(param)
@@ -93,7 +93,7 @@ func NewDistribution(s string, estDiff int, seed int64) (thresholdPicker, error)
 		if k <= 0 {
 			return nil, errors.New("soliton distribution k not greater than 0")
 		}
-		return NewSolitonThreshold(seed, k, estDiff), nil
+		return NewSolitonThreshold(rng, k, estDiff), nil
 	default:
 		return nil, errors.New("undefined degree distribution")
 	}
