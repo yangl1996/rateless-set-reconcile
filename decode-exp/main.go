@@ -45,15 +45,14 @@ func main() {
 		flag.Parse()
 	}
 
-	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize)
+	if *seed == 0 {
+		*seed = time.Now().UTC().UnixNano()
+	}
+	rand.Seed(*seed)
+	degreeDist, err := NewDistribution(*degreeDistString, *differenceSize+*reverseDifferenceSize, *seed)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
-	}
-	if *seed == 0 {
-		rand.Seed(time.Now().UTC().UnixNano())
-	} else {
-		rand.Seed(*seed)
 	}
 
 	config := Config {
