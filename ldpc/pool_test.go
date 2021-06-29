@@ -107,6 +107,7 @@ func TestLoopback(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := p.ProduceCodeword(0, math.MaxUint64/5, 0)
+	c1 := c
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
@@ -116,6 +117,20 @@ func TestLoopback(t *testing.T) {
 	}
 	if p.Codewords[0].Symbol != emptySymbol {
 		t.Error("codeword has nonzero byte remaining")
+	}
+	if len(p.Codewords[0].Members) != c1.Counter {
+		t.Error("not all codeword members are identified")
+	}
+	for k, v := range p.Codewords[0].Members {
+		if v != 1 {
+			t.Error("incorrect member counter")
+			break
+		}
+		kw := WrapTransaction(k)
+		if !c1.Covers(&kw) {
+			t.Error("incorrect member")
+			break
+		}
 	}
 }
 
