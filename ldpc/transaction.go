@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"hash"
 	"sync"
+	"unsafe"
 )
 
 const TxSize = 512                   // the size of a transaction, including the checksum
@@ -98,4 +99,26 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	} else {
 		return nil
 	}
+}
+
+// HashedTransaction holds the transaction content and its blake2b hash.
+type HashedTransaction struct {
+        Transaction
+        Hash [blake2b.Size]byte
+}
+
+// Uint converts the idx-th 8-byte value into an unsigned int and returns
+// the result.
+func (t *HashedTransaction) Uint(idx int) uint64 {
+        return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
+}
+
+// WrapTransaction computes the hash of the given transaction, and bundles
+// the hash and the transaction into a HashedTransaction.
+func WrapTransaction(t Transaction) HashedTransaction {
+        h := t.HashWithSalt(nil)
+        tx := HashedTransaction{}
+        tx.Transaction = t
+        copy(tx.Hash[:], h[:])
+        return tx
 }
