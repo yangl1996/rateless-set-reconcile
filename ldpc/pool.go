@@ -15,6 +15,8 @@ const (
 type PeerStatus struct {
 	Status int
 	Seq    int
+	// FirstAvailable int
+	// LastMissing int
 }
 
 // HashedTransaction holds the transaction content and its blake2b hash.
@@ -42,7 +44,7 @@ func WrapTransaction(t Transaction) HashedTransaction {
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	Transactions map[HashedTransaction]PeerStatus
-	Codewords    []Codeword
+	Codewords    []PendingCodeword
 	Seq          int
 }
 
@@ -76,7 +78,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	// XOR from existing codes
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(&tx) {
-			p.Codewords[cidx].ApplyTransaction(&t, Into)
+			p.Codewords[cidx].UnpeelTransaction(t)
 		}
 	}
 }
@@ -94,7 +96,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(&tx) {
-			p.Codewords[cidx].ApplyTransaction(&t, From)
+			p.Codewords[cidx].PeelTransaction(t)
 		}
 	}
 }
@@ -102,15 +104,16 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 // InputCodeword takes an incoming codeword, scans the transactions in the
 // pool, and XOR those that fits the codeword into the codeword symbol.
 func (p *TransactionPool) InputCodeword(c Codeword) {
+	cw := NewPendingCodeword(c)
 	for v, s := range p.Transactions {
 		if s.Status == Missing {
 			continue
 		}
-		if c.Covers(&v) {
-			c.ApplyTransaction(&v.Transaction, From)
+		if cw.Covers(&v) {
+			cw.PeelTransaction(v.Transaction)
 		}
 	}
-	p.Codewords = append(p.Codewords, c)
+	p.Codewords = append(p.Codewords, cw)
 }
 
 // TryDecode recursively tries to decode any codeword that we have received
@@ -118,7 +121,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 func (p *TransactionPool) TryDecode() {
 	decoded := make(map[Transaction]struct{})
 	onlyus := make(map[Transaction]struct{})
-	codes := []Codeword{}
+	codes := []PendingCodeword{}
 	// scan through the codewords to find ones with counter=1 or -1
 	// and remove those with counter and symbol=0
 	for _, c := range p.Codewords {

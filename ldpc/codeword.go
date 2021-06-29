@@ -40,3 +40,30 @@ func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
 	c.Counter += dir
 }
 
+type PendingCodeword struct {
+	Codeword
+	Members map[Transaction]int
+}
+
+func NewPendingCodeword(c Codeword) PendingCodeword {
+	return PendingCodeword {
+		c,
+		make(map[Transaction]int),
+	}
+}
+
+func (c *PendingCodeword) PeelTransaction(t Transaction) {
+	c.Codeword.ApplyTransaction(&t, From)
+	c.Members[t] += 1
+	if c.Members[t] == 0 {
+		delete(c.Members, t)
+	}
+}
+
+func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
+	c.Codeword.ApplyTransaction(&t, Into)
+	c.Members[t] -= 1
+	if c.Members[t] == 0 {
+		delete(c.Members, t)
+	}
+}
