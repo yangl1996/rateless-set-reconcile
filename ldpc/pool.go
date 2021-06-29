@@ -72,6 +72,7 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	}
 	s := p.Transactions[tx]
 	s.Status = Missing
+	p.Transactions[tx] = s
 	// XOR from existing codes
 	for cidx := range p.Codewords {
 		if p.Codewords[cidx].Covers(&tx) {
