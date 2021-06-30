@@ -130,9 +130,7 @@ func (p *TransactionPool) TryDecode() {
 	// try peel the touched transactions off the codewords
 	for cidx, c := range codes {
 		for _, t := range updatedTx {
-			s := p.Transactions[t]
-			_, inc := c.Members[t.Transaction]
-			if c.Covers(&t) && !inc && c.Seq >= s.FirstAvailable {
+			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq >= p.Transactions[t].FirstAvailable {
 				codes[cidx].PeelTransaction(t.Transaction)
 				change = true
 			}
