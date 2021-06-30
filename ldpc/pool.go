@@ -10,8 +10,8 @@ const (
 type PeerStatus struct {
 	Status int
 	Seq    int
-	// FirstAvailable int
-	// LastMissing int
+	FirstAvailable int
+	LastMissing int
 }
 
 // TransactionPool implements the rateless syncing algorithm.
@@ -88,6 +88,29 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		}
 	}
 	p.Codewords = append(p.Codewords, cw)
+}
+
+func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
+	// go through each transaction that we know of, is covered by c,
+	// but is not a member
+	for t, s := range p.Transactions {
+		if c.Covers(&t) {
+			if _, there := c.Members[t.Transaction]; there {
+				if c.Seq < s.FirstAvailable {
+					s.FirstAvailable = c.Seq
+					p.Transactions[t] = s
+				}
+			} else {
+				if c.Seq > s.LastMissing {
+					s.LastMissing = c.Seq
+					p.Transactions[t] = s
+				}
+			}
+		}
+	}
+	r := NewReleasedCodeword(c)
+	p.ReleasedCodewords = append(p.ReleasedCodewords, r)
+
 }
 
 // TryDecode recursively tries to decode any codeword that we have received
