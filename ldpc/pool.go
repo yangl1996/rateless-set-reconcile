@@ -33,9 +33,10 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 	return yes
 }
 
-// AddTransaction adds the transaction into the pool.
-// It returns without changing TransactionPool
-// if the transaction is already there.
+// AddTransaction adds the transaction into the pool, and searches through all
+// released codewords to estimate the time that this transaction is last missing
+// from the peer. It assumes that the transaction is never seen at the peer.
+// It does nothing if the transaction is already in the pool.
 func (p *TransactionPool) AddTransaction(t Transaction) {
 	tx := WrapTransaction(t)
 	if _, there := p.Transactions[tx]; there {
@@ -43,9 +44,10 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	}
 	ps := PeerStatus{math.MaxInt64, 0}
 	for _, c := range p.ReleasedCodewords {
-		// tx cannot be a member of and codeword in ReleasedCodewords
+		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
-		// released
+		// released. As a result, we do not bother checking if tx is
+		// a member of c.
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
 			ps.LastMissing = c.Seq
 		}
@@ -53,22 +55,15 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	p.Transactions[tx] = ps
 }
 
-// InputCodeword takes an incoming codeword, scans the transactions in the
-// pool, and XOR those that fits the codeword into the codeword symbol.
-func (p *TransactionPool) InputCodeword(c Codeword) {
-	cw := NewPendingCodeword(c)
-	for v, s := range p.Transactions {
-		if s.Status == Missing {
-			continue
-		}
-		if cw.Covers(&v) {
-			cw.PeelTransaction(v.Transaction)
-		}
+// MarkCodewordReleased takes a codeword c that is going to be released.
+// It updates all known transactions' last missing and first seen timestamps,
+// stores c as a ReleasedCodeword, and returns the list of transactions whose
+// availability estimation is updated.
+func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransaction {
+	if c.Symbol != emptySymbol || c.Counter != 0 {
+		panic("releasing impure codeword")
 	}
-	p.Codewords = append(p.Codewords, cw)
-}
-
-func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
+	var touched []HashedTransaction
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
 	for t, s := range p.Transactions {
@@ -77,63 +72,75 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
 				if c.Seq < s.FirstAvailable {
 					s.FirstAvailable = c.Seq
 					p.Transactions[t] = s
+					touched = append(touched, t)
 				}
 			} else {
 				if c.Seq > s.LastMissing {
 					s.LastMissing = c.Seq
 					p.Transactions[t] = s
+					touched = append(touched, t)
 				}
 			}
 		}
 	}
 	r := NewReleasedCodeword(c)
 	p.ReleasedCodewords = append(p.ReleasedCodewords, r)
+	return touched
 }
 
-// TryDecode recursively tries to decode any codeword that we have received
-// so far, and puts those decoded into the pool.
+// InputCodeword takes a new codeword, peels transactions that we are sure is a member of
+// it, and stores it.
+func (p *TransactionPool) InputCodeword(c Codeword) {
+	cw := NewPendingCodeword(c)
+	for v, s := range p.Transactions {
+		if cw.Covers(&v) && s.FirstAvailable <= cw.Seq {
+			cw.PeelTransaction(v.Transaction)
+		}
+	}
+	p.Codewords = append(p.Codewords, cw)
+}
+
+// TryDecode recursively peels transactions that we know are members of some codewords,
+// and puts decoded transactions into the pool.
 func (p *TransactionPool) TryDecode() {
-	decoded := make(map[Transaction]struct{})
-	onlyus := make(map[Transaction]struct{})
-	codes := []PendingCodeword{}
-	// scan through the codewords to find ones with counter=1 or -1
-	// and remove those with counter and symbol=0
+	// scan through the codewords to find ones with counter=1
+	for cidx, c := range p.Codewords {
+		if c.Counter == 1 {
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				// store the transaction and peel the c/w, so the c/w is pure
+				p.AddTransaction(*tx)
+				p.Codewords[cidx].PeelTransaction(*tx)
+			}
+		}
+	}
+	// release codewords and update transaction availability estimation
+	codes := []PendingCodeword{}	// remaining codewords after this iteration
+	updatedTx := []HashedTransaction{}
 	for _, c := range p.Codewords {
-		switch c.Counter {
-		case 1:
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
-			if err == nil {
-				decoded[*tx] = struct{}{}
-			} else {
-				codes = append(codes, c)
-			}
-		case -1:
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
-			if err == nil {
-				onlyus[*tx] = struct{}{}
-			} else {
-				codes = append(codes, c)
-			}
-		case 0:
-			if c.Symbol != emptySymbol {
-				codes = append(codes, c)
-			}
-		default:
+		if c.Counter == 0 && c.Symbol == emptySymbol {
+			updated := p.MarkCodewordReleased(c)
+			updatedTx = append(updatedTx, updated...)
+		} else {
 			codes = append(codes, c)
 		}
 	}
-	// add the remaining codes
+	change := false
+	// try peel the touched transactions off the codewords
+	for cidx, c := range codes {
+		for _, t := range updatedTx {
+			s := p.Transactions[t]
+			_, inc := c.Members[t.Transaction]
+			if c.Covers(&t) && !inc && c.Seq >= s.FirstAvailable {
+				codes[cidx].PeelTransaction(t.Transaction)
+				change = true
+			}
+		}
+	}
 	p.Codewords = codes
-	// add newly decoded transactions
-	for t, _ := range decoded {
-		p.AddTransaction(t)
-	}
-	for t, _ := range onlyus {
-		p.MarkTransactionUnique(t)
-	}
-	if len(decoded) > 0 || len(onlyus) > 0 {
+	// if any codeword is updated, then we may decode and release more
+	if change {
 		p.TryDecode()
 	}
 }
