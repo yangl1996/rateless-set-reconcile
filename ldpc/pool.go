@@ -18,6 +18,7 @@ type PeerStatus struct {
 type TransactionPool struct {
 	Transactions map[HashedTransaction]PeerStatus
 	Codewords    []PendingCodeword
+	ReleasedCodewords []ReleasedCodeword
 	Seq          int
 }
 
@@ -56,8 +57,8 @@ func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
 	}
 }
 
-// AddTransaction adds the transaction into the pool, and XORs it from any
-// codeword that fits its hash. It returns without changing TransactionPool
+// AddTransaction adds the transaction into the pool.
+// It returns without changing TransactionPool
 // if the transaction is already there.
 func (p *TransactionPool) AddTransaction(t Transaction) {
 	tx := WrapTransaction(t)

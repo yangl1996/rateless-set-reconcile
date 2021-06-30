@@ -67,3 +67,20 @@ func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 		delete(c.Members, t)
 	}
 }
+
+type ReleasedCodeword struct {
+	Codeword
+	Members []Transaction
+}
+
+func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
+	ls := make([]Transaction, 0, len(c.Members))
+	for k, v := range c.Members {
+		if v == 1 {
+			ls = append(ls, k)
+		} else {
+			panic("releasing codeword with unclear membership")
+		}
+	}
+	return ReleasedCodeword{c.Codeword, ls}
+}
