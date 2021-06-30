@@ -1,15 +1,11 @@
 package ldpc
 
-const (
-	Unknown = 0
-	Exist   = 1
-	Missing = 2
+import (
+	"math"
 )
 
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
-	Status int
-	Seq    int
 	FirstAvailable int
 	LastMissing int
 }
@@ -26,6 +22,7 @@ type TransactionPool struct {
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.Transactions = make(map[HashedTransaction]PeerStatus)
+	p.Seq = 1
 	return p, nil
 }
 
@@ -36,27 +33,6 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 	return yes
 }
 
-// MarkTransactionUnique marks a transaction as unique to us, which causes
-// this transaction to be not XOR'ed from future codewords. It also XORs
-// the transaction from all existing codewords.
-// It returns without changing TransactionPool
-// if the transaction is already there.
-func (p *TransactionPool) MarkTransactionUnique(t Transaction) {
-	tx := WrapTransaction(t)
-	if s, there := p.Transactions[tx]; there && (s.Status == Missing) {
-		return
-	}
-	s := p.Transactions[tx]
-	s.Status = Missing
-	p.Transactions[tx] = s
-	// XOR from existing codes
-	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(&tx) {
-			p.Codewords[cidx].UnpeelTransaction(t)
-		}
-	}
-}
-
 // AddTransaction adds the transaction into the pool.
 // It returns without changing TransactionPool
 // if the transaction is already there.
@@ -65,14 +41,16 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	if _, there := p.Transactions[tx]; there {
 		return
 	}
-	p.Transactions[tx] = PeerStatus{}
-	// XOR from existing codes
-	// NOTE: if we range a slice by value, we will get a COPY of the element, not a reference
-	for cidx := range p.Codewords {
-		if p.Codewords[cidx].Covers(&tx) {
-			p.Codewords[cidx].PeelTransaction(t)
+	ps := PeerStatus{math.MaxInt64, 0}
+	for _, c := range p.ReleasedCodewords {
+		// tx cannot be a member of and codeword in ReleasedCodewords
+		// otherwise, it is already added before the codeword is
+		// released
+		if c.Covers(&tx) && c.Seq > ps.LastMissing {
+			ps.LastMissing = c.Seq
 		}
 	}
+	p.Transactions[tx] = ps
 }
 
 // InputCodeword takes an incoming codeword, scans the transactions in the
@@ -110,7 +88,6 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
 	}
 	r := NewReleasedCodeword(c)
 	p.ReleasedCodewords = append(p.ReleasedCodewords, r)
-
 }
 
 // TryDecode recursively tries to decode any codeword that we have received
