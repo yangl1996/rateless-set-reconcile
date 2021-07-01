@@ -134,7 +134,15 @@ func (p *TransactionPool) TryDecode() {
 			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq >= p.Transactions[t].FirstAvailable {
 				codes[cidx].PeelTransaction(t.Transaction)
 				change = true
-				panic("test") 	// never panicked why!!
+				// TODO: note that this place is never reached in the current
+				// version. If we want to peel something off, it must be that
+				// a transaction T is found contained in a codeword with
+				// sequence C, smaller than the previously known C'. We then
+				// peel off T from codewords in [C, C'). However, finding T
+				// in a CW of sequence C requires us to look back and release
+				// C. But, if C is first unreleased, why do we suddenly release
+				// it? Because we look back and peel all codewords from C.
+				// So this is a chicken and egg problem.
 			}
 		}
 	}
