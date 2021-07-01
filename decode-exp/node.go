@@ -9,9 +9,10 @@ type node struct {
 	*ldpc.TransactionPool
 	dist thresholdPicker
 	rng *rand.Rand
+	pacer transactionPacer
 }
 
-func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand) (*node, error) {
+func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer) (*node, error) {
 	node := &node{}
 	node.rng = rng
 	var err error
@@ -34,6 +35,7 @@ func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicke
 		node.TransactionPool.AddTransaction(node.getRandomTransaction())
 	}
 	node.dist = dist
+	node.pacer = pacer
 	return node, nil
 }
 

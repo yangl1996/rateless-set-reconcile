@@ -20,8 +20,9 @@ func main() {
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
-	refillTransaction := flag.Int("f", 0, "refill a transaction immediately after the destination pool has decoded one")
-	degreeDistString := flag.String("d", "s(1000)", "distribution of parity check degrees (rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f)")
+	refillTransaction := flag.String("f", "", "refill transactions at the sender: c(r) for uniform arrival at rate r per codeword, empty string to disable")
+	timeoutDuration := flag.Int("to", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
+	degreeDistString := flag.String("d", "s(1000)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
 
@@ -38,6 +39,7 @@ func main() {
 		*seed = c.Seed
 		*runs = c.Runs
 		*refillTransaction = c.RefillTransaction
+		*timeoutDuration = c.TimeoutDuration
 		*degreeDistString = c.DegreeDistString
 		// we then parse the command line args again, so that only the ones explicitly given
 		// in the command line will be overwritten
@@ -54,6 +56,12 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	// validate the pacer string
+	_, err = NewTransactionPacer(*refillTransaction)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	config := Config {
 		*srcSize,
@@ -62,6 +70,7 @@ func main() {
 		*seed,
 		*runs,
 		*refillTransaction,
+		*timeoutDuration,
 		*degreeDistString,
 	}
 	var chs []chan int	// channels for the interation-#decoded result
@@ -71,7 +80,7 @@ func main() {
 		chs = append(chs, ch)
 		sd := rand.Int63()
 		go func(s int64) {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, ch, degreeCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *refillTransaction, ch, degreeCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -166,14 +175,18 @@ func main() {
 	return
 }
 
-func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist string, seed int64) error {
 	defer close(res)	// close when the experiment ends
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
 		return err
 	}
-	p1, err := newNode(nil, 0, s, dist1, rng)
+	pacer1, err := NewTransactionPacer(refill)
+	if err != nil {
+		return err
+	}
+	p1, err := newNode(nil, 0, s, dist1, rng, pacer1)
 	if err != nil {
 		return err
 	}
@@ -181,7 +194,7 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64
 	if err != nil {
 		return err
 	}
-	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng)
+	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng, nil)
 	if err != nil {
 		return err
 	}
@@ -189,8 +202,8 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64
 	res <- 0 // at iteration 0, we have decoded 0 transactions
 	// start sending codewords from p1 to p2
 	i := 0	// iteration counter
-	toFill := f
 	received := len(p2.Transactions)
+	lastAct := 0
 	for ;; {
 		i += 1
 		c := p1.produceCodeword()
@@ -204,13 +217,14 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64
 		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i
 			received += 1
-			if toFill > 0 {
+			lastAct = i
+		}
+		if i - lastAct > tout {
+			return nil
+		}
+		nadd := p1.pacer.tick()
+		for cnt := 0; cnt < nadd; cnt++ {
 				p1.AddTransaction(p1.getRandomTransaction())
-				toFill -= 1
-			}
-			if received-r >= s+f {
-				return nil
-			}
 		}
 	}
 }
@@ -221,7 +235,8 @@ type Config struct {
 	ReverseDifferenceSize int
 	Seed int64
 	Runs int
-	RefillTransaction int
+	RefillTransaction string
+	TimeoutDuration int
 	DegreeDistString string
 }
 
