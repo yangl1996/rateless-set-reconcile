@@ -63,7 +63,7 @@ func NewPendingCodeword(c Codeword) PendingCodeword {
 func (c *PendingCodeword) PeelTransaction(t Transaction) {
 	// if a transaction is already there, do not peel
 	if _, there := c.Members[t]; there {
-		return
+		panic("trying to peel a transaciton twice")
 	}
 	c.Codeword.ApplyTransaction(&t, From)
 	c.Members[t] = struct{}{}
@@ -72,7 +72,7 @@ func (c *PendingCodeword) PeelTransaction(t Transaction) {
 func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 	// is the transaction is not peeled, then we cannot "unpeel"
 	if _, there := c.Members[t]; !there {
-		return
+		panic("trying to unpeel a transaciton not peeled before")
 	}
 	c.Codeword.ApplyTransaction(&t, Into)
 	delete(c.Members, t)

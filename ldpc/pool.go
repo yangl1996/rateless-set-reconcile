@@ -2,6 +2,7 @@ package ldpc
 
 import (
 	"math"
+	"fmt"
 )
 
 // PeerStatus represents the status of a transaction at a peer.
@@ -128,6 +129,23 @@ func (p *TransactionPool) TryDecode() {
 					panic("corrupted codeword")
 				}
 				p.Codewords[cidx].UnpeelTransaction(*tx)
+			}
+		case 0:
+			// try to speculatively fix some codewords
+			if !c.IsPure() {
+				for t, _ := range p.Codewords[cidx].Members {
+					p.Codewords[cidx].UnpeelTransaction(t)
+					tx := &Transaction{}
+					err := tx.UnmarshalBinary(p.Codewords[cidx].Symbol[:])
+					if err == nil {
+						p.AddTransaction(*tx)
+						p.Codewords[cidx].PeelTransaction(*tx)
+
+						break
+					} else {
+						p.Codewords[cidx].PeelTransaction(t)
+					}
+				}
 			}
 		}
 	}
