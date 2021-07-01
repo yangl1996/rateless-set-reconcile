@@ -68,7 +68,7 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 	// but is not a member
 	for t, s := range p.Transactions {
 		if c.Covers(&t) {
-			if cnt, _ := c.Members[t.Transaction]; cnt == 1 {
+			if _, there := c.Members[t.Transaction]; there {
 				if c.Seq < s.FirstAvailable {
 					s.FirstAvailable = c.Seq
 					p.Transactions[t] = s
@@ -133,11 +133,13 @@ func (p *TransactionPool) TryDecode() {
 	}
 	// release codewords and update transaction availability estimation
 	codes := []PendingCodeword{}	// remaining codewords after this iteration
-	updatedTx := []HashedTransaction{}
+	updatedTx := make(map[HashedTransaction]struct{})
 	for _, c := range p.Codewords {
-		if c.Counter == 0 && c.Symbol == emptySymbol {
+		if c.IsPure() {
 			updated := p.MarkCodewordReleased(c)
-			updatedTx = append(updatedTx, updated...)
+			for _, t := range updated {
+				updatedTx[t] = struct{}{}
+			}
 		} else {
 			codes = append(codes, c)
 		}
@@ -145,26 +147,17 @@ func (p *TransactionPool) TryDecode() {
 	change := false
 	// try peel the touched transactions off the codewords
 	for cidx, c := range codes {
-		for _, t := range updatedTx {
-			// remove the last condition and we are reverted to the original
-			if cnt, _ := c.Members[t.Transaction]; c.Covers(&t) && cnt != 1 && c.Seq > p.Transactions[t].LastMissing {
-				codes[cidx].PeelTransaction(t.Transaction)
-				change = true
-				// TODO: note that this place is never reached in the current
-				// version. If we want to peel something off, it must be that
-				// a transaction T is found contained in a codeword with
-				// sequence C, smaller than the previously known C'. We then
-				// peel off T from codewords in [C, C'). However, finding T
-				// in a CW of sequence C requires us to look back and release
-				// C. But, if C is first unreleased, why do we suddenly release
-				// it? Because we look back and peel all codewords from C.
-				// So this is a chicken and egg problem.
-				//
-				// We need the speculative decoding that Yossi mentioned, and
-				// the negative info that we can get from released codewords.
-			} else if cnt, _ := c.Members[t.Transaction]; c.Covers(&t) && cnt != -1 && c.Seq <= p.Transactions[t].LastMissing {
-				codes[cidx].UnpeelTransaction(t.Transaction)
-				change = true
+		for t, _ := range updatedTx {
+			if c.Covers(&t) {
+				_, there := c.Members[t.Transaction]
+				// TODO: we are speculating here
+				if !there && c.Seq > p.Transactions[t].LastMissing {
+					codes[cidx].PeelTransaction(t.Transaction)
+					change = true
+				} else if there && c.Seq <= p.Transactions[t].LastMissing {
+					codes[cidx].UnpeelTransaction(t.Transaction)
+					change = true
+				}
 			}
 		}
 	}

@@ -40,32 +40,42 @@ func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
 	c.Counter += dir
 }
 
+func (c *Codeword) IsPure() bool {
+	if c.Counter == 0 && c.Symbol == emptySymbol {
+		return true
+	} else {
+		return false
+	}
+}
+
 type PendingCodeword struct {
 	Codeword
-	Members map[Transaction]int
+	Members map[Transaction]struct{}
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
-		make(map[Transaction]int),
+		make(map[Transaction]struct{}),
 	}
 }
 
 func (c *PendingCodeword) PeelTransaction(t Transaction) {
-	c.Codeword.ApplyTransaction(&t, From)
-	c.Members[t] += 1
-	if c.Members[t] == 0 {
-		delete(c.Members, t)
+	// if a transaction is already there, do not peel
+	if _, there := c.Members[t]; there {
+		return
 	}
+	c.Codeword.ApplyTransaction(&t, From)
+	c.Members[t] = struct{}{}
 }
 
 func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
-	c.Codeword.ApplyTransaction(&t, Into)
-	c.Members[t] -= 1
-	if c.Members[t] == 0 {
-		delete(c.Members, t)
+	// is the transaction is not peeled, then we cannot "unpeel"
+	if _, there := c.Members[t]; !there {
+		return
 	}
+	c.Codeword.ApplyTransaction(&t, Into)
+	delete(c.Members, t)
 }
 
 type ReleasedCodeword struct {
@@ -74,15 +84,12 @@ type ReleasedCodeword struct {
 }
 
 func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
-	ls := make([]Transaction, 0, len(c.Members))
-	for k, v := range c.Members {
-		if v == 1 {
-			ls = append(ls, k)
-		} else {
-			panic("releasing codeword with unclear membership")
-			// TODO: we will never reach here: the counter in the Members map
-			// is either 1 or 0
-		}
+	ls := make([]Transaction, len(c.Members), len(c.Members))
+	idx := 0
+	for k, _ := range c.Members {
+		ls[idx] = k
+		idx += 1
 	}
 	return ReleasedCodeword{c.Codeword, ls}
 }
+
