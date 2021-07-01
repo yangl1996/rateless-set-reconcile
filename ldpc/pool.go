@@ -134,6 +134,7 @@ func (p *TransactionPool) TryDecode() {
 			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq >= p.Transactions[t].FirstAvailable {
 				codes[cidx].PeelTransaction(t.Transaction)
 				change = true
+				panic("test") 	// never panicked why!!
 			}
 		}
 	}
