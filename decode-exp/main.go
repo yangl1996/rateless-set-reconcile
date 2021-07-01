@@ -21,7 +21,7 @@ func main() {
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.String("f", "", "refill transactions at the sender: c(r) for uniform arrival at rate r per codeword, empty string to disable")
-	timeoutDuration := flag.Int("to", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
+	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	degreeDistString := flag.String("d", "s(1000)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
