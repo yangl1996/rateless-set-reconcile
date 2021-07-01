@@ -92,12 +92,49 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 // it, and stores it.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
+	candidates := []HashedTransaction{}
 	for v, s := range p.Transactions {
 		if cw.Covers(&v) {
 			if s.FirstAvailable <= cw.Seq {
 				cw.PeelTransaction(v.Transaction)
 			} else if s.LastMissing < cw.Seq {
-				// TODO: speculating
+				// collect candidates for our speculation
+				candidates = append(candidates, v)
+			}
+		}
+	}
+	if len(candidates)+1 >= cw.Counter && math.Pow(float64(len(candidates)), float64(cw.Counter-1)) <= 200000.0 && cw.Counter >= 2 {
+		result := make([]int, cw.Counter-1)
+		target := cw.Counter - 1
+		var recur func(depth int, start int) bool
+		recur = func(depth int, start int) bool {
+			if depth == target {
+				tx := &Transaction{}
+				err := tx.UnmarshalBinary(cw.Symbol[:])
+				if err == nil {
+					return true
+				} else {
+					return false
+				}
+			}
+			for i := start; i < len(candidates); i++ {
+				cw.PeelTransaction(candidates[i].Transaction)
+				result[depth] = i
+				ok := recur(depth+1, i+1)
+				if ok == true {
+					return true
+				} else {
+					cw.UnpeelTransaction(candidates[i].Transaction)
+				}
+			}
+			return false
+		}
+		ok := recur(0, 0)
+		if ok {
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(cw.Symbol[:])
+			if err != nil {
+				panic("supposed to be okay")
 			}
 		}
 	}
