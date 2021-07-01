@@ -131,7 +131,7 @@ func (p *TransactionPool) TryDecode() {
 	for cidx, c := range codes {
 		for _, t := range updatedTx {
 			// remove the last condition and we are reverted to the original
-			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq >= p.Transactions[t].FirstAvailable {
+			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq > p.Transactions[t].LastMissing {
 				codes[cidx].PeelTransaction(t.Transaction)
 				change = true
 				// TODO: note that this place is never reached in the current
@@ -143,6 +143,9 @@ func (p *TransactionPool) TryDecode() {
 				// C. But, if C is first unreleased, why do we suddenly release
 				// it? Because we look back and peel all codewords from C.
 				// So this is a chicken and egg problem.
+				//
+				// We need the speculative decoding that Yossi mentioned, and
+				// the negative info that we can get from released codewords.
 			}
 		}
 	}
