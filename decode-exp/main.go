@@ -194,9 +194,12 @@ func runExperiment(s, d, r, f int, res, degree chan int, dist string, seed int64
 	for ;; {
 		i += 1
 		c := p1.produceCodeword()
+		c2 := p2.produceCodeword()
 		degree <- c.Counter
 		p2.InputCodeword(c)
 		p2.TryDecode()
+		p1.InputCodeword(c2)
+		p1.TryDecode()
 		thisBatch := len(p2.Transactions) - received
 		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i

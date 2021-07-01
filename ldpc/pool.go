@@ -68,7 +68,7 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 	// but is not a member
 	for t, s := range p.Transactions {
 		if c.Covers(&t) {
-			if _, there := c.Members[t.Transaction]; there {
+			if cnt, _ := c.Members[t.Transaction]; cnt == 1 {
 				if c.Seq < s.FirstAvailable {
 					s.FirstAvailable = c.Seq
 					p.Transactions[t] = s
@@ -105,13 +105,29 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 func (p *TransactionPool) TryDecode() {
 	// scan through the codewords to find ones with counter=1
 	for cidx, c := range p.Codewords {
-		if c.Counter == 1 {
+		switch c.Counter {
+		case 1:
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
 				// store the transaction and peel the c/w, so the c/w is pure
 				p.AddTransaction(*tx)
 				p.Codewords[cidx].PeelTransaction(*tx)
+			}
+		case -1:
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				// we found something missing from the peer so we do a quick
+				// sanity check to see if it exists in our tx set (otherwise
+				// how woudl this tx got peeled off the codeword?!)
+				if _, there := p.Transactions[WrapTransaction(*tx)]; !there {
+					panic("corrupted codeword counter")
+				}
+				if _, there := c.Members[*tx]; !there {
+					panic("corrupted codeword")
+				}
+				p.Codewords[cidx].UnpeelTransaction(*tx)
 			}
 		}
 	}
@@ -131,7 +147,7 @@ func (p *TransactionPool) TryDecode() {
 	for cidx, c := range codes {
 		for _, t := range updatedTx {
 			// remove the last condition and we are reverted to the original
-			if _, inc := c.Members[t.Transaction]; c.Covers(&t) && !inc && c.Seq > p.Transactions[t].LastMissing {
+			if cnt, _ := c.Members[t.Transaction]; c.Covers(&t) && cnt != 1 && c.Seq > p.Transactions[t].LastMissing {
 				codes[cidx].PeelTransaction(t.Transaction)
 				change = true
 				// TODO: note that this place is never reached in the current
@@ -146,6 +162,9 @@ func (p *TransactionPool) TryDecode() {
 				//
 				// We need the speculative decoding that Yossi mentioned, and
 				// the negative info that we can get from released codewords.
+			} else if cnt, _ := c.Members[t.Transaction]; c.Covers(&t) && cnt != -1 && c.Seq <= p.Transactions[t].LastMissing {
+				codes[cidx].UnpeelTransaction(t.Transaction)
+				change = true
 			}
 		}
 	}

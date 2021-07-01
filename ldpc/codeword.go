@@ -80,6 +80,8 @@ func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
 			ls = append(ls, k)
 		} else {
 			panic("releasing codeword with unclear membership")
+			// TODO: we will never reach here: the counter in the Members map
+			// is either 1 or 0
 		}
 	}
 	return ReleasedCodeword{c.Codeword, ls}
