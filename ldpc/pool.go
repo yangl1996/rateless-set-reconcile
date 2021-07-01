@@ -93,8 +93,12 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
 	for v, s := range p.Transactions {
-		if cw.Covers(&v) && s.FirstAvailable <= cw.Seq {
-			cw.PeelTransaction(v.Transaction)
+		if cw.Covers(&v) {
+			if s.FirstAvailable <= cw.Seq {
+				cw.PeelTransaction(v.Transaction)
+			} else if s.LastMissing < cw.Seq {
+				// TODO: speculating
+			}
 		}
 	}
 	p.Codewords = append(p.Codewords, cw)
@@ -170,8 +174,8 @@ func (p *TransactionPool) TryDecode() {
 		for t, _ := range updatedTx {
 			if c.Covers(&t) {
 				_, there := c.Members[t.Transaction]
-				// TODO: we are speculating here
 				if !there && c.Seq > p.Transactions[t].LastMissing {
+					// TODO: we are speculating here
 					codes[cidx].PeelTransaction(t.Transaction)
 					change = true
 				} else if there && c.Seq <= p.Transactions[t].LastMissing {
