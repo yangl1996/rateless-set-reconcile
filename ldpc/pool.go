@@ -60,7 +60,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
 func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransaction {
-	if c.Symbol != emptySymbol || c.Counter != 0 {
+	if !c.IsPure() {
 		panic("releasing impure codeword")
 	}
 	var touched []HashedTransaction
