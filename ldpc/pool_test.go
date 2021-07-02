@@ -121,11 +121,7 @@ func TestLoopback(t *testing.T) {
 	if len(p.Codewords[0].Members) != c1.Counter {
 		t.Error("not all codeword members are identified")
 	}
-	for k, v := range p.Codewords[0].Members {
-		if v != 1 {
-			t.Error("incorrect member counter")
-			break
-		}
+	for k, _ := range p.Codewords[0].Members {
 		kw := WrapTransaction(k)
 		if !c1.Covers(&kw) {
 			t.Error("incorrect member")

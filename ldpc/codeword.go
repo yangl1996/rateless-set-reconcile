@@ -2,6 +2,7 @@ package ldpc
 
 import (
 	"golang.org/x/crypto/blake2b"
+	"math"
 	"unsafe"
 )
 
@@ -51,11 +52,13 @@ func (c *Codeword) IsPure() bool {
 type PendingCodeword struct {
 	Codeword
 	Members map[Transaction]struct{}
+	Candidates map[Transaction]struct{}
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
+		make(map[Transaction]struct{}),
 		make(map[Transaction]struct{}),
 	}
 }
@@ -78,10 +81,25 @@ func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 	delete(c.Members, t)
 }
 
-func (c *PendingCodeword) SpeculatePeel(candidates []HashedTransaction) (Transaction, bool) {
+func (c *PendingCodeword) AddCandidate(t Transaction) {
+	c.Candidates[t] = struct{}{}
+}
+
+func (c *PendingCodeword) RemoveCandidate(t Transaction) {
+	delete(c.Candidates, t)
+}
+
+func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
+	var res Transaction
+	if c.Counter - 1 - len(c.Candidates) < 0 || c.Counter < 2 || math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 100000 {
+		return res, false
+	}
+	var candidates []Transaction
+	for k, _ := range c.Candidates {
+		candidates = append(candidates, k)
+	}
 	totDepth := c.Counter - 1
 	var recur func(depth int, start int) bool
-	var res Transaction
 	recur = func(depth int, start int) bool {
 		if depth == totDepth {
 			tx := &Transaction{}
@@ -94,12 +112,13 @@ func (c *PendingCodeword) SpeculatePeel(candidates []HashedTransaction) (Transac
 			}
 		}
 		for i := start; i < len(candidates); i++ {
-			c.PeelTransaction(candidates[i].Transaction)
+			c.PeelTransaction(candidates[i])
 			ok := recur(depth+1, i+1)
 			if ok {
+				delete(c.Candidates, candidates[i])
 				return true
 			} else {
-				c.UnpeelTransaction(candidates[i].Transaction)
+				c.UnpeelTransaction(candidates[i])
 			}
 		}
 		return false
