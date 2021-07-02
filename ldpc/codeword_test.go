@@ -20,13 +20,13 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 		c.ApplyTransaction(&tx, Into)
 	}
 	cw := NewPendingCodeword(c)
-	for i := 0; i < correct; i++ {
-		cw.AddCandidate(members[i])
-	}
 	for i := 0; i < (total-correct); i++ {
 		d := randomData()
 		tx := NewTransaction(d)
 		cw.AddCandidate(tx)
+	}
+	for i := 0; i < correct; i++ {
+		cw.AddCandidate(members[i])
 	}
 	if correct+1==deg {
 		return cw, members[len(members)-1]
@@ -52,6 +52,10 @@ func TestSpeculateNormal(t *testing.T) {
 	cw.PeelTransaction(tx)
 	if !cw.IsPure() {
 		t.Error("codeword not pure")
+	}
+	// see if candidates are removed
+	if len(cw.Candidates) != 3 {
+		t.Error("candidates not removed")
 	}
 
 	cw, _ = prepareCodeword(3, 1, 5)
