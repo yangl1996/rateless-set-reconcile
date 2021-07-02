@@ -89,8 +89,10 @@ func (c *PendingCodeword) RemoveCandidate(t Transaction) {
 	delete(c.Candidates, t)
 }
 
-func cost(n, k int) int {
+func (c *PendingCodeword) SpeculateCost() int {
 	res := 1
+	n := len(c.Candidates)
+	k := c.Counter - 1
 	if k > n/2 {
 		k = n - k
 	}
@@ -118,7 +120,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		return res, false
 	}
 	// do not try if the cost is too high
-	if cost(len(c.Candidates), c.Counter-1) > 1000000 {
+	if c.SpeculateCost() > 1000000 {
 		return res, false
 	}
 
