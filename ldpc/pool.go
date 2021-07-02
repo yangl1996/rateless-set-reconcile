@@ -104,39 +104,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		}
 	}
 	if len(candidates)+1 >= cw.Counter && math.Pow(float64(len(candidates)), float64(cw.Counter-1)) <= 200000.0 && cw.Counter >= 2 {
-		result := make([]int, cw.Counter-1)
-		target := cw.Counter - 1
-		var recur func(depth int, start int) bool
-		recur = func(depth int, start int) bool {
-			if depth == target {
-				tx := &Transaction{}
-				err := tx.UnmarshalBinary(cw.Symbol[:])
-				if err == nil {
-					return true
-				} else {
-					return false
-				}
-			}
-			for i := start; i < len(candidates); i++ {
-				cw.PeelTransaction(candidates[i].Transaction)
-				result[depth] = i
-				ok := recur(depth+1, i+1)
-				if ok == true {
-					return true
-				} else {
-					cw.UnpeelTransaction(candidates[i].Transaction)
-				}
-			}
-			return false
-		}
-		ok := recur(0, 0)
-		if ok {
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(cw.Symbol[:])
-			if err != nil {
-				panic("supposed to be okay")
-			}
-		}
+		cw.SpeculatePeel(candidates)
 	}
 	p.Codewords = append(p.Codewords, cw)
 }

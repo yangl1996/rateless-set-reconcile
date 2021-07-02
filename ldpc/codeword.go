@@ -78,6 +78,40 @@ func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 	delete(c.Members, t)
 }
 
+func (c *PendingCodeword) SpeculatePeel(candidates []HashedTransaction) (Transaction, bool) {
+	totDepth := c.Counter - 1
+	var recur func(depth int, start int) bool
+	var res Transaction
+	recur = func(depth int, start int) bool {
+		if depth == totDepth {
+			tx := &Transaction{}
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				res = *tx
+				return true
+			} else {
+				return false
+			}
+		}
+		for i := start; i < len(candidates); i++ {
+			c.PeelTransaction(candidates[i].Transaction)
+			ok := recur(depth+1, i+1)
+			if ok {
+				return true
+			} else {
+				c.UnpeelTransaction(candidates[i].Transaction)
+			}
+		}
+		return false
+	}
+	ok := recur(0, 0)
+	if ok {
+		return res, true
+	} else {
+		return res, false
+	}
+}
+
 type ReleasedCodeword struct {
 	Codeword
 	Members []Transaction
