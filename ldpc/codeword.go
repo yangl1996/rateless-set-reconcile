@@ -91,7 +91,7 @@ func (c *PendingCodeword) RemoveCandidate(t Transaction) {
 
 func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	var res Transaction
-	if c.Counter - 1 - len(c.Candidates) < 0 || c.Counter < 2 || math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 100000 {
+	if c.Counter - len(c.Candidates) > 1 || c.Counter < 2 || math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 1000000 {
 		return res, false
 	}
 	var candidates []Transaction
