@@ -89,15 +89,33 @@ func (c *PendingCodeword) RemoveCandidate(t Transaction) {
 	delete(c.Candidates, t)
 }
 
+// SpeculatePeel tries to speculatively peel off candidates from a pending
+// codeword. If succeeds, it leaves the remaining transaction in the
+// codeword and returns the remaining transaction with true. Otherwise, it
+// returns an empty transaction and false.
 func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	var res Transaction
-	if c.Counter - len(c.Candidates) > 1 || c.Counter < 2 || math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 1000000 {
+	// cannot peel if the remaining degree is too high (there is no enough candidate)
+	if c.Counter - len(c.Candidates) > 1 {
 		return res, false
 	}
-	var candidates []Transaction
-	for k, _ := range c.Candidates {
-		candidates = append(candidates, k)
+	// does not need peeling if the remaining degree is too low
+	if c.Counter <= 1 {
+		return res, false
 	}
+	// do not try if the cost is too high
+	if math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 1000000 {
+		return res, false
+	}
+
+	// collect the candidates
+	candidates := make([]Transaction, len(c.Candidates))
+	i := 0
+	for k, _ := range c.Candidates {
+		candidates[i] = k
+		i++
+	}
+	// recursively try peeling off candidates
 	totDepth := c.Counter - 1
 	var recur func(depth int, start int) bool
 	recur = func(depth int, start int) bool {
@@ -115,6 +133,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			c.PeelTransaction(candidates[i])
 			ok := recur(depth+1, i+1)
 			if ok {
+				// remove confirmed member from candidate list
 				delete(c.Candidates, candidates[i])
 				return true
 			} else {
