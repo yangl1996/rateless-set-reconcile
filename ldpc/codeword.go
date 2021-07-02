@@ -132,6 +132,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		i++
 	}
 	// recursively try peeling off candidates
+	solutions := 0
 	totDepth := c.Counter - 1
 	var recur func(depth int, start int) bool
 	recur = func(depth int, start int) bool {
@@ -142,6 +143,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 				res = *tx
 				return true
 			} else {
+				solutions += 1
 				return false
 			}
 		}
@@ -162,6 +164,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	if ok {
 		return res, true
 	} else {
+		if solutions != c.SpeculateCost() {
+			panic("unexpected number of solutions")
+		}
 		return res, false
 	}
 }
