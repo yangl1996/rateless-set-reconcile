@@ -92,19 +92,12 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 // it, and stores it.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
-	candidates := []HashedTransaction{}
 	for v, s := range p.Transactions {
 		if cw.Covers(&v) {
 			if s.FirstAvailable <= cw.Seq {
 				cw.PeelTransaction(v.Transaction)
-			} else if s.LastMissing < cw.Seq {
-				// collect candidates for our speculation
-				candidates = append(candidates, v)
 			}
 		}
-	}
-	if len(candidates)+1 >= cw.Counter && math.Pow(float64(len(candidates)), float64(cw.Counter-1)) <= 200000.0 && cw.Counter >= 2 {
-		cw.SpeculatePeel(candidates)
 	}
 	p.Codewords = append(p.Codewords, cw)
 }
@@ -138,24 +131,24 @@ func (p *TransactionPool) TryDecode() {
 				}
 				p.Codewords[cidx].UnpeelTransaction(*tx)
 			}
-		case 0:
-			// try to speculatively fix some codewords
-			if !c.IsPure() {
-				for t, _ := range p.Codewords[cidx].Members {
-					// filter by the availability estimation and only
-					// try those that we are unsure
-					if p.Transactions[WrapTransaction(t)].FirstAvailable > c.Seq {
-						p.Codewords[cidx].UnpeelTransaction(t)
-						tx := &Transaction{}
-						err := tx.UnmarshalBinary(p.Codewords[cidx].Symbol[:])
-						if err == nil {
-							p.AddTransaction(*tx)
-							p.Codewords[cidx].PeelTransaction(*tx)
-							break
-						} else {
-							p.Codewords[cidx].PeelTransaction(t)
+		default:
+			var candidates []HashedTransaction
+			for v, s := range p.Transactions {
+				if c.Covers(&v) {
+					if !(s.FirstAvailable <= c.Seq) && s.LastMissing < c.Seq {
+						// TODO: without this check, the code fails
+						if _, there := c.Members[v.Transaction]; !there {
+							// collect candidates for our speculation
+							candidates = append(candidates, v)
 						}
 					}
+				}
+			}
+			if p.Codewords[cidx].Counter - 1 - len(candidates) >= 0 && p.Codewords[cidx].Counter >= 2 && math.Pow(float64(len(candidates)), float64(p.Codewords[cidx].Counter-1)) <= 200000.0 {
+				tx, ok := p.Codewords[cidx].SpeculatePeel(candidates)
+				if ok {
+					p.AddTransaction(tx)
+					p.Codewords[cidx].PeelTransaction(tx)
 				}
 			}
 		}
@@ -179,8 +172,7 @@ func (p *TransactionPool) TryDecode() {
 		for t, _ := range updatedTx {
 			if c.Covers(&t) {
 				_, there := c.Members[t.Transaction]
-				if !there && c.Seq > p.Transactions[t].LastMissing {
-					// TODO: we are speculating here
+				if !there && c.Seq >= p.Transactions[t].FirstAvailable {
 					codes[cidx].PeelTransaction(t.Transaction)
 					change = true
 				} else if there && c.Seq <= p.Transactions[t].LastMissing {
