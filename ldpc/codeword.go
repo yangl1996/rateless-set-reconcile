@@ -120,7 +120,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		return res, false
 	}
 	// do not try if the cost is too high
-	if c.SpeculateCost() > 1000000 {
+	if c.SpeculateCost() > 100000 {
 		return res, false
 	}
 
@@ -135,36 +135,80 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	solutions := 0
 	totDepth := c.Counter - 1
 	var recur func(depth int, start int) bool
-	recur = func(depth int, start int) bool {
-		if depth == totDepth {
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
-			if err == nil {
-				res = *tx
-				return true
-			} else {
-				solutions += 1
-				return false
+	rev := false
+	if totDepth < len(candidates)/2 {
+		recur = func(depth int, start int) bool {
+			if depth == totDepth {
+				tx := &Transaction{}
+				err := tx.UnmarshalBinary(c.Symbol[:])
+				if err == nil {
+					res = *tx
+					return true
+				} else {
+					solutions += 1
+					return false
+				}
 			}
+			for i := start; i < len(candidates); i++ {
+				c.Codeword.ApplyTransaction(&candidates[i], From)
+				ok := recur(depth+1, i+1)
+				if ok {
+					// remove confirmed member from candidate list
+					c.Members[candidates[i]] = struct{}{}
+					delete(c.Candidates, candidates[i])
+					return true
+				} else {
+					c.Codeword.ApplyTransaction(&candidates[i], Into)
+				}
+			}
+			return false
 		}
-		for i := start; i < len(candidates); i++ {
-			c.Codeword.ApplyTransaction(&candidates[i], From)
-			ok := recur(depth+1, i+1)
-			if ok {
-				// remove confirmed member from candidate list
-				c.Members[candidates[i]] = struct{}{}
-				delete(c.Candidates, candidates[i])
-				return true
-			} else {
+	} else {
+		rev = true
+		for _, d := range candidates {
+			c.Codeword.ApplyTransaction(&d, From)
+			c.Members[d] = struct{}{}
+			delete(c.Candidates, d)
+		}
+		totDepth = len(candidates)-totDepth
+		recur = func(depth int, start int) bool {
+			if depth == totDepth {
+				tx := &Transaction{}
+				err := tx.UnmarshalBinary(c.Symbol[:])
+				if err == nil {
+					res = *tx
+					return true
+				} else {
+					solutions += 1
+					return false
+				}
+			}
+			for i := start; i < len(candidates); i++ {
 				c.Codeword.ApplyTransaction(&candidates[i], Into)
+				ok := recur(depth+1, i+1)
+				if ok {
+					// remove confirmed member from candidate list
+					delete(c.Members, candidates[i])
+					c.Candidates[candidates[i]] = struct{}{}
+					return true
+				} else {
+					c.Codeword.ApplyTransaction(&candidates[i], From)
+				}
 			}
+			return false
 		}
-		return false
 	}
 	ok := recur(0, 0)
 	if ok {
 		return res, true
 	} else {
+		if rev {
+			for _, d := range candidates {
+				c.Codeword.ApplyTransaction(&d, Into)
+				delete(c.Members, d)
+				c.Candidates[d] = struct{}{}
+			}
+		}
 		if solutions != c.SpeculateCost() {
 			panic("unexpected number of solutions")
 		}
