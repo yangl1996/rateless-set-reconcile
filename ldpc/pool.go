@@ -135,12 +135,9 @@ func (p *TransactionPool) TryDecode() {
 			var candidates []HashedTransaction
 			for v, s := range p.Transactions {
 				if c.Covers(&v) {
-					if !(s.FirstAvailable <= c.Seq) && s.LastMissing < c.Seq {
-						// TODO: without this check, the code fails
-						if _, there := c.Members[v.Transaction]; !there {
-							// collect candidates for our speculation
-							candidates = append(candidates, v)
-						}
+					if s.FirstAvailable > c.Seq && s.LastMissing < c.Seq {
+						// collect candidates for our speculation
+						candidates = append(candidates, v)
 					}
 				}
 			}
