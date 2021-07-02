@@ -89,6 +89,20 @@ func (c *PendingCodeword) RemoveCandidate(t Transaction) {
 	delete(c.Candidates, t)
 }
 
+func cost(n, k int) int {
+	res := 1
+	if k > n/2 {
+		k = n - k
+	}
+	if k >= 10 {
+		return math.MaxInt64
+	}
+	for i := 1; i <= k; i++ {
+		res = (n - k + i) * res / i
+	}
+	return res
+}
+
 // SpeculatePeel tries to speculatively peel off candidates from a pending
 // codeword. If succeeds, it leaves the remaining transaction in the
 // codeword and returns the remaining transaction with true. Otherwise, it
@@ -104,7 +118,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		return res, false
 	}
 	// do not try if the cost is too high
-	if math.Pow(float64(len(c.Candidates)), float64(c.Counter-1)) > 1000000 {
+	if cost(len(c.Candidates), c.Counter-1) > 1000000 {
 		return res, false
 	}
 
