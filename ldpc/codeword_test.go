@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct
 // and total candidates. If correct+1=deg, it also returns the expected transaction after
 // peeing. Otherwise, it returns an empty transaction.
@@ -32,6 +33,18 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 		return cw, members[len(members)-1]
 	} else {
 		return cw, Transaction{}
+	}
+}
+
+// BenchmarkSpeculate benchmarks the performance of speculative peeling.
+func BenchmarkSpeculate(b *testing.B) {
+	cws := make([]PendingCodeword, b.N)
+	for i := 0; i < b.N; i++ {
+		cws[i], _ = prepareCodeword(3, 2, 5)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cws[i].SpeculatePeel()
 	}
 }
 
