@@ -40,7 +40,7 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 func BenchmarkSpeculate(b *testing.B) {
 	cws := make([]PendingCodeword, b.N)
 	for i := 0; i < b.N; i++ {
-		cws[i], _ = prepareCodeword(3, 2, 5)
+		cws[i], _ = prepareCodeword(10, 9, 12)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

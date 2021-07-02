@@ -148,14 +148,15 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			}
 		}
 		for i := start; i < len(candidates); i++ {
-			c.PeelTransaction(candidates[i])
+			c.Codeword.ApplyTransaction(&candidates[i], From)
 			ok := recur(depth+1, i+1)
 			if ok {
 				// remove confirmed member from candidate list
+				c.Members[candidates[i]] = struct{}{}
 				delete(c.Candidates, candidates[i])
 				return true
 			} else {
-				c.UnpeelTransaction(candidates[i])
+				c.Codeword.ApplyTransaction(&candidates[i], Into)
 			}
 		}
 		return false
