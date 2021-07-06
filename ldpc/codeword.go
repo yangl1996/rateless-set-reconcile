@@ -81,12 +81,24 @@ func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 	delete(c.Members, t)
 }
 
-func (c *PendingCodeword) AddCandidate(t Transaction) {
-	c.Candidates[t] = struct{}{}
+func (c *PendingCodeword) AddCandidate(t Transaction) bool {
+	_, there := c.Candidates[t]
+	if there {
+		return false
+	} else {
+		c.Candidates[t] = struct{}{}
+		return true
+	}
 }
 
-func (c *PendingCodeword) RemoveCandidate(t Transaction) {
-	delete(c.Candidates, t)
+func (c *PendingCodeword) RemoveCandidate(t Transaction) bool {
+	_, there := c.Candidates[t]
+	if there {
+		delete(c.Candidates, t)
+		return true
+	} else {
+		return false
+	}
 }
 
 func (c *PendingCodeword) SpeculateCost() int {

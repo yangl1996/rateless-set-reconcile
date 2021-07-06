@@ -14,6 +14,7 @@ type PeerStatus struct {
 type TransactionPool struct {
 	Transactions map[HashedTransaction]PeerStatus
 	Codewords    []PendingCodeword
+	dirty map[int]struct{}	// indices of the codewords to re-examine
 	ReleasedCodewords []ReleasedCodeword
 	Seq          int
 }
@@ -22,6 +23,7 @@ type TransactionPool struct {
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.Transactions = make(map[HashedTransaction]PeerStatus)
+	p.dirty = make(map[int]struct{})
 	p.Seq = 1
 	return p, nil
 }
@@ -54,7 +56,10 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	}
 	for cidx, c := range p.Codewords {
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
-			p.Codewords[cidx].AddCandidate(t)
+			changed := p.Codewords[cidx].AddCandidate(t)
+			if changed {
+				p.dirty[cidx] = struct{}{}
+			}
 		}
 	}
 	p.Transactions[tx] = ps
@@ -107,6 +112,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		}
 	}
 	p.Codewords = append(p.Codewords, cw)
+	p.dirty[len(p.Codewords)-1] = struct{}{}
 }
 
 // TryDecode recursively peels transactions that we know are members of some codewords,
@@ -122,6 +128,7 @@ func (p *TransactionPool) TryDecode() {
 				// store the transaction and peel the c/w, so the c/w is pure
 				p.AddTransaction(*tx)
 				p.Codewords[cidx].PeelTransaction(*tx)
+				delete(p.dirty, cidx)
 			}
 		case -1:
 			tx := &Transaction{}
@@ -137,18 +144,21 @@ func (p *TransactionPool) TryDecode() {
 					panic("corrupted codeword")
 				}
 				p.Codewords[cidx].UnpeelTransaction(*tx)
+				delete(p.dirty, cidx)
 			}
-		default:
-			// try to speculatively peel
-			tx, ok := p.Codewords[cidx].SpeculatePeel()
-			if ok {
-				p.AddTransaction(tx)
-				p.Codewords[cidx].PeelTransaction(tx)
-			}
+		}
+	}
+	for cidx, _ := range p.dirty {
+		// try to speculatively peel
+		tx, ok := p.Codewords[cidx].SpeculatePeel()
+		if ok {
+			p.AddTransaction(tx)
+			p.Codewords[cidx].PeelTransaction(tx)
 		}
 	}
 	// release codewords and update transaction availability estimation
 	codes := []PendingCodeword{}	// remaining codewords after this iteration
+	dirty := make(map[int]struct{})
 	updatedTx := make(map[HashedTransaction]struct{})
 	for _, c := range p.Codewords {
 		if c.IsPure() {
@@ -169,19 +179,30 @@ func (p *TransactionPool) TryDecode() {
 				if !there && c.Seq >= p.Transactions[t].FirstAvailable {
 					codes[cidx].PeelTransaction(t.Transaction)
 					change = true
+					dirty[cidx] = struct{}{}
 				} else if there && c.Seq <= p.Transactions[t].LastMissing {
 					codes[cidx].UnpeelTransaction(t.Transaction)
 					change = true
+					dirty[cidx] = struct{}{}
 				}
 				if c.Seq < p.Transactions[t].FirstAvailable && c.Seq >= p.Transactions[t].LastMissing {
-					codes[cidx].AddCandidate(t.Transaction)
+					newcc := codes[cidx].AddCandidate(t.Transaction)
+					if newcc {
+						change = true
+						dirty[cidx] = struct{}{}
+					}
 				} else {
-					codes[cidx].RemoveCandidate(t.Transaction)
+					newcc := codes[cidx].RemoveCandidate(t.Transaction)
+					if newcc {
+						change = true
+						dirty[cidx] = struct{}{}
+					}
 				}
 			}
 		}
 	}
 	p.Codewords = codes
+	p.dirty = dirty
 	// if any codeword is updated, then we may decode and release more
 	if change {
 		p.TryDecode()
