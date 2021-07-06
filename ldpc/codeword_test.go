@@ -38,9 +38,10 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 
 // BenchmarkSpeculate benchmarks the performance of speculative peeling.
 func BenchmarkSpeculate(b *testing.B) {
+	b.ReportAllocs()
 	cws := make([]PendingCodeword, b.N)
 	for i := 0; i < b.N; i++ {
-		cws[i], _ = prepareCodeword(10, 9, 12)
+		cws[i], _ = prepareCodeword(50, 49, 52)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
