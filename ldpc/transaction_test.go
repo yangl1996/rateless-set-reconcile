@@ -67,7 +67,10 @@ func TestMarshal(t *testing.T) {
 	}
 }
 
-// TestUnmarshalFails tests the two failure cases of Unmarshal.
+// TestUnmarshalFails tests the two failure cases of Unmarshal. Specifically, we
+// focus on two scenarios: when the data is simply corrupted, and when the data
+// is the XOR of two valid transactions. The latter is to make sure the hash fn
+// is not homomorphic to XOR.
 func TestUnmarshalFails(t *testing.T) {
 	d := randomData()
 	tx := NewTransaction(d)
@@ -84,5 +87,20 @@ func TestUnmarshalFails(t *testing.T) {
 	_, isCS := err.(ChecksumError)
 	if !isCS || err.Error() != "incorrect transaction checksum" {
 		t.Error("unmarshal did not report checksum error")
+	}
+	d1 := randomData()
+	tx1 := NewTransaction(d1)
+	m1, _:= tx1.MarshalBinary()
+	d2 := randomData()
+	tx2 := NewTransaction(d2)
+	m2, _:= tx2.MarshalBinary()
+	dt := make([]byte, TxSize)
+	for i := 0; i < TxSize; i++ {
+		dt[i] = m1[i] ^ m2[i]
+	}
+	err = un.UnmarshalBinary(dt)
+	_, isCS = err.(ChecksumError)
+	if !isCS || err.Error() != "incorrect transaction checksum" {
+		t.Error("unmarshal did not report checksum error after xor")
 	}
 }
