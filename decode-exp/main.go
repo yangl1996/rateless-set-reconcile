@@ -191,6 +191,7 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 		return err
 	}
 	rng2 := rand.New(rand.NewSource(seed+1000))
+	// TODO: d+r is not a good estimation anymore with refill and potentially empty starting sets
 	dist2, err := NewDistribution(rng2, dist, d+r)
 	if err != nil {
 		return err
