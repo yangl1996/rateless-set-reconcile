@@ -22,6 +22,7 @@ func main() {
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.String("f", "c(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, empty string to disable")
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
+	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
 	degreeDistString := flag.String("d", "u(0.02)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
@@ -40,6 +41,7 @@ func main() {
 		*runs = c.Runs
 		*refillTransaction = c.RefillTransaction
 		*timeoutDuration = c.TimeoutDuration
+		*timeoutCounter = c.TimeoutCounter
 		*degreeDistString = c.DegreeDistString
 		// we then parse the command line args again, so that only the ones explicitly given
 		// in the command line will be overwritten
@@ -71,6 +73,7 @@ func main() {
 		*runs,
 		*refillTransaction,
 		*timeoutDuration,
+		*timeoutCounter,
 		*degreeDistString,
 	}
 	var chs []chan int	// channels for the interation-#decoded result
@@ -80,7 +83,7 @@ func main() {
 		chs = append(chs, ch)
 		sd := rand.Int63()
 		go func(s int64) {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *refillTransaction, ch, degreeCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -175,7 +178,7 @@ func main() {
 	return
 }
 
-func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int, dist string, seed int64) error {
 	defer close(res)	// close when the experiment ends
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
@@ -209,6 +212,7 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 	// start sending codewords from p1 to p2
 	i := 0	// iteration counter
 	received := len(p2.Transactions)
+	decoded := 0
 	lastAct := 0
 	for ;; {
 		i += 1
@@ -223,6 +227,10 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i
 			lastAct = i
+			decoded += 1
+			if tcnt != 0 && tcnt <= decoded {
+				return nil
+			}
 		}
 		if i - lastAct > tout {
 			return nil
@@ -247,6 +255,7 @@ type Config struct {
 	Runs int
 	RefillTransaction string
 	TimeoutDuration int
+	TimeoutCounter int
 	DegreeDistString string
 }
 
