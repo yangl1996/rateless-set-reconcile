@@ -78,12 +78,15 @@ func main() {
 	}
 	var chs []chan int	// channels for the interation-#decoded result
 	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
+	var pressureChs []chan int		// channel to collect num of transactions
 	for i := 0; i < *runs; i++ {
 		ch := make(chan int, *differenceSize)
 		chs = append(chs, ch)
+		pressureCh := make(chan int, 1000)
+		pressureChs = append(pressureChs, pressureCh)
 		sd := rand.Int63()
 		go func(s int64) {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -92,6 +95,7 @@ func main() {
 
 	var f *os.File
 	var degreeF *os.File
+	var pressureF *os.File
 	if *outputPrefix != "" {
 		var err error
 		f, err = os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
@@ -116,7 +120,14 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Fprintf(degreeF, "# codeword degree     count\n")
-		defer degreeF.Close()
+
+		pressureF, err = os.Create(*outputPrefix+"-ntx-unique-to-p1.dat")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(pressureF, "# iteration     unique to P1\n")
+		defer pressureF.Close()
 	}
 
 	// monitor and dump to files
@@ -173,13 +184,38 @@ func main() {
 			}
 		}
 	}()
+	// collect and dump num of transactions unique to p1
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for idx := 0;; idx++ {
+			nClosed := 0
+			d := 0
+			for _, ch := range pressureChs {
+				td, more := <-ch
+				if more {
+					d += td
+				} else {
+					nClosed += 1
+				}
+			}
+			if nClosed >= len(chs) {
+				return
+			} else if nClosed == 0 {
+				if pressureF != nil {
+					fmt.Fprintf(pressureF, "%v        %v\n", idx, d / len(chs))
+				}
+			}
+		}
+	}()
 
 	wg.Wait()
 	return
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff chan int, dist string, seed int64) error {
 	defer close(res)	// close when the experiment ends
+	defer close(diff)
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -214,6 +250,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int,
 	received := len(p2.Transactions)
 	decoded := 0
 	lastAct := 0
+	unique := d
 	for ;; {
 		i += 1
 		c := p1.produceCodeword()
@@ -228,6 +265,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int,
 			res <- i
 			lastAct = i
 			decoded += 1
+			unique -= 1
 			if tcnt != 0 && tcnt <= decoded {
 				return nil
 			}
@@ -239,6 +277,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int,
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p1.getRandomTransaction()
 			p1.AddTransaction(t)
+			unique += 1
 			/*
 			if rand.Float64() < 0.8 {
 				p2.AddTransaction(t)
@@ -256,6 +295,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int,
 			*/
 		}
 		received = len(p2.Transactions)
+		diff <- unique
 	}
 }
 
