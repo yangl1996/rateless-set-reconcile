@@ -221,7 +221,6 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 		thisBatch := len(p2.Transactions) - received
 		for cnt := 0; cnt < thisBatch; cnt++ {
 			res <- i
-			received += 1
 			lastAct = i
 		}
 		if i - lastAct > tout {
@@ -235,6 +234,7 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 		for cnt := 0; cnt < nadd; cnt++ {
 				p2.AddTransaction(p2.getRandomTransaction())
 		}
+		received = len(p2.Transactions)
 	}
 }
 
