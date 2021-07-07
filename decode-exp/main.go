@@ -281,6 +281,8 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff cha
 			/*
 			if rand.Float64() < 0.8 {
 				p2.AddTransaction(t)
+			} else {
+				unique += 1
 			}
 			*/
 		}
