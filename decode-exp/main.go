@@ -237,11 +237,19 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree chan int,
 		}
 		nadd := p1.pacer.tick()
 		for cnt := 0; cnt < nadd; cnt++ {
-				p1.AddTransaction(p1.getRandomTransaction())
+			t := p1.getRandomTransaction()
+			p1.AddTransaction(t)
+			if rand.Float64() < 0.8 {
+				p2.AddTransaction(t)
+			}
 		}
 		nadd = p2.pacer.tick()
 		for cnt := 0; cnt < nadd; cnt++ {
-				p2.AddTransaction(p2.getRandomTransaction())
+			t := p2.getRandomTransaction()
+			p2.AddTransaction(t)
+			if rand.Float64() < 0.8 {
+				p1.AddTransaction(t)
+			}
 		}
 		received = len(p2.Transactions)
 	}
