@@ -190,11 +190,16 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 	if err != nil {
 		return err
 	}
-	dist2, err := NewDistribution(rng, dist, d+r)
+	rng2 := rand.New(rand.NewSource(seed+1000))
+	dist2, err := NewDistribution(rng2, dist, d+r)
 	if err != nil {
 		return err
 	}
-	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng, nil)
+	pacer2, err := NewTransactionPacer(refill)
+	if err != nil {
+		return err
+	}
+	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng2, pacer2)
 	if err != nil {
 		return err
 	}
@@ -225,6 +230,10 @@ func runExperiment(s, d, r, tout int, refill string, res, degree chan int, dist 
 		nadd := p1.pacer.tick()
 		for cnt := 0; cnt < nadd; cnt++ {
 				p1.AddTransaction(p1.getRandomTransaction())
+		}
+		nadd = p2.pacer.tick()
+		for cnt := 0; cnt < nadd; cnt++ {
+				p2.AddTransaction(p2.getRandomTransaction())
 		}
 	}
 }
