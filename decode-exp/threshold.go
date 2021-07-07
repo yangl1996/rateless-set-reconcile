@@ -21,6 +21,25 @@ type thresholdPicker interface {
 	generate() uint64
 }
 
+type BimodalThreshold struct {
+	threshold1 uint64
+	threshold2 uint64
+	p1 float64
+	rng *rand.Rand
+}
+
+func NewBimodalThreshold(src *rand.Rand, t1, t2, p1 float64) *BimodalThreshold {
+	return &BimodalThreshold{fracToThreshold(t1), fracToThreshold(t2), p1, src}
+}
+
+func (b *BimodalThreshold) generate() uint64 {
+	if b.rng.Float64() < b.p1 {
+		return b.threshold1
+	} else {
+		return b.threshold2
+	}
+}
+
 type ConstantThreshold struct {
 	threshold uint64
 }
@@ -94,6 +113,24 @@ func NewDistribution(rng *rand.Rand, s string, estDiff int) (thresholdPicker, er
 			return nil, errors.New("soliton distribution k not greater than 0")
 		}
 		return NewSolitonThreshold(rng, k, estDiff), nil
+	case strings.HasPrefix(ds, "b("):
+		params := strings.Split(strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "b("), ",")
+		if len(params) != 3 {
+			return nil, errors.New("incorrect number of parameters for bimodal")
+		}
+		t1, err := strconv.ParseFloat(params[0], 64)
+		if err != nil {
+			return nil, err
+		}
+		t2, err := strconv.ParseFloat(params[1], 64)
+		if err != nil {
+			return nil, err
+		}
+		p, err := strconv.ParseFloat(params[2], 64)
+		if err != nil {
+			return nil, err
+		}
+		return NewBimodalThreshold(rng, t1, t2, p), nil
 	default:
 		return nil, errors.New("undefined degree distribution")
 	}

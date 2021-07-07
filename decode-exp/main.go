@@ -23,7 +23,7 @@ func main() {
 	refillTransaction := flag.String("f", "c(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, empty string to disable")
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
-	degreeDistString := flag.String("d", "u(0.02)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f")
+	degreeDistString := flag.String("d", "u(0.02)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
 
