@@ -142,10 +142,10 @@ func main() {
 		go collectAverage(chs, dch)
 		for d := range dch {
 			if f != nil {
-				fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
+				fmt.Fprintf(f, "%v        %v\n", idx, d)
 			}
 			if !*noTermOut {
-				fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
+				fmt.Printf("Iteration=%v, transactions=%v\n", d, idx)
 			}
 			idx += 1
 		}
@@ -167,7 +167,7 @@ func main() {
 			idx := 0
 			go collectAverage(pressureChs, dch)
 			for d := range dch {
-				fmt.Fprintf(pressureF, "%v        %v\n", idx, d / len(chs))
+				fmt.Fprintf(pressureF, "%v        %v\n", idx, d)
 				idx += 1
 			}
 		}()
