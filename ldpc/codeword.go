@@ -53,6 +53,7 @@ type PendingCodeword struct {
 	Codeword
 	Members map[Transaction]struct{}
 	Candidates map[Transaction]struct{}
+	Dirty bool	// if we should speculate this cw again
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
@@ -60,6 +61,7 @@ func NewPendingCodeword(c Codeword) PendingCodeword {
 		c,
 		make(map[Transaction]struct{}),
 		make(map[Transaction]struct{}),
+		true,
 	}
 }
 
@@ -70,6 +72,8 @@ func (c *PendingCodeword) PeelTransaction(t Transaction) {
 	}
 	c.Codeword.ApplyTransaction(&t, From)
 	c.Members[t] = struct{}{}
+	delete(c.Candidates, t)
+	c.Dirty = true
 }
 
 func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
@@ -79,6 +83,8 @@ func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
 	}
 	c.Codeword.ApplyTransaction(&t, Into)
 	delete(c.Members, t)
+	c.Candidates[t] = struct{}{}
+	c.Dirty = true
 }
 
 func (c *PendingCodeword) AddCandidate(t Transaction) bool {
@@ -87,6 +93,7 @@ func (c *PendingCodeword) AddCandidate(t Transaction) bool {
 		return false
 	} else {
 		c.Candidates[t] = struct{}{}
+		c.Dirty = true
 		return true
 	}
 }
@@ -95,6 +102,7 @@ func (c *PendingCodeword) RemoveCandidate(t Transaction) bool {
 	_, there := c.Candidates[t]
 	if there {
 		delete(c.Candidates, t)
+		c.Dirty = true
 		return true
 	} else {
 		return false
@@ -122,6 +130,10 @@ func (c *PendingCodeword) SpeculateCost() int {
 // codeword and returns the remaining transaction with true. Otherwise, it
 // returns an empty transaction and false.
 func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
+	if !c.Dirty {
+		return Transaction{}, false
+	}
+	c.Dirty = false
 	var res Transaction
 	// cannot peel if the remaining degree is too high (there is no enough candidate)
 	if c.Counter - len(c.Candidates) > 1 {
