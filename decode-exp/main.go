@@ -20,7 +20,7 @@ func main() {
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
 	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
-	refillTransaction := flag.String("f", "c(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, empty string to disable")
+	refillTransaction := flag.String("f", "c(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, empty string to disable")
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
 	degreeDistString := flag.String("d", "u(0.02)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
@@ -59,7 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 	// validate the pacer string
-	_, err = NewTransactionPacer(*refillTransaction)
+	_, err = NewTransactionPacer(nil, *refillTransaction)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -185,7 +185,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff cha
 	if err != nil {
 		return err
 	}
-	pacer1, err := NewTransactionPacer(refill)
+	pacer1, err := NewTransactionPacer(rng, refill)
 	if err != nil {
 		return err
 	}
@@ -193,17 +193,16 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff cha
 	if err != nil {
 		return err
 	}
-	rng2 := rand.New(rand.NewSource(seed+1000))
 	// TODO: d+r is not a good estimation anymore with refill and potentially empty starting sets
-	dist2, err := NewDistribution(rng2, dist, d+r)
+	dist2, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
 		return err
 	}
-	pacer2, err := NewTransactionPacer(refill)
+	pacer2, err := NewTransactionPacer(rng, refill)
 	if err != nil {
 		return err
 	}
-	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng2, pacer2)
+	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng, pacer2)
 	if err != nil {
 		return err
 	}
