@@ -12,6 +12,7 @@ import (
 	"bufio"
 )
 
+// BUG: the experiment is somehow not deterministic; is it map range?
 func main() {
 	srcSize := flag.Int("s", 0, "sender pool transation count")
 	differenceSize := flag.Int("x", 0, "number of transactions that appear in the sender but not in the receiver")
