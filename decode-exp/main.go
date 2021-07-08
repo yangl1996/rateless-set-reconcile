@@ -79,14 +79,17 @@ func main() {
 	var chs []chan int	// channels for the interation-#decoded result
 	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
 	var pressureChs []chan int		// channel to collect num of transactions
+	var cwpoolChs []chan int
 	for i := 0; i < *runs; i++ {
 		ch := make(chan int, 1000)
 		chs = append(chs, ch)
 		pressureCh := make(chan int, 1000)
 		pressureChs = append(pressureChs, pressureCh)
+		cwpoolCh := make(chan int, 1000)
+		cwpoolChs = append(cwpoolChs, cwpoolCh)
 		sd := rand.Int63()
 		go func(s int64) {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -96,6 +99,7 @@ func main() {
 	var f *os.File
 	var degreeF *os.File
 	var pressureF *os.File
+	var cwpoolF *os.File
 	if *outputPrefix != "" {
 		var err error
 		f, err = os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
@@ -111,7 +115,6 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
-		fmt.Fprintf(f, "# |src|=%v, |S\\D|=%v, |D\\S|=%v, refill=%v, dist=%s\n", *srcSize, *differenceSize, *reverseDifferenceSize, *refillTransaction, *degreeDistString)
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 
 		degreeF, err = os.Create(*outputPrefix+"-codeword-degree-dist.dat")
@@ -128,6 +131,14 @@ func main() {
 		}
 		fmt.Fprintf(pressureF, "# iteration     unique to P1\n")
 		defer pressureF.Close()
+
+		cwpoolF, err = os.Create(*outputPrefix+"-p2-codeword-pool.dat")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(cwpoolF, "# iteration     P2 unreleased cw\n")
+		defer cwpoolF.Close()
 	}
 
 	// monitor and dump to files
@@ -172,14 +183,28 @@ func main() {
 			}
 		}()
 	}
+	if cwpoolF != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dch := make(chan int, 1000)
+			idx := 0
+			go collectAverage(cwpoolChs, dch)
+			for d := range dch {
+				fmt.Fprintf(cwpoolF, "%v        %v\n", idx, d)
+				idx += 1
+			}
+		}()
+	}
 
 	wg.Wait()
 	return
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cwpool chan int, dist string, seed int64) error {
 	defer close(res)	// close when the experiment ends
 	defer close(diff)
+	defer close(cwpool)
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -261,6 +286,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff cha
 		}
 		received = len(p2.Transactions)
 		diff <- unique
+		cwpool <- len(p2.Codewords)
 	}
 }
 
