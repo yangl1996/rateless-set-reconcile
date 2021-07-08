@@ -47,6 +47,10 @@ func (s *poissonPacer) tick() int {
 }
 
 func NewPoissonPacer(rng *rand.Rand, rate float64) *poissonPacer {
+	if rng == nil {
+		// called because we are just validating the syntax
+		return nil
+	}
 	firstEmit := rng.ExpFloat64() / rate
 	return &poissonPacer {
 		rng,
