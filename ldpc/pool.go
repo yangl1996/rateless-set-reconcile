@@ -148,7 +148,9 @@ func (p *TransactionPool) TryDecode() {
 			}
 		}
 	}
-	for cidx, _ := range p.dirty {
+	for cidx, _ := range p.Codewords {
+	// TODO: do this and we do not have the random problem
+	//for cidx, _ := range p.dirty {
 		// try to speculatively peel
 		tx, ok := p.Codewords[cidx].SpeculatePeel()
 		if ok {
