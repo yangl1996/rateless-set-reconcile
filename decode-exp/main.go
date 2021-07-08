@@ -80,7 +80,7 @@ func main() {
 	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
 	var pressureChs []chan int		// channel to collect num of transactions
 	for i := 0; i < *runs; i++ {
-		ch := make(chan int, *differenceSize)
+		ch := make(chan int, 1000)
 		chs = append(chs, ch)
 		pressureCh := make(chan int, 1000)
 		pressureChs = append(pressureChs, pressureCh)
