@@ -137,77 +137,41 @@ func main() {
 	go func() {
 		defer wg.Done()
 		defer close(degreeCh)	// we are sure that after all res channels close, no gorountine will write to degreeCh
-		for idx := 0;; idx++ {
-			nClosed := 0
-			d := 0
-			for _, ch := range chs {
-				td, more := <-ch
-				if more {
-					d += td
-				} else {
-					nClosed += 1
-				}
+		dch := make(chan int, 1000)
+		idx := 0
+		go collectAverage(chs, dch)
+		for d := range dch {
+			if f != nil {
+				fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
 			}
-			if nClosed >= len(chs) {
-				return
-			} else if nClosed == 0 {
-				if f != nil {
-					fmt.Fprintf(f, "%v        %v\n", idx, d / len(chs))
-				}
-				if !*noTermOut {
-					fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
-				}
-			} else {
-				fmt.Println(nClosed, "of", *runs, "runs have stopped, waiting for all to stop")
+			if !*noTermOut {
+				fmt.Printf("Iteration=%v, transactions=%v\n", d/len(chs), idx)
 			}
+			idx += 1
 		}
 	}()
 	// collect and dump codeword degree distribution
-	wg.Add(1)
-	go func() {
-		hist := make(map[int]int)
-		maxd := 0
-		tot := 0
-		defer wg.Done()
-		for d := range degreeCh {
-			hist[d] += 1
-			if maxd < d {
-				maxd = d
-			}
-			tot += 1
-		}
-		if degreeF != nil {
-			for i:=0; i <=maxd; i++ {
-				if val, there := hist[i]; there {
-					fmt.Fprintf(degreeF, "%v         %v\n", i, float64(val)/float64(tot))
-				}
-			}
-		}
-	}()
+	if degreeF != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			collectDumpHistogram(degreeF, degreeCh)
+		}()
+	}
 	// collect and dump num of transactions unique to p1
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for idx := 0;; idx++ {
-			nClosed := 0
-			d := 0
-			for _, ch := range pressureChs {
-				td, more := <-ch
-				if more {
-					d += td
-				} else {
-					nClosed += 1
-				}
+	if pressureF != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dch := make(chan int, 1000)
+			idx := 0
+			go collectAverage(pressureChs, dch)
+			for d := range dch {
+				fmt.Fprintf(pressureF, "%v        %v\n", idx, d / len(chs))
+				idx += 1
 			}
-			if nClosed >= len(chs) {
-				return
-			} else if nClosed == 0 {
-				if pressureF != nil {
-					fmt.Fprintf(pressureF, "%v        %v\n", idx, d / len(chs))
-				}
-			}
-		}
-	}()
+		}()
+	}
 
 	wg.Wait()
 	return
@@ -331,4 +295,43 @@ func readConfigString(prefix string) (Config, error) {
 	}
 	err = json.Unmarshal(data, &config)
 	return config, err
+}
+
+func collectDumpHistogram(f *os.File, ch chan int) {
+	hist := make(map[int]int)
+	maxd := 0
+	tot := 0
+	for d := range ch {
+		hist[d] += 1
+		if maxd < d {
+			maxd = d
+		}
+		tot += 1
+	}
+	for i:=0; i <=maxd; i++ {
+		if val, there := hist[i]; there {
+			fmt.Fprintf(f, "%v         %v\n", i, float64(val)/float64(tot))
+		}
+	}
+}
+
+func collectAverage(chs []chan int, out chan int) {
+	defer close(out)
+	for ;; {
+		nClosed := 0
+		d := 0
+		for _, ch := range chs {
+			td, more := <-ch
+			if more {
+				d += td
+			} else {
+				nClosed += 1
+			}
+		}
+		if nClosed >= len(chs) {
+			return
+		} else if nClosed == 0 {
+			out <- d/len(chs)
+		}
+	}
 }
