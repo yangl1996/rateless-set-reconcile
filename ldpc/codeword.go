@@ -122,6 +122,9 @@ func (c *PendingCodeword) SpeculateCost() int {
 	for i := 1; i <= k; i++ {
 		res = (n - k + i) * res / i
 	}
+	if res < 0 {
+		return math.MaxInt64
+	}
 	return res
 }
 
