@@ -15,16 +15,36 @@ func randomData() [TxDataSize]byte {
 	return d
 }
 
+// TestMarshal tests marshalling and unmarshalling of transaction body.
+func TestMarshalBody(t *testing.T) {
+	d := randomData()
+	tb := TransactionBody{d, 123}
+	m, err := tb.MarshalBinary()
+	if err != nil {
+		t.Error("error marshalling transaction body")
+	}
+	un := TransactionBody{}
+	err = un.UnmarshalBinary(m)
+	if err != nil {
+		t.Error("error unmarshalling transaction body")
+	}
+	if un != tb {
+		t.Error("transaction body corrupted during marshalling")
+	}
+}
+
 // TestNewTransaction tests the creation of a transaction.
 func TestNewTransaction(t *testing.T) {
 	d := randomData()
 	tx := NewTransaction(d, 123)
-	buf := [TxBodySize]byte{}
-	copy(buf[0:TxDataSize], tx.Data[:])
-	binary.LittleEndian.PutUint64(buf[TxDataSize:TxBodySize], 123)
-	h := md5.Sum(buf[:])
+	buf, _ := tx.TransactionBody.MarshalBinary()
+	h := md5.Sum(buf)
 	if bytes.Compare(h[:], tx.checksum[:]) != 0 {
 		t.Error("incorrect checksum in created transaction")
+	}
+	tb := TransactionBody{d, 123}
+	if tx.TransactionBody != tb {
+		t.Error("corrupted fields in new transaction")
 	}
 }
 
@@ -63,14 +83,11 @@ func TestMarshal(t *testing.T) {
 	if err != nil {
 		t.Error("error unmarshalling transaction")
 	}
-	if tx.Data != un.Data {
-		t.Error("incorrect unmarshaled Data")
+	if tx.TransactionBody != un.TransactionBody {
+		t.Error("incorrect body data")
 	}
 	if tx.checksum != un.checksum {
 		t.Error("incorrect unmarshaled checksum")
-	}
-	if tx.Timestamp != un.Timestamp {
-		t.Error("incorrect unmarhshaled timestamp")
 	}
 }
 
