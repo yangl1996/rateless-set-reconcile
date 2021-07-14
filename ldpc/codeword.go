@@ -35,8 +35,9 @@ func (c *Codeword) ApplyTransaction(t *Transaction, dir int) {
 	for i := 0; i < TxDataSize/8; i++ {
 		*(*uint64)(unsafe.Pointer(&c.Symbol[i*8])) ^= *(*uint64)(unsafe.Pointer(&t.Data[i*8]))
 	}
-	for i := 0; i < (TxSize-TxDataSize)/8; i++ {
-		*(*uint64)(unsafe.Pointer(&c.Symbol[i*8+TxDataSize])) ^= *(*uint64)(unsafe.Pointer(&t.checksum[i*8]))
+	*(*uint64)(unsafe.Pointer(&c.Symbol[TxDataSize])) ^= t.Timestamp
+	for i := 0; i < (TxSize-TxBodySize)/8; i++ {
+		*(*uint64)(unsafe.Pointer(&c.Symbol[i*8+TxBodySize])) ^= *(*uint64)(unsafe.Pointer(&t.checksum[i*8]))
 	}
 	c.Counter += dir
 }

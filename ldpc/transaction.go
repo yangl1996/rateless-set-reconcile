@@ -11,7 +11,8 @@ import (
 )
 
 const TxSize = 512                   // the size of a transaction, including the checksum
-const TxDataSize = TxSize - md5.Size // transaction size minus the checksum size
+const TxDataSize = TxSize - md5.Size - 8 // transaction size minus the checksum size
+const TxBodySize = TxSize - md5.Size
 
 var hasherPool = sync.Pool{
 	New: func() interface{} {
@@ -20,20 +21,43 @@ var hasherPool = sync.Pool{
 	},
 }
 
+type TransactionBody struct {
+	Data [TxDataSize]byte
+	Timestamp uint64
+}
+
+func (t *TransactionBody) MarshalBinary() (data []byte, err error) {
+	b := [TxBodySize]byte{}
+	copy(b[0:TxDataSize], t.Data[:])
+	binary.LittleEndian.PutUint64(b[TxDataSize:TxBodySize], t.Timestamp)
+	return b[:], nil
+}
+
+func (t *TransactionBody) UnmarshalBinary(data []byte) error {
+	if len(data) != TxBodySize {
+		return DataSizeError{len(data)}
+	}
+	copy(t.Data[:], data[0:TxDataSize])
+	t.Timestamp = binary.LittleEndian.Uint64(data[TxDataSize:TxBodySize])
+	return nil
+}
+
 // Transaction models a transaction in the system. It embeds a checksum, used
 // to simulate the signatures of real-world transactions.
 type Transaction struct {
-	Data     [TxDataSize]byte
+	TransactionBody
 	checksum [md5.Size]byte
 }
 
 // NewTransaction creates a transaction from the given data by calculating
 // and storing the MD5 checksum. (We use MD5 because this is a simulation
 // and security does not matter.)
-func NewTransaction(d [TxDataSize]byte) Transaction {
+func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
+	tb := TransactionBody{d, ts}
 	t := Transaction{}
-	copy(t.Data[:], d[:])
-	t.checksum = md5.Sum(d[:])
+	t.TransactionBody = tb
+	dt, _ := tb.MarshalBinary()
+	t.checksum = md5.Sum(dt)
 	return t
 }
 
@@ -42,7 +66,8 @@ func (t *Transaction) HashWithSalt(salt []byte) []byte {
 	h := hasherPool.Get().(hash.Hash)
 	defer hasherPool.Put(h)
 	h.Reset()
-	h.Write(t.Data[:])
+	d, _ := t.TransactionBody.MarshalBinary()
+	h.Write(d)
 	h.Write(t.checksum[:])
 	h.Write(salt)
 	return h.Sum(nil)
@@ -79,8 +104,9 @@ func (e DataSizeError) Error() string {
 // a byte array of TxSize and the error is always nil.
 func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := make([]byte, TxSize)
-	copy(b[0:TxDataSize], t.Data[:])
-	copy(b[TxDataSize:TxSize], t.checksum[:])
+	d, _ := t.TransactionBody.MarshalBinary()
+	copy(b[0:TxBodySize], d)
+	copy(b[TxBodySize:TxSize], t.checksum[:])
 	return b, nil
 }
 
@@ -91,9 +117,14 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	if len(data) != TxSize {
 		return DataSizeError{len(data)}
 	}
-	copy(t.Data[:], data[0:TxDataSize])
-	copy(t.checksum[:], data[TxDataSize:TxSize])
-	cs := md5.Sum(t.Data[:])
+	tb := TransactionBody{}
+	err := (&tb).UnmarshalBinary(data[0:TxBodySize])
+	if err != nil {
+		return err
+	}
+	t.TransactionBody = tb
+	copy(t.checksum[:], data[TxBodySize:TxSize])
+	cs := md5.Sum(data[0:TxBodySize])
 	if bytes.Compare(cs[:], t.checksum[:]) != 0 {
 		return ChecksumError{t.checksum, cs}
 	} else {

@@ -16,14 +16,14 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 	var members []Transaction
 	for i := 0; i < deg; i++ {
 		d := randomData()
-		tx := NewTransaction(d)
+		tx := NewTransaction(d, 0)
 		members = append(members, tx)
 		c.ApplyTransaction(&tx, Into)
 	}
 	cw := NewPendingCodeword(c)
 	for i := 0; i < (total-correct); i++ {
 		d := randomData()
-		tx := NewTransaction(d)
+		tx := NewTransaction(d, 0)
 		cw.AddCandidate(tx)
 	}
 	for i := 0; i < correct; i++ {

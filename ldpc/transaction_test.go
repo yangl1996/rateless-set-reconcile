@@ -18,8 +18,11 @@ func randomData() [TxDataSize]byte {
 // TestNewTransaction tests the creation of a transaction.
 func TestNewTransaction(t *testing.T) {
 	d := randomData()
-	tx := NewTransaction(d)
-	h := md5.Sum(tx.Data[:])
+	tx := NewTransaction(d, 123)
+	buf := [TxBodySize]byte{}
+	copy(buf[0:TxDataSize], tx.Data[:])
+	binary.LittleEndian.PutUint64(buf[TxDataSize:TxBodySize], 123)
+	h := md5.Sum(buf[:])
 	if bytes.Compare(h[:], tx.checksum[:]) != 0 {
 		t.Error("incorrect checksum in created transaction")
 	}
@@ -28,9 +31,10 @@ func TestNewTransaction(t *testing.T) {
 // TestHashingAndUint tests the hashing and uint with salt.
 func TestHashingAndUint(t *testing.T) {
 	d := randomData()
-	tx := NewTransaction(d)
+	tx := NewTransaction(d, 123)
 	s := []byte{}
-	s = append(s, tx.Data[:]...)
+	bodyBytes, _ := tx.TransactionBody.MarshalBinary()
+	s = append(s, bodyBytes...)
 	s = append(s, tx.checksum[:]...)
 	s = append(s, 1, 2, 3) // salt
 	hash := blake2b.Sum512(s)
@@ -49,7 +53,7 @@ func TestHashingAndUint(t *testing.T) {
 // TestMarshal tests the marshalling and unmarshalling of a transaction.
 func TestMarshal(t *testing.T) {
 	d := randomData()
-	tx := NewTransaction(d)
+	tx := NewTransaction(d, 123)
 	m, err := tx.MarshalBinary()
 	if err != nil {
 		t.Error("error marshalling transaction")
@@ -65,6 +69,9 @@ func TestMarshal(t *testing.T) {
 	if tx.checksum != un.checksum {
 		t.Error("incorrect unmarshaled checksum")
 	}
+	if tx.Timestamp != un.Timestamp {
+		t.Error("incorrect unmarhshaled timestamp")
+	}
 }
 
 // TestUnmarshalFails tests the two failure cases of Unmarshal. Specifically, we
@@ -73,7 +80,7 @@ func TestMarshal(t *testing.T) {
 // is not homomorphic to XOR.
 func TestUnmarshalFails(t *testing.T) {
 	d := randomData()
-	tx := NewTransaction(d)
+	tx := NewTransaction(d, 123)
 	m, err := tx.MarshalBinary()
 	un := Transaction{}
 	err = un.UnmarshalBinary(m[0 : TxSize-1])
@@ -89,10 +96,10 @@ func TestUnmarshalFails(t *testing.T) {
 		t.Error("unmarshal did not report checksum error")
 	}
 	d1 := randomData()
-	tx1 := NewTransaction(d1)
+	tx1 := NewTransaction(d1, 123)
 	m1, _:= tx1.MarshalBinary()
 	d2 := randomData()
-	tx2 := NewTransaction(d2)
+	tx2 := NewTransaction(d2, 456)
 	m2, _:= tx2.MarshalBinary()
 	dt := make([]byte, TxSize)
 	for i := 0; i < TxSize; i++ {
