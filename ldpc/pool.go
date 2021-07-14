@@ -42,7 +42,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	if _, there := p.Transactions[tx]; there {
 		return
 	}
-	ps := PeerStatus{math.MaxInt64, 0}
+	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
@@ -209,7 +209,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	cw.Seq = p.Seq
 	p.Seq += 1
 	for v, _ := range p.Transactions {
-		if cw.Covers(&v) {
+		if cw.Covers(&v) && int(v.Timestamp) <= cw.Seq {
 			cw.ApplyTransaction(&v.Transaction, Into)
 		}
 	}
