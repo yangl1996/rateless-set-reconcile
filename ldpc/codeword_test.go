@@ -41,11 +41,14 @@ func BenchmarkSpeculate(b *testing.B) {
 	b.ReportAllocs()
 	cws := make([]PendingCodeword, b.N)
 	for i := 0; i < b.N; i++ {
-		cws[i], _ = prepareCodeword(50, 49, 52)
+		cws[i], _ = prepareCodeword(70, 69, 72)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cws[i].SpeculatePeel()
+		_, ok := cws[i].SpeculatePeel()
+		if !ok {
+			b.Fatal("unable to peel in a benchmark")
+		}
 	}
 }
 
