@@ -235,38 +235,50 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 
 	res <- 0 // at iteration 0, we have decoded 0 transactions
 	// start sending codewords from p1 to p2
-	i := 0	// iteration counter
-	received := len(p2.Transactions)
-	decoded := 0
-	lastAct := 0
-	unique := d
+	// prepare the counters
+	i := 0					// iteration counter
+	lastAct := 0				// last iteration where there's any progress
+	received := make([]int, 2)		// transaction pool size as of the end of prev iter
+	received[0] = len(p1.Transactions)
+	received[1] = len(p2.Transactions)
+	decoded := make([]int, 2)		// num transactions decoded
+	decoded[0] = 0
+	decoded[1] = 0
+	unique := make([]int, 2)		// num transactions undecoded by the other end
+	unique[0] = d
+	unique[1] = r
 	for ;; {
 		i += 1
-		c := p1.produceCodeword()
+		c1 := p1.produceCodeword()
 		c2 := p2.produceCodeword()
-		degree <- c.Counter
-		p2.InputCodeword(c)
+		degree <- c1.Counter
+		p2.InputCodeword(c1)
 		p2.TryDecode()
 		p1.InputCodeword(c2)
 		p1.TryDecode()
-		thisBatch := len(p2.Transactions) - received
-		for cnt := 0; cnt < thisBatch; cnt++ {
+		for cnt := 0; cnt < len(p2.Transactions) - received[1]; cnt++ {
 			res <- i
 			lastAct = i
-			decoded += 1
-			unique -= 1
-			if tcnt != 0 && tcnt <= decoded {
+			decoded[1] += 1
+			unique[0] -= 1
+			if tcnt != 0 && tcnt <= decoded[1] {
 				return nil
 			}
+		}
+		for cnt := 0; cnt < len(p1.Transactions) - received[0]; cnt++ {
+			lastAct = i
+			decoded[0] += 1
+			unique[1] -= 1
 		}
 		if i - lastAct > tout {
 			return nil
 		}
+		// add transactions to pools
 		nadd := p1.pacer.tick()
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p1.getRandomTransaction()
 			p1.AddTransaction(t)
-			unique += 1
+			unique[0] += 1
 			/*
 			if rand.Float64() < 0.8 {
 				p2.AddTransaction(t)
@@ -279,14 +291,16 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p2.getRandomTransaction()
 			p2.AddTransaction(t)
+			unique[1] += 1
 			/*
 			if rand.Float64() < 0.8 {
 				p1.AddTransaction(t)
 			}
 			*/
 		}
-		received = len(p2.Transactions)
-		diff <- unique
+		received[0] = len(p1.Transactions)
+		received[1] = len(p2.Transactions)
+		diff <- unique[0]
 		cwpool <- len(p2.Codewords)
 	}
 }
