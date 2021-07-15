@@ -1,7 +1,8 @@
 package ldpc
 
 import (
-	"hash/fnv"
+	//"hash/fnv"
+	"crypto/md5"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
 	"hash"
@@ -23,7 +24,8 @@ var hasherPool = sync.Pool{
 
 var checksumPool = sync.Pool {
 	New: func() interface{} {
-		h := fnv.New128a()
+		h := md5.New()
+		//h := fnv.New128a()
 		return h
 	},
 }

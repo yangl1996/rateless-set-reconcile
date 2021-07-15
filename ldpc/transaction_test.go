@@ -1,8 +1,8 @@
 package ldpc
 
 import (
+	"hash"
 	"bytes"
-	"hash/fnv"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
 	"math/rand"
@@ -39,7 +39,8 @@ func TestNewTransaction(t *testing.T) {
 	tx := NewTransaction(d, 123)
 	buf, _ := tx.TransactionBody.MarshalBinary()
 
-	hasher := fnv.New128a()
+	hasher := checksumPool.Get().(hash.Hash)
+	defer checksumPool.Put(hasher)
 	hasher.Write(buf[:])
 	var h [ChecksumSize]byte
 	hasher.Sum(h[:])
