@@ -81,10 +81,7 @@ func (t *Transaction) UintWithSalt(salt []byte) uint64 {
 }
 
 // ChecksumError catches a wrong checksum when trying to unmarshal a transaction.
-type ChecksumError struct {
-	given   [md5.Size]byte
-	correct [md5.Size]byte
-}
+type ChecksumError struct {}
 
 func (e ChecksumError) Error() string {
 	return "incorrect transaction checksum"
@@ -126,7 +123,7 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	copy(t.checksum[:], data[TxBodySize:TxSize])
 	cs := md5.Sum(data[0:TxBodySize])
 	if bytes.Compare(cs[:], t.checksum[:]) != 0 {
-		return ChecksumError{t.checksum, cs}
+		return ChecksumError{}
 	} else {
 		return nil
 	}
