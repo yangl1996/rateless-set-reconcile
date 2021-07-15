@@ -41,10 +41,13 @@ func TestNewTransaction(t *testing.T) {
 
 	hasher := checksumPool.Get().(hash.Hash)
 	defer checksumPool.Put(hasher)
+	hasher.Reset()
 	hasher.Write(buf[:])
 	var h [ChecksumSize]byte
-	hasher.Sum(h[:])
-	if bytes.Compare(h[:], tx.checksum[:]) != 0 {
+	hasher.Sum(h[0:0])
+	if h != tx.checksum {
+		t.Error(h)
+		t.Error(tx.checksum)
 		t.Error("incorrect checksum in created transaction")
 	}
 	tb := TransactionBody{d, 123}

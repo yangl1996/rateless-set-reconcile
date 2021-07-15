@@ -71,7 +71,7 @@ func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(dt)
-	h.Sum(t.checksum[:])
+	h.Sum(t.checksum[0:0])
 	return t
 }
 
@@ -141,7 +141,7 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(data[0:TxBodySize])
-	h.Sum(cs[:])
+	h.Sum(cs[0:0])
 	if cs != t.checksum {
 		return ChecksumError{}
 	} else {
