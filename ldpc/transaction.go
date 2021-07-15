@@ -1,8 +1,7 @@
 package ldpc
 
 import (
-	"bytes"
-	"crypto/md5"
+	"hash/fnv"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
 	"hash"
@@ -10,13 +9,21 @@ import (
 	"unsafe"
 )
 
+const ChecksumSize = 16
 const TxSize = 512                   // the size of a transaction, including the checksum
-const TxDataSize = TxSize - md5.Size - 8 // transaction size minus the checksum size
-const TxBodySize = TxSize - md5.Size
+const TxDataSize = TxSize - ChecksumSize - 8 // transaction size minus the checksum size
+const TxBodySize = TxSize - ChecksumSize
 
 var hasherPool = sync.Pool{
 	New: func() interface{} {
 		h, _ := blake2b.New512(nil) // this fn never returns error when key=nil
+		return h
+	},
+}
+
+var checksumPool = sync.Pool {
+	New: func() interface{} {
+		h := fnv.New128a()
 		return h
 	},
 }
@@ -46,7 +53,7 @@ func (t *TransactionBody) UnmarshalBinary(data []byte) error {
 // to simulate the signatures of real-world transactions.
 type Transaction struct {
 	TransactionBody
-	checksum [md5.Size]byte
+	checksum [ChecksumSize]byte
 }
 
 // NewTransaction creates a transaction from the given data by calculating
@@ -57,7 +64,12 @@ func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 	t := Transaction{}
 	t.TransactionBody = tb
 	dt, _ := tb.MarshalBinary()
-	t.checksum = md5.Sum(dt)
+
+	h := checksumPool.Get().(hash.Hash)
+	defer checksumPool.Put(h)
+	h.Reset()
+	h.Write(dt)
+	h.Sum(t.checksum[:])
 	return t
 }
 
@@ -121,8 +133,14 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	}
 	t.TransactionBody = tb
 	copy(t.checksum[:], data[TxBodySize:TxSize])
-	cs := md5.Sum(data[0:TxBodySize])
-	if bytes.Compare(cs[:], t.checksum[:]) != 0 {
+
+	var cs [ChecksumSize]byte
+	h := checksumPool.Get().(hash.Hash)
+	defer checksumPool.Put(h)
+	h.Reset()
+	h.Write(data[0:TxBodySize])
+	h.Sum(cs[:])
+	if cs != t.checksum {
 		return ChecksumError{}
 	} else {
 		return nil

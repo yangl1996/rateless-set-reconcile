@@ -2,7 +2,7 @@ package ldpc
 
 import (
 	"bytes"
-	"crypto/md5"
+	"hash/fnv"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
 	"math/rand"
@@ -38,7 +38,11 @@ func TestNewTransaction(t *testing.T) {
 	d := randomData()
 	tx := NewTransaction(d, 123)
 	buf, _ := tx.TransactionBody.MarshalBinary()
-	h := md5.Sum(buf)
+
+	hasher := fnv.New128a()
+	hasher.Write(buf[:])
+	var h [ChecksumSize]byte
+	hasher.Sum(h[:])
 	if bytes.Compare(h[:], tx.checksum[:]) != 0 {
 		t.Error("incorrect checksum in created transaction")
 	}
