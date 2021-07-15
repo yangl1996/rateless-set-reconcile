@@ -9,7 +9,7 @@ import (
 )
 
 type transactionPacer interface {
-	tick() int
+	tick(int) int
 }
 
 type uniformPacer struct {
@@ -18,7 +18,7 @@ type uniformPacer struct {
 	generated float64
 }
 
-func (u *uniformPacer) tick() int {
+func (u *uniformPacer) tick(_ int) int {
 	u.generated += u.rate
 	t := int(math.Floor(u.generated - float64(u.emitted)))
 	if t >= 1 {
@@ -36,7 +36,7 @@ type poissonPacer struct{
 	rate float64
 }
 
-func (s *poissonPacer) tick() int {
+func (s *poissonPacer) tick(_ int) int {
 	s.curTime += 1.0
 	t := 0
 	for s.nextEmit <= s.curTime {
@@ -63,8 +63,20 @@ func NewPoissonPacer(rng *rand.Rand, rate float64) *poissonPacer {
 type slientPacer struct {
 }
 
-func (s *slientPacer) tick() int {
+func (s *slientPacer) tick(_ int) int {
 	return 0
+}
+
+type countingPacer struct {
+	cnt int
+}
+
+func (s *countingPacer) tick(n int) int {
+	if n >= s.cnt {
+		return 0
+	} else {
+		return s.cnt - n
+	}
 }
 
 
@@ -85,6 +97,13 @@ func NewTransactionPacer(rng *rand.Rand, s string) (transactionPacer, error) {
 			return nil, err
 		}
 		return NewPoissonPacer(rng, rate), nil
+	case strings.HasPrefix(ds, "n("):
+		param := strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "n(")
+		p, err := strconv.Atoi(param)
+		if err != nil {
+			return nil, err
+		}
+		return &countingPacer{p}, nil
 	case ds == "":
 		return &slientPacer{}, nil
 	default:
