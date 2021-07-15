@@ -1,8 +1,7 @@
 package ldpc
 
 import (
-	//"hash/fnv"
-	"crypto/md5"
+	"github.com/cespare/xxhash"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
 	"hash"
@@ -10,7 +9,7 @@ import (
 	"unsafe"
 )
 
-const ChecksumSize = 16
+const ChecksumSize = 8
 const TxSize = 512                   // the size of a transaction, including the checksum
 const TxDataSize = TxSize - ChecksumSize - 8 // transaction size minus the checksum size
 const TxBodySize = TxSize - ChecksumSize
@@ -24,8 +23,7 @@ var hasherPool = sync.Pool{
 
 var checksumPool = sync.Pool {
 	New: func() interface{} {
-		h := md5.New()
-		//h := fnv.New128a()
+		h := xxhash.New()
 		return h
 	},
 }
