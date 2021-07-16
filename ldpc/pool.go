@@ -163,21 +163,20 @@ func (p *TransactionPool) TryDecode() {
 	// release codewords and update transaction availability estimation
 	updatedTx := []TimestampedTransaction{}
 	cwIdx := 0	// idx of the cw we are currently working on 
+	change := false
 	for cwIdx < len(p.Codewords) {
 		c := p.Codewords[cwIdx]
 		if c.IsPure() {
 			updated := p.MarkCodewordReleased(c)
 			updatedTx = append(updatedTx, updated...)
 			// remove this codeword by moving from the end of the list
-			// BUG: the behavior of the code changed because and only because
-			// we are scrambling the order
 			p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
 			p.Codewords = p.Codewords[0:len(p.Codewords)-1]
+			change = true
 		} else {
 			cwIdx += 1
 		}
 	}
-	change := false
 	// try peel the touched transactions off the codewords
 	for cidx, c := range p.Codewords {
 		for _, txv := range updatedTx {
@@ -185,21 +184,13 @@ func (p *TransactionPool) TryDecode() {
 				_, there := c.Members[txv.Transaction]
 				if !there && c.Seq >= txv.FirstAvailable {
 					p.Codewords[cidx].PeelTransaction(txv.Transaction)
-					change = true
 				} else if there && c.Seq <= txv.LastMissing {
 					p.Codewords[cidx].UnpeelTransaction(txv.Transaction)
-					change = true
 				}
 				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
-					newcc := p.Codewords[cidx].AddCandidate(txv.Transaction)
-					if newcc {
-						change = true
-					}
+					p.Codewords[cidx].AddCandidate(txv.Transaction)
 				} else {
-					newcc := p.Codewords[cidx].RemoveCandidate(txv.Transaction)
-					if newcc {
-						change = true
-					}
+					p.Codewords[cidx].RemoveCandidate(txv.Transaction)
 				}
 			}
 		}
