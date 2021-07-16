@@ -158,36 +158,43 @@ func (p *TransactionPool) TryDecode() {
 		}
 	}
 	// release codewords and update transaction availability estimation
-	codes := []PendingCodeword{}	// remaining codewords after this iteration
 	updatedTx := []TimestampedTransaction{}
-	for _, c := range p.Codewords {
+	cwLen := len(p.Codewords)	// number of codewords at the beginning
+	cwIdx := 0	// idx of the cw we are currently working on 
+	nRemoved := 0	// number of codewords removed
+	for cwIdx+nRemoved < cwLen {
+		c := p.Codewords[cwIdx]
 		if c.IsPure() {
 			updated := p.MarkCodewordReleased(c)
 			updatedTx = append(updatedTx, updated...)
+			// remove this codeword by moving from the end of the list
+			p.Codewords[cwIdx] = p.Codewords[cwLen-nRemoved-1]
+			nRemoved += 1
 		} else {
-			codes = append(codes, c)
+			cwIdx += 1
 		}
 	}
+	p.Codewords = p.Codewords[0:cwLen-nRemoved]
 	change := false
 	// try peel the touched transactions off the codewords
-	for cidx, c := range codes {
+	for cidx, c := range p.Codewords {
 		for _, txv := range updatedTx {
 			if c.Covers(&txv.HashedTransaction) {
 				_, there := c.Members[txv.Transaction]
 				if !there && c.Seq >= txv.FirstAvailable {
-					codes[cidx].PeelTransaction(txv.Transaction)
+					p.Codewords[cidx].PeelTransaction(txv.Transaction)
 					change = true
 				} else if there && c.Seq <= txv.LastMissing {
-					codes[cidx].UnpeelTransaction(txv.Transaction)
+					p.Codewords[cidx].UnpeelTransaction(txv.Transaction)
 					change = true
 				}
 				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
-					newcc := codes[cidx].AddCandidate(txv.Transaction)
+					newcc := p.Codewords[cidx].AddCandidate(txv.Transaction)
 					if newcc {
 						change = true
 					}
 				} else {
-					newcc := codes[cidx].RemoveCandidate(txv.Transaction)
+					newcc := p.Codewords[cidx].RemoveCandidate(txv.Transaction)
 					if newcc {
 						change = true
 					}
@@ -195,7 +202,6 @@ func (p *TransactionPool) TryDecode() {
 			}
 		}
 	}
-	p.Codewords = codes
 	// if any codeword is updated, then we may decode and release more
 	if change {
 		p.TryDecode()
