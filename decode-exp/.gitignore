@@ -1,4 +1,5 @@
 decode-exp
 *.dat
 *.prof
+*.pprof
 *.pdf

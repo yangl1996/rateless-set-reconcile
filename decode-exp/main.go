@@ -1,6 +1,8 @@
 package main
 
 import (
+	"runtime"
+	"runtime/pprof"
 	"flag"
 	"os"
 	"fmt"
@@ -12,8 +14,9 @@ import (
 	"bufio"
 )
 
-// BUG: the experiment is somehow not deterministic; is it map range?
 func main() {
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
+	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
 	srcSize := flag.Int("s", 0, "sender pool transation count")
 	differenceSize := flag.Int("x", 0, "number of transactions that appear in the sender but not in the receiver")
 	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
@@ -64,6 +67,21 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+
+	// start the profile
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Println("could not create CPU profile: ", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			fmt.Println("could not start CPU profile: ", err)
+			os.Exit(1)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	config := Config {
@@ -196,6 +214,20 @@ func main() {
 				idx += 1
 			}
 		}()
+	}
+
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			fmt.Println("could not create memory profile: ", err)
+			os.Exit(1)
+		}
+		defer f.Close() // error handling omitted for example
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			fmt.Println("could not write memory profile: ", err)
+			os.Exit(1)
+		}
 	}
 
 	wg.Wait()
