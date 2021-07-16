@@ -23,7 +23,6 @@ func main() {
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
-	noTermOut := flag.Bool("q", false, "do not print log to terminal (quiet)")
 	refillTransaction := flag.String("f", "p(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, n(c) for keeping a constant number c of transactions, empty string to disable")
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
@@ -69,21 +68,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// start the profile
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			fmt.Println("could not create CPU profile: ", err)
-			os.Exit(1)
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			fmt.Println("could not start CPU profile: ", err)
-			os.Exit(1)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
 	config := Config {
 		*srcSize,
 		*differenceSize,
@@ -95,26 +79,7 @@ func main() {
 		*timeoutCounter,
 		*degreeDistString,
 	}
-	var chs []chan int	// channels for the interation-#decoded result
-	degreeCh := make(chan int, 1000)	// channel to collect the degree of codewords
-	var pressureChs []chan int		// channel to collect num of transactions
-	var cwpoolChs []chan int
-	for i := 0; i < *runs; i++ {
-		ch := make(chan int, 1000)
-		chs = append(chs, ch)
-		pressureCh := make(chan int, 1000)
-		pressureChs = append(pressureChs, pressureCh)
-		cwpoolCh := make(chan int, 1000)
-		cwpoolChs = append(cwpoolChs, cwpoolCh)
-		sd := rand.Int63()
-		go func(s int64) {
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}(sd)
-	}
-
+	// create output files
 	var f *os.File
 	var degreeF *os.File
 	var pressureF *os.File
@@ -160,26 +125,84 @@ func main() {
 		defer cwpoolF.Close()
 	}
 
+	// start the profile
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Println("could not create CPU profile: ", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			fmt.Println("could not start CPU profile: ", err)
+			os.Exit(1)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	var chs []chan int	// channels for the interation-#decoded result
+	var degreeCh chan int	// channel to collect the degree of codewords
+	if degreeF != nil {
+		degreeCh = make(chan int, 1000)
+	}
+	var pressureChs []chan int	// channel to collect num of undecoded transactions
+	var cwpoolChs []chan int	// channel to collect the number of unreleased codewords
+	procwg := &sync.WaitGroup{}
+	for i := 0; i < *runs; i++ {
+		procwg.Add(1)
+		var ch chan int
+		if f != nil {
+			ch = make(chan int, 1000)
+		}
+		chs = append(chs, ch)
+		var pressureCh chan int
+		if pressureF != nil {
+			pressureCh = make(chan int, 1000)
+		}
+		pressureChs = append(pressureChs, pressureCh)
+		var cwpoolCh chan int
+		if cwpoolF != nil {
+			cwpoolCh = make(chan int, 1000)
+		}
+		cwpoolChs = append(cwpoolChs, cwpoolCh)
+		sd := rand.Int63()
+		go func(s int64) {
+			if ch != nil {
+				defer close(ch)
+			}
+			if pressureCh != nil {
+				defer close(pressureCh)
+			}
+			if cwpoolCh != nil {
+				defer close(cwpoolCh)
+			}
+			defer procwg.Done()
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}(sd)
+	}
+
 	// monitor and dump to files
 	wg := &sync.WaitGroup{}
 	// for each tx idx, range over res channels to collect data and dump to file
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(degreeCh)	// we are sure that after all res channels close, no gorountine will write to degreeCh
-		dch := make(chan int, 1000)
-		idx := 0
-		go collectAverage(chs, dch)
-		for d := range dch {
-			if f != nil {
-				fmt.Fprintf(f, "%v        %v\n", idx, d)
-			}
-			if !*noTermOut {
+	if f != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dch := make(chan int, 1000)
+			idx := 0
+			go collectAverage(chs, dch)
+			for d := range dch {
+				if f != nil {
+					fmt.Fprintf(f, "%v        %v\n", idx, d)
+				}
 				fmt.Printf("Iteration=%v, transactions=%v\n", d, idx)
+				idx += 1
 			}
-			idx += 1
-		}
-	}()
+		}()
+	}
 	// collect and dump codeword degree distribution
 	if degreeF != nil {
 		wg.Add(1)
@@ -216,6 +239,12 @@ func main() {
 		}()
 	}
 
+	procwg.Wait()
+	if degreeCh != nil {
+		close(degreeCh)
+	}
+	wg.Wait()
+
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)
 		if err != nil {
@@ -229,15 +258,10 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	wg.Wait()
 	return
 }
 
 func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cwpool chan int, dist string, seed int64) error {
-	defer close(res)	// close when the experiment ends
-	defer close(diff)
-	defer close(cwpool)
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -265,7 +289,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		return err
 	}
 
-	res <- 0 // at iteration 0, we have decoded 0 transactions
+	if res != nil {
+		res <- 0 // at iteration 0, we have decoded 0 transactions
+	}
 	// start sending codewords from p1 to p2
 	// prepare the counters
 	i := 0					// iteration counter
@@ -283,13 +309,17 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		i += 1
 		c1 := p1.produceCodeword()
 		c2 := p2.produceCodeword()
-		degree <- c1.Counter
+		if degree != nil {
+			degree <- c1.Counter
+		}
 		p2.InputCodeword(c1)
 		p2.TryDecode()
 		p1.InputCodeword(c2)
 		p1.TryDecode()
 		for cnt := 0; cnt < len(p2.Transactions) - received[1]; cnt++ {
-			res <- i
+			if res != nil {
+				res <- i
+			}
 			lastAct = i
 			decoded[1] += 1
 			unique[0] -= 1
@@ -332,8 +362,12 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		}
 		received[0] = len(p1.Transactions)
 		received[1] = len(p2.Transactions)
-		diff <- unique[0]
-		cwpool <- len(p2.Codewords)
+		if diff != nil {
+			diff <- unique[0]
+		}
+		if cwpool != nil {
+			cwpool <- len(p2.Codewords)
+		}
 	}
 }
 
