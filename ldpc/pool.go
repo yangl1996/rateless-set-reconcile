@@ -181,7 +181,7 @@ func (p *TransactionPool) TryDecode() {
 					codes[cidx].UnpeelTransaction(txv.Transaction)
 					change = true
 				}
-				if c.Seq < txv.FirstAvailable && c.Seq >= txv.LastMissing {
+				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
 					newcc := codes[cidx].AddCandidate(txv.Transaction)
 					if newcc {
 						change = true
