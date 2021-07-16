@@ -159,22 +159,19 @@ func (p *TransactionPool) TryDecode() {
 	}
 	// release codewords and update transaction availability estimation
 	updatedTx := []TimestampedTransaction{}
-	cwLen := len(p.Codewords)	// number of codewords at the beginning
 	cwIdx := 0	// idx of the cw we are currently working on 
-	nRemoved := 0	// number of codewords removed
-	for cwIdx+nRemoved < cwLen {
+	for cwIdx < len(p.Codewords) {
 		c := p.Codewords[cwIdx]
 		if c.IsPure() {
 			updated := p.MarkCodewordReleased(c)
 			updatedTx = append(updatedTx, updated...)
 			// remove this codeword by moving from the end of the list
-			p.Codewords[cwIdx] = p.Codewords[cwLen-nRemoved-1]
-			nRemoved += 1
+			p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
+			p.Codewords = p.Codewords[0:len(p.Codewords)-1]
 		} else {
 			cwIdx += 1
 		}
 	}
-	p.Codewords = p.Codewords[0:cwLen-nRemoved]
 	change := false
 	// try peel the touched transactions off the codewords
 	for cidx, c := range p.Codewords {
