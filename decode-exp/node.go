@@ -23,7 +23,7 @@ func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicke
 
 	if srcPool != nil {
 		i := 0
-		for tx, _ := range srcPool.Transactions {
+		for _, tx := range srcPool.Transactions {
 			if i >= nCopy {
 				break
 			}

@@ -10,9 +10,15 @@ type PeerStatus struct {
 	LastMissing int
 }
 
+type TimestampedTransaction struct {
+	HashedTransaction
+	PeerStatus
+}
+
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
-	Transactions map[HashedTransaction]PeerStatus
+	TransactionId map[Transaction]struct{}
+	Transactions []TimestampedTransaction
 	Codewords    []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
 	Seq          int
@@ -21,15 +27,14 @@ type TransactionPool struct {
 // NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
-	p.Transactions = make(map[HashedTransaction]PeerStatus)
+	p.TransactionId = make(map[Transaction]struct{})
 	p.Seq = 1
 	return p, nil
 }
 
 // Exists checks if a given transaction exists in the pool.
 func (p *TransactionPool) Exists(t Transaction) bool {
-	tx := WrapTransaction(t)
-	_, yes := p.Transactions[tx]
+	_, yes := p.TransactionId[t]
 	return yes
 }
 
@@ -38,10 +43,10 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
 func (p *TransactionPool) AddTransaction(t Transaction) {
-	tx := WrapTransaction(t)
-	if _, there := p.Transactions[tx]; there {
+	if _, there := p.TransactionId[t]; there {
 		return
 	}
+	tx := WrapTransaction(t)
 	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
@@ -57,33 +62,34 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 			p.Codewords[cidx].AddCandidate(t)
 		}
 	}
-	p.Transactions[tx] = ps
+	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
+	p.TransactionId[t] = struct{}{}
 }
 
 // MarkCodewordReleased takes a codeword c that is going to be released.
 // It updates all known transactions' last missing and first seen timestamps,
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
-func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransaction {
+func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedTransaction {
 	if !c.IsPure() {
 		panic("releasing impure codeword")
 	}
-	var touched []HashedTransaction
+	var touched []TimestampedTransaction
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
-	for t, s := range p.Transactions {
-		if c.Covers(&t) {
-			if _, there := c.Members[t.Transaction]; there {
-				if c.Seq < s.FirstAvailable {
-					s.FirstAvailable = c.Seq
-					p.Transactions[t] = s
-					touched = append(touched, t)
+	for tidx, txv := range p.Transactions {
+		if c.Covers(&txv.HashedTransaction) {
+			if _, there := c.Members[txv.Transaction]; there {
+				if c.Seq < txv.FirstAvailable {
+					txv.FirstAvailable = c.Seq
+					p.Transactions[tidx].PeerStatus = txv.PeerStatus
+					touched = append(touched, txv)
 				}
 			} else {
-				if c.Seq > s.LastMissing {
-					s.LastMissing = c.Seq
-					p.Transactions[t] = s
-					touched = append(touched, t)
+				if c.Seq > txv.LastMissing {
+					txv.LastMissing = c.Seq
+					p.Transactions[tidx].PeerStatus = txv.PeerStatus
+					touched = append(touched, txv)
 				}
 			}
 		}
@@ -97,12 +103,12 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []HashedTransa
 // it, and stores it.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
-	for v, s := range p.Transactions {
-		if cw.Covers(&v) {
-			if s.FirstAvailable <= cw.Seq {
-				cw.PeelTransaction(v.Transaction)
-			} else if s.LastMissing < cw.Seq {
-				cw.AddCandidate(v.Transaction)
+	for _, txv := range p.Transactions {
+		if cw.Covers(&txv.HashedTransaction) {
+			if txv.FirstAvailable <= cw.Seq {
+				cw.PeelTransaction(txv.Transaction)
+			} else if txv.LastMissing < cw.Seq {
+				cw.AddCandidate(txv.Transaction)
 			}
 		}
 	}
@@ -130,7 +136,7 @@ func (p *TransactionPool) TryDecode() {
 				// we found something missing from the peer so we do a quick
 				// sanity check to see if it exists in our tx set (otherwise
 				// how woudl this tx got peeled off the codeword?!)
-				if _, there := p.Transactions[WrapTransaction(*tx)]; !there {
+				if _, there := p.TransactionId[*tx]; !there {
 					panic("corrupted codeword counter")
 				}
 				if _, there := c.Members[*tx]; !there {
@@ -153,13 +159,11 @@ func (p *TransactionPool) TryDecode() {
 	}
 	// release codewords and update transaction availability estimation
 	codes := []PendingCodeword{}	// remaining codewords after this iteration
-	updatedTx := make(map[HashedTransaction]struct{})
+	updatedTx := []TimestampedTransaction{}
 	for _, c := range p.Codewords {
 		if c.IsPure() {
 			updated := p.MarkCodewordReleased(c)
-			for _, t := range updated {
-				updatedTx[t] = struct{}{}
-			}
+			updatedTx = append(updatedTx, updated...)
 		} else {
 			codes = append(codes, c)
 		}
@@ -167,23 +171,23 @@ func (p *TransactionPool) TryDecode() {
 	change := false
 	// try peel the touched transactions off the codewords
 	for cidx, c := range codes {
-		for t, _ := range updatedTx {
-			if c.Covers(&t) {
-				_, there := c.Members[t.Transaction]
-				if !there && c.Seq >= p.Transactions[t].FirstAvailable {
-					codes[cidx].PeelTransaction(t.Transaction)
+		for _, txv := range updatedTx {
+			if c.Covers(&txv.HashedTransaction) {
+				_, there := c.Members[txv.Transaction]
+				if !there && c.Seq >= txv.FirstAvailable {
+					codes[cidx].PeelTransaction(txv.Transaction)
 					change = true
-				} else if there && c.Seq <= p.Transactions[t].LastMissing {
-					codes[cidx].UnpeelTransaction(t.Transaction)
+				} else if there && c.Seq <= txv.LastMissing {
+					codes[cidx].UnpeelTransaction(txv.Transaction)
 					change = true
 				}
-				if c.Seq < p.Transactions[t].FirstAvailable && c.Seq >= p.Transactions[t].LastMissing {
-					newcc := codes[cidx].AddCandidate(t.Transaction)
+				if c.Seq < txv.FirstAvailable && c.Seq >= txv.LastMissing {
+					newcc := codes[cidx].AddCandidate(txv.Transaction)
 					if newcc {
 						change = true
 					}
 				} else {
-					newcc := codes[cidx].RemoveCandidate(t.Transaction)
+					newcc := codes[cidx].RemoveCandidate(txv.Transaction)
 					if newcc {
 						change = true
 					}
@@ -208,8 +212,8 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	cw.UintIdx = idx
 	cw.Seq = p.Seq
 	p.Seq += 1
-	for v, _ := range p.Transactions {
-		if cw.Covers(&v) && int(v.Timestamp) <= cw.Seq {
+	for _, v := range p.Transactions {
+		if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
 			cw.ApplyTransaction(&v.Transaction, Into)
 		}
 	}

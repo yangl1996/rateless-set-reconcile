@@ -38,11 +38,7 @@ func TestExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	// pick one transaction from the pool
-	var there Transaction
-	for k, _ := range p.Transactions {
-		there = k.Transaction
-		break
-	}
+	there := p.Transactions[0].Transaction
 	if !p.Exists(there) {
 		t.Error("failed to locate a transaction that exists in the pool")
 	}
@@ -81,7 +77,7 @@ func TestAddTransaction(t *testing.T) {
 	var shouldbe [TxSize]byte
 	copy(shouldbe[:], cwm.Symbol[:])
 	shouldbeCounter := cwm.Counter
-	for t, _ := range p.Transactions {
+	for _, t := range p.Transactions {
 		shouldbeCounter -= 1
 		m, _ := t.MarshalBinary()
 		for i := 0; i < TxSize; i++ {
@@ -146,7 +142,7 @@ func TestOneoff(t *testing.T) {
 	}
 	count := 0
 	var missing Transaction
-	for tx, _ := range s1.Transactions {
+	for _, tx := range s1.Transactions {
 		if count >= len(s1.Transactions)-1 {
 			missing = tx.Transaction
 			break
