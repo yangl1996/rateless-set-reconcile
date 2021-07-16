@@ -64,6 +64,9 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	}
 	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
 	p.TransactionId[t] = struct{}{}
+	if len(p.Transactions) != len(p.TransactionId) {
+		panic("mismatch")
+	}
 }
 
 // MarkCodewordReleased takes a codeword c that is going to be released.
@@ -166,6 +169,8 @@ func (p *TransactionPool) TryDecode() {
 			updated := p.MarkCodewordReleased(c)
 			updatedTx = append(updatedTx, updated...)
 			// remove this codeword by moving from the end of the list
+			// BUG: the behavior of the code changed because and only because
+			// we are scrambling the order
 			p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
 			p.Codewords = p.Codewords[0:len(p.Codewords)-1]
 		} else {
