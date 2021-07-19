@@ -17,6 +17,7 @@ type TimestampedTransaction struct {
 
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
+	TransactionTrie Trie
 	TransactionId map[Transaction]struct{}
 	Transactions []TimestampedTransaction
 	Codewords    []PendingCodeword
@@ -27,6 +28,7 @@ type TransactionPool struct {
 // NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
+	p.TransactionTrie = Trie{}
 	p.TransactionId = make(map[Transaction]struct{})
 	p.Seq = 1
 	return p, nil
@@ -63,6 +65,8 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 		}
 	}
 	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
+	tp := &TimestampedTransaction{tx, ps}
+	p.TransactionTrie.AddTransaction(tp)
 	p.TransactionId[t] = struct{}{}
 	if len(p.Transactions) != len(p.TransactionId) {
 		panic("mismatch")
