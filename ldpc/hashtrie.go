@@ -27,18 +27,3 @@ func (t *Trie) AddTransaction(tx *TimestampedTransaction) {
 	t.Counter += 1
 }
 
-func (t *Trie) BucketsInRange(idx int, r HashRange) ([]TrieBucket, []TrieBucket) {
-	start := r.start / BucketSize
-	end := r.end / BucketSize
-	if r.cyclic {
-		if end == start {
-			return t.Buckets[idx][:], nil
-		} else if end < start {
-			return t.Buckets[idx][start:NumBuckets], t.Buckets[idx][0:end+1]
-		} else {
-			panic("corrupted range")
-		}
-	} else {
-		return t.Buckets[idx][start:end+1], nil
-	}
-}

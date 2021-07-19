@@ -36,3 +36,22 @@ func (r *HashRange) Covers(hash uint64) bool {
 		return hash >= r.start && hash <= r.end
 	}
 }
+
+// BucketIndexRange returns the starting and ending indices of buckets.
+// Both indices are inclusive and the caller must take the remainder
+// against NumBuckets before using. 
+func (r *HashRange) BucketIndexRange() (int, int) {
+	start := int(r.start / BucketSize)
+	end := int(r.end / BucketSize)
+	if r.cyclic {
+		if end == start {
+			return 0, NumBuckets-1
+		} else if end < start {
+			return start, end + NumBuckets
+		} else {
+			panic("corrupted")
+		}
+	} else {
+		return start, end
+	}
+}

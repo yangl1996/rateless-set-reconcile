@@ -84,26 +84,13 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedT
 	var touched []TimestampedTransaction
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
-	b1, b2 := p.TransactionTrie.BucketsInRange(c.UintIdx, c.HashRange)
-	for _, b := range b1 {
-		for _, txv := range b.Items {
-			if c.Covers(&txv.HashedTransaction) {
-				if _, there := c.Members[txv.Transaction]; there {
-					if c.Seq < txv.FirstAvailable {
-						txv.FirstAvailable = c.Seq
-						touched = append(touched, *txv)
-					}
-				} else {
-					if c.Seq > txv.LastMissing {
-						txv.LastMissing = c.Seq
-						touched = append(touched, *txv)
-					}
-				}
-			}
+	bs, be := c.BucketIndexRange()
+	for bidx := bs; bidx <= be; bidx ++ {
+		bi := bidx
+		if bidx >= NumBuckets {
+			bi = bidx - NumBuckets
 		}
-	}
-	for _, b := range b2 {
-		for _, txv := range b.Items {
+		for _, txv := range p.TransactionTrie.Buckets[c.UintIdx][bi].Items {
 			if c.Covers(&txv.HashedTransaction) {
 				if _, there := c.Members[txv.Transaction]; there {
 					if c.Seq < txv.FirstAvailable {
@@ -128,20 +115,13 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedT
 // it, and stores it.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
-	b1, b2 := p.TransactionTrie.BucketsInRange(cw.UintIdx, cw.HashRange)
-	for _, b := range b1 {
-		for _, txv := range b.Items {
-			if cw.Covers(&txv.HashedTransaction) {
-				if txv.FirstAvailable <= cw.Seq {
-					cw.PeelTransaction(txv.Transaction)
-				} else if txv.LastMissing < cw.Seq {
-					cw.AddCandidate(txv.Transaction)
-				}
-			}
+	bs, be := cw.BucketIndexRange()
+	for bidx := bs; bidx <= be; bidx ++ {
+		bi := bidx
+		if bidx >= NumBuckets {
+			bi = bidx - NumBuckets
 		}
-	}
-	for _, b := range b2 {
-		for _, txv := range b.Items {
+		for _, txv := range p.TransactionTrie.Buckets[cw.UintIdx][bi].Items {
 			if cw.Covers(&txv.HashedTransaction) {
 				if txv.FirstAvailable <= cw.Seq {
 					cw.PeelTransaction(txv.Transaction)
@@ -249,16 +229,13 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	p.Seq += 1
 
 	// go through the buckets
-	b1, b2 := p.TransactionTrie.BucketsInRange(cw.UintIdx, cw.HashRange)
-	for _, b := range b1 {
-		for _, v := range b.Items {
-			if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
-				cw.ApplyTransaction(&v.Transaction, Into)
-			}
+	bs, be := cw.BucketIndexRange()
+	for bidx := bs; bidx <= be; bidx ++ {
+		bi := bidx
+		if bidx >= NumBuckets {
+			bi = bidx - NumBuckets
 		}
-	}
-	for _, b := range b2 {
-		for _, v := range b.Items {
+		for _, v := range p.TransactionTrie.Buckets[cw.UintIdx][bi].Items {
 			if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)
 			}
