@@ -215,10 +215,23 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	cw.UintIdx = idx
 	cw.Seq = p.Seq
 	p.Seq += 1
-	for _, v := range p.Transactions {
-		if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
-			cw.ApplyTransaction(&v.Transaction, Into)
+
+	// go through the buckets
+	b1, b2 := p.TransactionTrie.BucketsInRange(cw.UintIdx, cw.HashRange)
+	for _, b := range b1 {
+		for _, v := range b.Items {
+			if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
+				cw.ApplyTransaction(&v.Transaction, Into)
+			}
+		}
+	}
+	for _, b := range b2 {
+		for _, v := range b.Items {
+			if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
+				cw.ApplyTransaction(&v.Transaction, Into)
+			}
 		}
 	}
 	return cw
 }
+
