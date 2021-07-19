@@ -68,7 +68,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	tp := &TimestampedTransaction{tx, ps}
 	p.TransactionTrie.AddTransaction(tp)
 	p.TransactionId[t] = struct{}{}
-	if len(p.Transactions) != len(p.TransactionId) {
+	if p.TransactionTrie.Counter != len(p.TransactionId) {
 		panic("mismatch")
 	}
 }
@@ -84,19 +84,37 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedT
 	var touched []TimestampedTransaction
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
-	for tidx, txv := range p.Transactions {
-		if c.Covers(&txv.HashedTransaction) {
-			if _, there := c.Members[txv.Transaction]; there {
-				if c.Seq < txv.FirstAvailable {
-					txv.FirstAvailable = c.Seq
-					p.Transactions[tidx].PeerStatus = txv.PeerStatus
-					touched = append(touched, txv)
+	b1, b2 := p.TransactionTrie.BucketsInRange(c.UintIdx, c.HashRange)
+	for _, b := range b1 {
+		for _, txv := range b.Items {
+			if c.Covers(&txv.HashedTransaction) {
+				if _, there := c.Members[txv.Transaction]; there {
+					if c.Seq < txv.FirstAvailable {
+						txv.FirstAvailable = c.Seq
+						touched = append(touched, *txv)
+					}
+				} else {
+					if c.Seq > txv.LastMissing {
+						txv.LastMissing = c.Seq
+						touched = append(touched, *txv)
+					}
 				}
-			} else {
-				if c.Seq > txv.LastMissing {
-					txv.LastMissing = c.Seq
-					p.Transactions[tidx].PeerStatus = txv.PeerStatus
-					touched = append(touched, txv)
+			}
+		}
+	}
+	for _, b := range b2 {
+		for _, txv := range b.Items {
+			if c.Covers(&txv.HashedTransaction) {
+				if _, there := c.Members[txv.Transaction]; there {
+					if c.Seq < txv.FirstAvailable {
+						txv.FirstAvailable = c.Seq
+						touched = append(touched, *txv)
+					}
+				} else {
+					if c.Seq > txv.LastMissing {
+						txv.LastMissing = c.Seq
+						touched = append(touched, *txv)
+					}
 				}
 			}
 		}
@@ -110,12 +128,26 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedT
 // it, and stores it.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
-	for _, txv := range p.Transactions {
-		if cw.Covers(&txv.HashedTransaction) {
-			if txv.FirstAvailable <= cw.Seq {
-				cw.PeelTransaction(txv.Transaction)
-			} else if txv.LastMissing < cw.Seq {
-				cw.AddCandidate(txv.Transaction)
+	b1, b2 := p.TransactionTrie.BucketsInRange(cw.UintIdx, cw.HashRange)
+	for _, b := range b1 {
+		for _, txv := range b.Items {
+			if cw.Covers(&txv.HashedTransaction) {
+				if txv.FirstAvailable <= cw.Seq {
+					cw.PeelTransaction(txv.Transaction)
+				} else if txv.LastMissing < cw.Seq {
+					cw.AddCandidate(txv.Transaction)
+				}
+			}
+		}
+	}
+	for _, b := range b2 {
+		for _, txv := range b.Items {
+			if cw.Covers(&txv.HashedTransaction) {
+				if txv.FirstAvailable <= cw.Seq {
+					cw.PeelTransaction(txv.Transaction)
+				} else if txv.LastMissing < cw.Seq {
+					cw.AddCandidate(txv.Transaction)
+				}
 			}
 		}
 	}
