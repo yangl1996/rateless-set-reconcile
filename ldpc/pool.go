@@ -115,8 +115,8 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []*Timestamped
 		for _, txv := range p.TransactionTrie.Buckets[c.UintIdx][bi].Items {
 			if c.Covers(&txv.HashedTransaction) {
 				// BUG: This can be saved by updating the txv.FirstAvailable
-				// when we peeled it. (Need some work if it is peeled
-				// in speculative peeling).
+				// when we peeled it. (Codewords have pointers to txs,
+				// so they can actually update the time estimations there)
 				if _, there := c.Members[txv]; there {
 					if c.Seq < txv.FirstAvailable {
 						txv.FirstAvailable = c.Seq
