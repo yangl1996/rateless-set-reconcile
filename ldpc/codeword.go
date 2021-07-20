@@ -168,7 +168,6 @@ func (c *PendingCodeword) ShouldSpeculate() bool {
 // candidate set, then it return an empty transaction and false. If it fails,
 // then it does not alter c and returns an empty transaction and false.
 // It does nothing if the codeword c should not be speculated (see ShouldSpeculate).
-// BUG: this is not finished yet. We are now reproducing the behavior we had before.
 func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	shouldRun := c.ShouldSpeculate()
 	c.Dirty = false
@@ -233,6 +232,23 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			for _, idx := range solutions {
 				c.RegisterAsMember(candidates[idx])
 			}
+			// then, try to find the remaining transaction
+			// do not bother looking the ones already in solutions
+			sidx := 0
+			for cidx, _ := range candidates {
+				if sidx >= len(solutions) || cidx < solutions[sidx] {
+					if res == candidates[cidx].Transaction {
+						// found it; peel it off
+						c.PeelTransaction(candidates[cidx])
+						return res, false
+					}
+				} else if cidx == solutions[sidx] {
+					sidx += 1
+				} else {
+					panic("how")
+				}
+			}
+			// failed to locate the remaining tx (res) in candidates; it must be new
 			return res, true
 		} else {
 			return res, false
@@ -259,6 +275,16 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 					panic("how!")
 				}
 			}
+			// then, try to find the remaining one (res) among the ones
+			// not peeled
+			for _, idx := range solutions {
+				if res == candidates[idx].Transaction {
+					// found it; peel it off
+					c.PeelTransaction(candidates[idx])
+					return res, false
+				}
+			}
+			// not found
 			return res, true
 		} else {
 			for _, d := range candidates {
