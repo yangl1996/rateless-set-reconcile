@@ -18,13 +18,17 @@ const (
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
 	Symbol [TxSize]byte
-	HashRange
 	Counter int
+	CodewordFilter
+}
+
+type CodewordFilter struct {
+	HashRange
 	UintIdx int
 	Seq     int
 }
 
-func (c *Codeword) Covers(t *HashedTransaction) bool {
+func (c *CodewordFilter) Covers(t *HashedTransaction) bool {
 	return c.HashRange.Covers(t.Uint(c.UintIdx))
 }
 
@@ -245,17 +249,10 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 }
 
 type ReleasedCodeword struct {
-	Codeword
-	Members []*TimestampedTransaction
+	CodewordFilter
 }
 
 func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
-	ls := make([]*TimestampedTransaction, len(c.Members), len(c.Members))
-	idx := 0
-	for k, _ := range c.Members {
-		ls[idx] = k
-		idx += 1
-	}
-	return ReleasedCodeword{c.Codeword, ls}
+	return ReleasedCodeword{c.CodewordFilter}
 }
 
