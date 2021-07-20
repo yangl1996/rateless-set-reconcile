@@ -18,7 +18,7 @@ type TimestampedTransaction struct {
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	TransactionTrie Trie
-	TransactionId map[Transaction]struct{}
+	TransactionId map[Transaction]*TimestampedTransaction
 	Transactions []TimestampedTransaction
 	Codewords    []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
@@ -29,7 +29,7 @@ type TransactionPool struct {
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.TransactionTrie = Trie{}
-	p.TransactionId = make(map[Transaction]struct{})
+	p.TransactionId = make(map[Transaction]*TimestampedTransaction)
 	p.Seq = 1
 	return p, nil
 }
@@ -45,8 +45,8 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
 func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction {
-	if _, there := p.TransactionId[t]; there {
-		return nil
+	if tp, there := p.TransactionId[t]; there {
+		return tp
 	}
 	tx := WrapTransaction(t)
 	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
@@ -67,7 +67,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	}
 	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
 	p.TransactionTrie.AddTransaction(tp)
-	p.TransactionId[t] = struct{}{}
+	p.TransactionId[t] = tp
 	if p.TransactionTrie.Counter != len(p.TransactionId) {
 		panic("mismatch")
 	}
@@ -147,9 +147,7 @@ func (p *TransactionPool) TryDecode() {
 			if err == nil {
 				// store the transaction and peel the c/w, so the c/w is pure
 				tp := p.AddTransaction(*tx)
-				if tp != nil {
-					p.Codewords[cidx].PeelTransaction(tp)
-				}
+				p.Codewords[cidx].PeelTransaction(tp)
 			}
 			/*
 		case -1:
@@ -178,9 +176,7 @@ func (p *TransactionPool) TryDecode() {
 		tx, ok := p.Codewords[cidx].SpeculatePeel()
 		if ok {
 			tp := p.AddTransaction(tx)
-			if tp != nil {
-				p.Codewords[cidx].PeelTransaction(tp)
-			}
+			p.Codewords[cidx].PeelTransaction(tp)
 		}
 	}
 	// release codewords and update transaction availability estimation
