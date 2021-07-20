@@ -68,7 +68,6 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	//   So, we search backwards in time, and stop at the first c which misses
 	//   tx or when we hit tx.Seq
 	//
-	/*
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
@@ -79,7 +78,6 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 			panic("test")
 		}
 	}
-	*/
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing
 	for cidx, c := range p.Codewords {
@@ -164,8 +162,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 func (p *TransactionPool) TryDecode() {
 	// scan through the codewords to find ones with counter=1
 	for cidx, c := range p.Codewords {
-		switch c.Counter {
-		case 1:
+		if c.Counter == 1 {
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
@@ -173,23 +170,6 @@ func (p *TransactionPool) TryDecode() {
 				tp := p.AddTransaction(*tx)
 				p.Codewords[cidx].PeelTransaction(tp)
 			}
-			/*
-		case -1:
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
-			if err == nil {
-				// we found something missing from the peer so we do a quick
-				// sanity check to see if it exists in our tx set (otherwise
-				// how woudl this tx got peeled off the codeword?!)
-				if _, there := p.TransactionId[*tx]; !there {
-					panic("corrupted codeword counter")
-				}
-				if _, there := c.Members[*tx]; !there {
-					panic("corrupted codeword")
-				}
-				p.Codewords[cidx].UnpeelTransaction(*tx)
-			}
-			*/
 		}
 	}
 	for cidx, _ := range p.Codewords {
@@ -232,8 +212,6 @@ func (p *TransactionPool) TryDecode() {
 				_, there := c.Members[txv]
 				if !there && c.Seq >= txv.FirstAvailable {
 					p.Codewords[cidx].PeelTransaction(txv)
-				} else if there && c.Seq <= txv.LastMissing {
-					p.Codewords[cidx].UnpeelTransaction(txv)
 				}
 				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
 					p.Codewords[cidx].AddCandidate(txv)

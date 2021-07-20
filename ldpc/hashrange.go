@@ -2,7 +2,10 @@ package ldpc
 
 import (
 	"math"
+	"golang.org/x/crypto/blake2b"
 )
+
+const MaxUintIdx = blake2b.Size / 8
 
 type HashRange struct {
 	start, end uint64 // both bounds are inclusive
