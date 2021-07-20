@@ -50,15 +50,35 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	tx := WrapTransaction(t)
 	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
 	tp := &TimestampedTransaction{tx, ps}
+	/*
+	// BUG: we only need to search for codewords with ps.LastMissing < c.Seq
+	// 1. ps.LastMissing >= c.Seq: no need to update anyhow; do not search
+	// 2. ps.LastMissing < c.Seq
+	//   The peer must have not received the transaction at c.Seq. Note that
+	//   ps.LastMissing is lower-bounded by the transaction timestamp. So the
+	//   transaction must not be generated after c.Seq.
+	//
+	//   Also, for this line to be triggered, the transaction must be received
+	//   by us after the codeword is released (because we are digging the
+	//   released transaction in AddNewTransaction).
+	//
+	//         -----------------------------------------------> Time
+	//             |           |          |          |
+	//              - Tx gen    - c.Seq    - c rls    - Tx add
+	//
+	//   So, we search backwards in time, and stop wat the first c which misses
+	//   tx.
+	//
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
 		// released. As a result, we do not bother checking if tx is
-		// a member of c.
+		// a member of c. Note that this is true even for multi-peer.
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
 			ps.LastMissing = c.Seq
 		}
 	}
+	*/
 	for cidx, c := range p.Codewords {
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
 			p.Codewords[cidx].AddCandidate(tp)
