@@ -50,7 +50,6 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	tx := WrapTransaction(t)
 	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
 	tp := &TimestampedTransaction{tx, ps}
-	/*
 	// BUG: we only need to search for codewords with ps.LastMissing < c.Seq
 	// 1. ps.LastMissing >= c.Seq: no need to update anyhow; do not search
 	// 2. ps.LastMissing < c.Seq
@@ -78,7 +77,8 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 			ps.LastMissing = c.Seq
 		}
 	}
-	*/
+	// now that we get a better bound on ps.LastMissing, add the tx as candidate
+	// to codewords after ps.LastMissing
 	for cidx, c := range p.Codewords {
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
 			p.Codewords[cidx].AddCandidate(tp)
