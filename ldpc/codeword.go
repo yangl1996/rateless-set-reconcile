@@ -52,43 +52,43 @@ func (c *Codeword) IsPure() bool {
 
 type PendingCodeword struct {
 	Codeword
-	Members map[Transaction]struct{}
-	Candidates map[Transaction]struct{}
+	Members map[*TimestampedTransaction]struct{}
+	Candidates map[*TimestampedTransaction]struct{}
 	Dirty bool	// if we should speculate this cw again
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
-		make(map[Transaction]struct{}),
-		make(map[Transaction]struct{}),
+		make(map[*TimestampedTransaction]struct{}),
+		make(map[*TimestampedTransaction]struct{}),
 		true,
 	}
 }
 
-func (c *PendingCodeword) PeelTransaction(t Transaction) {
+func (c *PendingCodeword) PeelTransaction(t *TimestampedTransaction) {
 	// if a transaction is already there, do not peel
 	if _, there := c.Members[t]; there {
 		panic("trying to peel a transaciton twice")
 	}
-	c.Codeword.ApplyTransaction(&t, From)
+	c.Codeword.ApplyTransaction(&t.Transaction, From)
 	c.Members[t] = struct{}{}
 	delete(c.Candidates, t)
 	c.Dirty = true
 }
 
-func (c *PendingCodeword) UnpeelTransaction(t Transaction) {
+func (c *PendingCodeword) UnpeelTransaction(t *TimestampedTransaction) {
 	// is the transaction is not peeled, then we cannot "unpeel"
 	if _, there := c.Members[t]; !there {
 		panic("trying to unpeel a transaciton not peeled before")
 	}
-	c.Codeword.ApplyTransaction(&t, Into)
+	c.Codeword.ApplyTransaction(&t.Transaction, Into)
 	delete(c.Members, t)
 	c.Candidates[t] = struct{}{}
 	c.Dirty = true
 }
 
-func (c *PendingCodeword) AddCandidate(t Transaction) bool {
+func (c *PendingCodeword) AddCandidate(t *TimestampedTransaction) bool {
 	_, there := c.Candidates[t]
 	if there {
 		return false
@@ -99,7 +99,7 @@ func (c *PendingCodeword) AddCandidate(t Transaction) bool {
 	}
 }
 
-func (c *PendingCodeword) RemoveCandidate(t Transaction) bool {
+func (c *PendingCodeword) RemoveCandidate(t *TimestampedTransaction) bool {
 	_, there := c.Candidates[t]
 	if there {
 		delete(c.Candidates, t)
@@ -153,7 +153,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	}
 
 	// collect the candidates
-	candidates := make([]Transaction, len(c.Candidates))
+	candidates := make([]*TimestampedTransaction, len(c.Candidates))
 	i := 0
 	for k, _ := range c.Candidates {
 		candidates[i] = k
@@ -178,7 +178,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 				}
 			}
 			for i := start; i < len(candidates); i++ {
-				c.Codeword.ApplyTransaction(&candidates[i], From)
+				c.Codeword.ApplyTransaction(&candidates[i].Transaction, From)
 				ok := recur(depth+1, i+1)
 				if ok {
 					// remove confirmed member from candidate list
@@ -186,7 +186,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 					delete(c.Candidates, candidates[i])
 					return true
 				} else {
-					c.Codeword.ApplyTransaction(&candidates[i], Into)
+					c.Codeword.ApplyTransaction(&candidates[i].Transaction, Into)
 				}
 			}
 			return false
@@ -194,7 +194,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	} else {
 		rev = true
 		for _, d := range candidates {
-			c.Codeword.ApplyTransaction(&d, From)
+			c.Codeword.ApplyTransaction(&d.Transaction, From)
 			c.Members[d] = struct{}{}
 			delete(c.Candidates, d)
 		}
@@ -212,7 +212,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 				}
 			}
 			for i := start; i < len(candidates); i++ {
-				c.Codeword.ApplyTransaction(&candidates[i], Into)
+				c.Codeword.ApplyTransaction(&candidates[i].Transaction, Into)
 				ok := recur(depth+1, i+1)
 				if ok {
 					// remove confirmed member from candidate list
@@ -220,7 +220,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 					c.Candidates[candidates[i]] = struct{}{}
 					return true
 				} else {
-					c.Codeword.ApplyTransaction(&candidates[i], From)
+					c.Codeword.ApplyTransaction(&candidates[i].Transaction, From)
 				}
 			}
 			return false
@@ -232,7 +232,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	} else {
 		if rev {
 			for _, d := range candidates {
-				c.Codeword.ApplyTransaction(&d, Into)
+				c.Codeword.ApplyTransaction(&d.Transaction, Into)
 				delete(c.Members, d)
 				c.Candidates[d] = struct{}{}
 			}
@@ -246,11 +246,11 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 
 type ReleasedCodeword struct {
 	Codeword
-	Members []Transaction
+	Members []*TimestampedTransaction
 }
 
 func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
-	ls := make([]Transaction, len(c.Members), len(c.Members))
+	ls := make([]*TimestampedTransaction, len(c.Members), len(c.Members))
 	idx := 0
 	for k, _ := range c.Members {
 		ls[idx] = k

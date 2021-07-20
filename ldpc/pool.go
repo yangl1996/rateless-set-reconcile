@@ -44,12 +44,13 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *TransactionPool) AddTransaction(t Transaction) {
+func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction {
 	if _, there := p.TransactionId[t]; there {
-		return
+		return nil
 	}
 	tx := WrapTransaction(t)
 	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
+	tp := &TimestampedTransaction{tx, ps}
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
@@ -61,27 +62,27 @@ func (p *TransactionPool) AddTransaction(t Transaction) {
 	}
 	for cidx, c := range p.Codewords {
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
-			p.Codewords[cidx].AddCandidate(t)
+			p.Codewords[cidx].AddCandidate(tp)
 		}
 	}
 	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
-	tp := &TimestampedTransaction{tx, ps}
 	p.TransactionTrie.AddTransaction(tp)
 	p.TransactionId[t] = struct{}{}
 	if p.TransactionTrie.Counter != len(p.TransactionId) {
 		panic("mismatch")
 	}
+	return tp
 }
 
 // MarkCodewordReleased takes a codeword c that is going to be released.
 // It updates all known transactions' last missing and first seen timestamps,
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
-func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedTransaction {
+func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []*TimestampedTransaction {
 	if !c.IsPure() {
 		panic("releasing impure codeword")
 	}
-	var touched []TimestampedTransaction
+	var touched []*TimestampedTransaction
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
 	bs, be := c.BucketIndexRange()
@@ -92,15 +93,15 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []TimestampedT
 		}
 		for _, txv := range p.TransactionTrie.Buckets[c.UintIdx][bi].Items {
 			if c.Covers(&txv.HashedTransaction) {
-				if _, there := c.Members[txv.Transaction]; there {
+				if _, there := c.Members[txv]; there {
 					if c.Seq < txv.FirstAvailable {
 						txv.FirstAvailable = c.Seq
-						touched = append(touched, *txv)
+						touched = append(touched, txv)
 					}
 				} else {
 					if c.Seq > txv.LastMissing {
 						txv.LastMissing = c.Seq
-						touched = append(touched, *txv)
+						touched = append(touched, txv)
 					}
 				}
 			}
@@ -124,9 +125,9 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		for _, txv := range p.TransactionTrie.Buckets[cw.UintIdx][bi].Items {
 			if cw.Covers(&txv.HashedTransaction) {
 				if txv.FirstAvailable <= cw.Seq {
-					cw.PeelTransaction(txv.Transaction)
+					cw.PeelTransaction(txv)
 				} else if txv.LastMissing < cw.Seq {
-					cw.AddCandidate(txv.Transaction)
+					cw.AddCandidate(txv)
 				}
 			}
 		}
@@ -145,9 +146,12 @@ func (p *TransactionPool) TryDecode() {
 			err := tx.UnmarshalBinary(c.Symbol[:])
 			if err == nil {
 				// store the transaction and peel the c/w, so the c/w is pure
-				p.AddTransaction(*tx)
-				p.Codewords[cidx].PeelTransaction(*tx)
+				tp := p.AddTransaction(*tx)
+				if tp != nil {
+					p.Codewords[cidx].PeelTransaction(tp)
+				}
 			}
+			/*
 		case -1:
 			tx := &Transaction{}
 			err := tx.UnmarshalBinary(c.Symbol[:])
@@ -163,6 +167,7 @@ func (p *TransactionPool) TryDecode() {
 				}
 				p.Codewords[cidx].UnpeelTransaction(*tx)
 			}
+			*/
 		}
 	}
 	for cidx, _ := range p.Codewords {
@@ -172,12 +177,14 @@ func (p *TransactionPool) TryDecode() {
 		// has changed
 		tx, ok := p.Codewords[cidx].SpeculatePeel()
 		if ok {
-			p.AddTransaction(tx)
-			p.Codewords[cidx].PeelTransaction(tx)
+			tp := p.AddTransaction(tx)
+			if tp != nil {
+				p.Codewords[cidx].PeelTransaction(tp)
+			}
 		}
 	}
 	// release codewords and update transaction availability estimation
-	updatedTx := []TimestampedTransaction{}
+	updatedTx := []*TimestampedTransaction{}
 	cwIdx := 0	// idx of the cw we are currently working on 
 	change := false
 	for cwIdx < len(p.Codewords) {
@@ -197,16 +204,16 @@ func (p *TransactionPool) TryDecode() {
 	for cidx, c := range p.Codewords {
 		for _, txv := range updatedTx {
 			if c.Covers(&txv.HashedTransaction) {
-				_, there := c.Members[txv.Transaction]
+				_, there := c.Members[txv]
 				if !there && c.Seq >= txv.FirstAvailable {
-					p.Codewords[cidx].PeelTransaction(txv.Transaction)
+					p.Codewords[cidx].PeelTransaction(txv)
 				} else if there && c.Seq <= txv.LastMissing {
-					p.Codewords[cidx].UnpeelTransaction(txv.Transaction)
+					p.Codewords[cidx].UnpeelTransaction(txv)
 				}
 				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
-					p.Codewords[cidx].AddCandidate(txv.Transaction)
+					p.Codewords[cidx].AddCandidate(txv)
 				} else {
-					p.Codewords[cidx].RemoveCandidate(txv.Transaction)
+					p.Codewords[cidx].RemoveCandidate(txv)
 				}
 			}
 		}
