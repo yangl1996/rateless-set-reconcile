@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
 	"github.com/yangl1996/soliton"
 	"math"
-	"math/rand"
 	"math/big"
-	"strings"
+	"math/rand"
 	"strconv"
-	"errors"
+	"strings"
 )
 
 func fracToThreshold(f float64) uint64 {
@@ -24,8 +24,8 @@ type thresholdPicker interface {
 type BimodalThreshold struct {
 	threshold1 uint64
 	threshold2 uint64
-	p1 float64
-	rng *rand.Rand
+	p1         float64
+	rng        *rand.Rand
 }
 
 func NewBimodalThreshold(src *rand.Rand, t1, t2, p1 float64) *BimodalThreshold {
@@ -53,7 +53,7 @@ func (c *ConstantThreshold) generate() uint64 {
 }
 
 type SolitonThreshold struct {
-	dist *soliton.Soliton
+	dist    *soliton.Soliton
 	estDiff uint64
 }
 

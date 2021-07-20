@@ -1,17 +1,17 @@
 package main
 
 import (
+	"bufio"
+	"encoding/base64"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"math/rand"
+	"os"
 	"runtime"
 	"runtime/pprof"
-	"flag"
-	"os"
-	"fmt"
-	"time"
-	"math/rand"
 	"sync"
-	"encoding/json"
-	"encoding/base64"
-	"bufio"
+	"time"
 )
 
 func main() {
@@ -68,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := Config {
+	config := Config{
 		*srcSize,
 		*differenceSize,
 		*reverseDifferenceSize,
@@ -86,7 +86,7 @@ func main() {
 	var cwpoolF *os.File
 	if *outputPrefix != "" {
 		var err error
-		f, err = os.Create(*outputPrefix+"-mean-iter-to-decode.dat")
+		f, err = os.Create(*outputPrefix + "-mean-iter-to-decode.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -101,14 +101,14 @@ func main() {
 		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 
-		degreeF, err = os.Create(*outputPrefix+"-codeword-degree-dist.dat")
+		degreeF, err = os.Create(*outputPrefix + "-codeword-degree-dist.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(degreeF, "# codeword degree     count\n")
 
-		pressureF, err = os.Create(*outputPrefix+"-ntx-unique-to-p1.dat")
+		pressureF, err = os.Create(*outputPrefix + "-ntx-unique-to-p1.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -116,7 +116,7 @@ func main() {
 		fmt.Fprintf(pressureF, "# iteration     unique to P1\n")
 		defer pressureF.Close()
 
-		cwpoolF, err = os.Create(*outputPrefix+"-p2-codeword-pool.dat")
+		cwpoolF, err = os.Create(*outputPrefix + "-p2-codeword-pool.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -140,13 +140,13 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	var chs []chan int	// channels for the interation-#decoded result
-	var degreeCh chan int	// channel to collect the degree of codewords
+	var chs []chan int    // channels for the interation-#decoded result
+	var degreeCh chan int // channel to collect the degree of codewords
 	if degreeF != nil {
 		degreeCh = make(chan int, 1000)
 	}
-	var pressureChs []chan int	// channel to collect num of undecoded transactions
-	var cwpoolChs []chan int	// channel to collect the number of unreleased codewords
+	var pressureChs []chan int // channel to collect num of undecoded transactions
+	var cwpoolChs []chan int   // channel to collect the number of unreleased codewords
 	procwg := &sync.WaitGroup{}
 	for i := 0; i < *runs; i++ {
 		procwg.Add(1)
@@ -252,7 +252,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close() // error handling omitted for example
-		runtime.GC() // get up-to-date statistics
+		runtime.GC()    // get up-to-date statistics
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			fmt.Println("could not write memory profile: ", err)
 			os.Exit(1)
@@ -294,18 +294,18 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 	}
 	// start sending codewords from p1 to p2
 	// prepare the counters
-	i := 0					// iteration counter
-	lastAct := 0				// last iteration where there's any progress
-	received := make([]int, 2)		// transaction pool size as of the end of prev iter
+	i := 0                     // iteration counter
+	lastAct := 0               // last iteration where there's any progress
+	received := make([]int, 2) // transaction pool size as of the end of prev iter
 	received[0] = len(p1.TransactionId)
 	received[1] = len(p2.TransactionId)
-	decoded := make([]int, 2)		// num transactions decoded
+	decoded := make([]int, 2) // num transactions decoded
 	decoded[0] = 0
 	decoded[1] = 0
-	unique := make([]int, 2)		// num transactions undecoded by the other end
+	unique := make([]int, 2) // num transactions undecoded by the other end
 	unique[0] = d
 	unique[1] = r
-	for ;; {
+	for {
 		i += 1
 		c1 := p1.produceCodeword()
 		c2 := p2.produceCodeword()
@@ -316,7 +316,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		p2.TryDecode()
 		p1.InputCodeword(c2)
 		p1.TryDecode()
-		for cnt := 0; cnt < len(p2.TransactionId) - received[1]; cnt++ {
+		for cnt := 0; cnt < len(p2.TransactionId)-received[1]; cnt++ {
 			if res != nil {
 				res <- i
 			}
@@ -327,12 +327,12 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 				return nil
 			}
 		}
-		for cnt := 0; cnt < len(p1.TransactionId) - received[0]; cnt++ {
+		for cnt := 0; cnt < len(p1.TransactionId)-received[0]; cnt++ {
 			lastAct = i
 			decoded[0] += 1
 			unique[1] -= 1
 		}
-		if i - lastAct > tout {
+		if i-lastAct > tout {
 			return nil
 		}
 		// add transactions to pools
@@ -342,11 +342,11 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 			p1.AddTransaction(t)
 			unique[0] += 1
 			/*
-			if rand.Float64() < 0.8 {
-				p2.AddTransaction(t)
-			} else {
-				unique += 1
-			}
+				if rand.Float64() < 0.8 {
+					p2.AddTransaction(t)
+				} else {
+					unique += 1
+				}
 			*/
 		}
 		nadd = p2.pacer.tick(unique[1])
@@ -355,9 +355,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 			p2.AddTransaction(t)
 			unique[1] += 1
 			/*
-			if rand.Float64() < 0.8 {
-				p1.AddTransaction(t)
-			}
+				if rand.Float64() < 0.8 {
+					p1.AddTransaction(t)
+				}
 			*/
 		}
 		received[0] = len(p1.TransactionId)
@@ -372,22 +372,21 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 }
 
 type Config struct {
-	SrcSize int
-	DifferenceSize int
+	SrcSize               int
+	DifferenceSize        int
 	ReverseDifferenceSize int
-	Seed int64
-	Runs int
-	RefillTransaction string
-	TimeoutDuration int
-	TimeoutCounter int
-	DegreeDistString string
+	Seed                  int64
+	Runs                  int
+	RefillTransaction     string
+	TimeoutDuration       int
+	TimeoutCounter        int
+	DegreeDistString      string
 }
-
 
 func readConfigString(prefix string) (Config, error) {
 	config := Config{}
 	// read the first line and strip "# " to get the base64 encoded json
-	ef, err := os.Open(prefix+"-mean-iter-to-decode.dat")
+	ef, err := os.Open(prefix + "-mean-iter-to-decode.dat")
 	if err != nil {
 		return config, err
 	}
@@ -395,7 +394,7 @@ func readConfigString(prefix string) (Config, error) {
 	scanner := bufio.NewScanner(ef)
 	scanner.Scan()
 	b64 := scanner.Text()
-	data, err := base64.StdEncoding.DecodeString(b64[2:len(b64)])	// strip the prefix "# "
+	data, err := base64.StdEncoding.DecodeString(b64[2:len(b64)]) // strip the prefix "# "
 	if err != nil {
 		return config, err
 	}
@@ -414,7 +413,7 @@ func collectDumpHistogram(f *os.File, ch chan int) {
 		}
 		tot += 1
 	}
-	for i:=0; i <=maxd; i++ {
+	for i := 0; i <= maxd; i++ {
 		if val, there := hist[i]; there {
 			fmt.Fprintf(f, "%v         %v\n", i, float64(val)/float64(tot))
 		}
@@ -423,7 +422,7 @@ func collectDumpHistogram(f *os.File, ch chan int) {
 
 func collectAverage(chs []chan int, out chan int) {
 	defer close(out)
-	for ;; {
+	for {
 		nClosed := 0
 		d := 0
 		for _, ch := range chs {
@@ -437,7 +436,7 @@ func collectAverage(chs []chan int, out chan int) {
 		if nClosed >= len(chs) {
 			return
 		} else if nClosed == 0 {
-			out <- d/len(chs)
+			out <- d / len(chs)
 		}
 	}
 }

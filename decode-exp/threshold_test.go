@@ -1,8 +1,8 @@
 package main
 
 import (
-	"testing"
 	"math/rand"
+	"testing"
 )
 
 var rng = rand.New(rand.NewSource(0))

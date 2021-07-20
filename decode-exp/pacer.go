@@ -1,11 +1,11 @@
 package main
 
 import (
-	"math"
 	"errors"
+	"math"
+	"math/rand"
 	"strconv"
 	"strings"
-	"math/rand"
 )
 
 type transactionPacer interface {
@@ -13,8 +13,8 @@ type transactionPacer interface {
 }
 
 type uniformPacer struct {
-	rate float64
-	emitted int
+	rate      float64
+	emitted   int
 	generated float64
 }
 
@@ -29,11 +29,11 @@ func (u *uniformPacer) tick(_ int) int {
 	}
 }
 
-type poissonPacer struct{
-	rng *rand.Rand
+type poissonPacer struct {
+	rng      *rand.Rand
 	nextEmit float64
-	curTime float64
-	rate float64
+	curTime  float64
+	rate     float64
 }
 
 func (s *poissonPacer) tick(_ int) int {
@@ -52,7 +52,7 @@ func NewPoissonPacer(rng *rand.Rand, rate float64) *poissonPacer {
 		return nil
 	}
 	firstEmit := rng.ExpFloat64() / rate
-	return &poissonPacer {
+	return &poissonPacer{
 		rng,
 		firstEmit,
 		0.0,
@@ -78,7 +78,6 @@ func (s *countingPacer) tick(n int) int {
 		return s.cnt - n
 	}
 }
-
 
 func NewTransactionPacer(rng *rand.Rand, s string) (transactionPacer, error) {
 	ds := strings.ReplaceAll(s, " ", "")

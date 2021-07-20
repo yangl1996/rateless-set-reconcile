@@ -1,14 +1,14 @@
 package main
 
 import (
-	"math/rand"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
+	"math/rand"
 )
 
 type node struct {
 	*ldpc.TransactionPool
-	dist thresholdPicker
-	rng *rand.Rand
+	dist  thresholdPicker
+	rng   *rand.Rand
 	pacer transactionPacer
 }
 
@@ -40,12 +40,11 @@ func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicke
 }
 
 func (n *node) getRandomTransaction() ldpc.Transaction {
-        d := [ldpc.TxDataSize]byte{}
-        n.rng.Read(d[:])
-        return ldpc.NewTransaction(d, uint64(n.Seq))
+	d := [ldpc.TxDataSize]byte{}
+	n.rng.Read(d[:])
+	return ldpc.NewTransaction(d, uint64(n.Seq))
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
 	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx))
 }
-
