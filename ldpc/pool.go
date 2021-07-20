@@ -68,6 +68,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	//   So, we search backwards in time, and stop at the first c which misses
 	//   tx or when we hit tx.Seq
 	//
+	/*
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
 		// otherwise, it is already added before the codeword is
@@ -75,8 +76,10 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 		// a member of c. Note that this is true even for multi-peer.
 		if c.Covers(&tx) && c.Seq > ps.LastMissing {
 			ps.LastMissing = c.Seq
+			panic("test")
 		}
 	}
+	*/
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing
 	for cidx, c := range p.Codewords {
@@ -111,6 +114,9 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) []*Timestamped
 		}
 		for _, txv := range p.TransactionTrie.Buckets[c.UintIdx][bi].Items {
 			if c.Covers(&txv.HashedTransaction) {
+				// BUG: This can be saved by updating the txv.FirstAvailable
+				// when we peeled it. (Need some work if it is peeled
+				// in speculative peeling).
 				if _, there := c.Members[txv]; there {
 					if c.Seq < txv.FirstAvailable {
 						txv.FirstAvailable = c.Seq
@@ -218,6 +224,11 @@ func (p *TransactionPool) TryDecode() {
 	for cidx, c := range p.Codewords {
 		for _, txv := range updatedTx {
 			if c.Covers(&txv.HashedTransaction) {
+				// BUG: This check can be saved if we know the txv.FirstAvailable
+				// before the update. So that we only peel if the c.Seq is smaller
+				// than the previous txv.FirstAvailable (so that it was not peeled
+				// before), and is no smaller than the current txv.FirstAvailable
+				// (so that it is eligible).
 				_, there := c.Members[txv]
 				if !there && c.Seq >= txv.FirstAvailable {
 					p.Codewords[cidx].PeelTransaction(txv)
