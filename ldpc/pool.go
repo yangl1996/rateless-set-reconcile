@@ -19,7 +19,6 @@ type TimestampedTransaction struct {
 type TransactionPool struct {
 	TransactionTrie Trie
 	TransactionId map[Transaction]*TimestampedTransaction
-	Transactions []TimestampedTransaction
 	Codewords    []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
 	Seq          int
@@ -65,7 +64,6 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 			p.Codewords[cidx].AddCandidate(tp)
 		}
 	}
-	p.Transactions = append(p.Transactions, TimestampedTransaction{tx, ps})
 	p.TransactionTrie.AddTransaction(tp)
 	p.TransactionId[t] = tp
 	if p.TransactionTrie.Counter != len(p.TransactionId) {

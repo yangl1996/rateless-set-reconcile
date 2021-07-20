@@ -297,8 +297,8 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 	i := 0					// iteration counter
 	lastAct := 0				// last iteration where there's any progress
 	received := make([]int, 2)		// transaction pool size as of the end of prev iter
-	received[0] = len(p1.Transactions)
-	received[1] = len(p2.Transactions)
+	received[0] = len(p1.TransactionId)
+	received[1] = len(p2.TransactionId)
 	decoded := make([]int, 2)		// num transactions decoded
 	decoded[0] = 0
 	decoded[1] = 0
@@ -316,7 +316,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		p2.TryDecode()
 		p1.InputCodeword(c2)
 		p1.TryDecode()
-		for cnt := 0; cnt < len(p2.Transactions) - received[1]; cnt++ {
+		for cnt := 0; cnt < len(p2.TransactionId) - received[1]; cnt++ {
 			if res != nil {
 				res <- i
 			}
@@ -327,7 +327,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 				return nil
 			}
 		}
-		for cnt := 0; cnt < len(p1.Transactions) - received[0]; cnt++ {
+		for cnt := 0; cnt < len(p1.TransactionId) - received[0]; cnt++ {
 			lastAct = i
 			decoded[0] += 1
 			unique[1] -= 1
@@ -360,8 +360,8 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 			}
 			*/
 		}
-		received[0] = len(p1.Transactions)
-		received[1] = len(p2.Transactions)
+		received[0] = len(p1.TransactionId)
+		received[1] = len(p2.TransactionId)
 		if diff != nil {
 			diff <- unique[0]
 		}
