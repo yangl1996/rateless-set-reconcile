@@ -64,8 +64,8 @@ type PendingCodeword struct {
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
-		make(map[*TimestampedTransaction]struct{}),
-		make(map[*TimestampedTransaction]struct{}),
+		make(map[*TimestampedTransaction]struct{}, c.Counter),
+		make(map[*TimestampedTransaction]struct{}, c.Counter),
 		true,
 	}
 }

@@ -65,8 +65,8 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	//             |           |          |          |
 	//              - Tx gen    - c.Seq    - c rls    - Tx add
 	//
-	//   So, we search backwards in time, and stop wat the first c which misses
-	//   tx.
+	//   So, we search backwards in time, and stop at the first c which misses
+	//   tx or when we hit tx.Seq
 	//
 	for _, c := range p.ReleasedCodewords {
 		// tx cannot be a member of any codeword in ReleasedCodewords
