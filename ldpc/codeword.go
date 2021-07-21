@@ -73,9 +73,7 @@ func NewPendingCodeword(c Codeword) PendingCodeword {
 // the FirstAvailable estimation for t.
 func (c *PendingCodeword) PeelTransactionNotCandidate(t *TimestampedTransaction) {
 	c.Codeword.ApplyTransaction(&t.Transaction, From)
-	if t.FirstAvailable > c.Seq {
-		t.FirstAvailable = c.Seq
-	}
+	t.MarkSeenAt(c.Seq)
 	c.Dirty = true
 }
 
@@ -228,9 +226,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		if recur(0, 0, totDepth, true, solutions) {
 			// register those in the solutions set
 			for _, idx := range solutions {
-				if c.Candidates[idx].FirstAvailable > c.Seq {
-					c.Candidates[idx].FirstAvailable = c.Seq
-				}
+				c.Candidates[idx].MarkSeenAt(c.Seq)
 			}
 			// then, try to find the remaining transaction
 			// do not bother looking the ones already in solutions
@@ -242,6 +238,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 						c.PeelTransactionNotCandidate(c.Candidates[cidx])
 						// clear the candidates
 						c.Candidates = nil
+						c.Dirty = false
 						return res, false
 					}
 				} else if cidx == solutions[sidx] {
@@ -253,6 +250,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			// failed to locate the remaining tx (res) in candidates; it must be new
 			// clear the candidates
 			c.Candidates = nil
+			c.Dirty = false
 			return res, true
 		} else {
 			return res, false
@@ -272,9 +270,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			sidx := 0
 			for cidx, _ := range c.Candidates {
 				if sidx >= len(solutions) || cidx < solutions[sidx] {
-					if c.Candidates[cidx].FirstAvailable > c.Seq {
-						c.Candidates[cidx].FirstAvailable = c.Seq
-					}
+					c.Candidates[cidx].MarkSeenAt(c.Seq)
 				} else if cidx == solutions[sidx] {
 					sidx += 1
 				} else {
@@ -287,11 +283,13 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 				if res == c.Candidates[idx].Transaction {
 					// found it; peel it off
 					c.PeelTransactionNotCandidate(c.Candidates[idx])
+					c.Dirty = false
 					c.Candidates = nil
 					return res, false
 				}
 			}
 			// not found
+			c.Dirty = false
 			c.Candidates = nil
 			return res, true
 		} else {

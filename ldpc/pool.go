@@ -15,6 +15,13 @@ type TimestampedTransaction struct {
 	PeerStatus
 }
 
+func (t *TimestampedTransaction) MarkSeenAt(s int) {
+	if t.FirstAvailable > s {
+		t.FirstAvailable = s
+	}
+	return
+}
+
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	TransactionTrie Trie
