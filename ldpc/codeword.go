@@ -56,7 +56,6 @@ func (c *Codeword) IsPure() bool {
 
 type PendingCodeword struct {
 	Codeword
-	Members map[*TimestampedTransaction]struct{}
 	Candidates map[*TimestampedTransaction]struct{}
 	Dirty bool	// if we should speculate this cw again because the candidates changed
 }
@@ -64,7 +63,6 @@ type PendingCodeword struct {
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
-		make(map[*TimestampedTransaction]struct{}, c.Counter),
 		make(map[*TimestampedTransaction]struct{}, c.Counter),
 		true,
 	}
@@ -86,7 +84,6 @@ func (c *PendingCodeword) RegisterAsMember(t *TimestampedTransaction) {
 		delete(c.Candidates, t)
 		c.Dirty = true
 	}
-	c.Members[t] = struct{}{}
 	if t.FirstAvailable > c.Seq {
 		t.FirstAvailable = c.Seq
 	}

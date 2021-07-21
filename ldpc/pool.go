@@ -198,16 +198,14 @@ func (p *TransactionPool) TryDecode() {
 	// try peel the touched transactions off the codewords
 	for cidx, c := range p.Codewords {
 		for txv, _ := range p.Codewords[cidx].Candidates {
-			// BUG: This check can be saved if we know the txv.FirstAvailable
-			// before the update. So that we only peel if the c.Seq is smaller
-			// than the previous txv.FirstAvailable (so that it was not peeled
-			// before), and is no smaller than the current txv.FirstAvailable
-			// (so that it is eligible).
-			_, there := c.Members[txv]
-			if !there && c.Seq >= txv.FirstAvailable {
+			// Here, we should have check if txv is already a member of c,
+			// and should refrain from peeling txv off c if so. However,
+			// if txv is already peeled, it will NOT be a candidate in the
+			// first place! (Recall that txv is the interator of c.Candidates.)
+			// As a result, we do not need the check.
+			if c.Seq >= txv.FirstAvailable {
 				p.Codewords[cidx].PeelTransaction(txv)
-			}
-			if c.Seq >= txv.FirstAvailable || c.Seq <= txv.LastMissing {
+			} else if c.Seq <= txv.LastMissing {
 				p.Codewords[cidx].RemoveCandidate(txv)
 			}
 		}
