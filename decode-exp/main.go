@@ -10,11 +10,13 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"sync"
 	"time"
 )
 
 func main() {
+	runtimetrace := flag.String("trace", "", "write trace to `file`")
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
 	srcSize := flag.Int("s", 0, "sender pool transation count")
@@ -126,6 +128,21 @@ func main() {
 		}
 		fmt.Fprintf(cwpoolF, "# iteration     P2 unreleased cw\n")
 		defer cwpoolF.Close()
+	}
+
+	if *runtimetrace != "" {
+		f, err := os.Create(*runtimetrace)
+		if err != nil {
+			fmt.Println("unable to create trace file: ", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+
+		if err := trace.Start(f); err != nil {
+			fmt.Println("unable to start trace: ", err)
+			os.Exit(1)
+		}
+		defer trace.Stop()
 	}
 
 	// start the profile
