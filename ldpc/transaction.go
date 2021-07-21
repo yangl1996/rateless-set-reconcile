@@ -63,26 +63,28 @@ func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 	tb := TransactionBody{d, ts}
 	t := Transaction{}
 	t.TransactionBody = tb
-	dt, _ := tb.MarshalBinary()
 
 	h := checksumPool.Get().(hash.Hash)
 	defer checksumPool.Put(h)
 	h.Reset()
-	h.Write(dt)
+	h.Write(tb.Data[:])
+	h.Write((*[8]byte)(unsafe.Pointer(&tb.Timestamp))[:])
 	h.Sum(t.checksum[0:0])
 	return t
 }
 
 // HashWithSalt calculates the hash of the transaction suffixed by the salt.
-func (t *Transaction) HashWithSalt(salt []byte) []byte {
+func (t *Transaction) HashWithSalt(salt []byte) [blake2b.Size]byte {
 	h := hasherPool.Get().(hash.Hash)
 	defer hasherPool.Put(h)
 	h.Reset()
-	d, _ := t.TransactionBody.MarshalBinary()
-	h.Write(d)
+	h.Write(t.Data[:])
+	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
 	h.Write(t.checksum[:])
 	h.Write(salt)
-	return h.Sum(nil)
+	var res [blake2b.Size]byte
+	h.Sum(res[0:0])
+	return res
 }
 
 // UintWithSalt calculates the Uint64 representation of the first 8 bytes of
@@ -113,8 +115,8 @@ func (e DataSizeError) Error() string {
 // a byte array of TxSize and the error is always nil.
 func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := make([]byte, TxSize)
-	d, _ := t.TransactionBody.MarshalBinary()
-	copy(b[0:TxBodySize], d)
+	copy(b[0:TxDataSize], t.Data[:])
+	copy(b[TxDataSize:TxBodySize], (*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
 	copy(b[TxBodySize:TxSize], t.checksum[:])
 	return b, nil
 }

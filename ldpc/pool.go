@@ -80,7 +80,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 		// otherwise, it is already added before the codeword is
 		// released. As a result, we do not bother checking if tx is
 		// a member of c. Note that this is true even for multi-peer.
-		if c.Covers(&tx) && c.Seq > ps.LastMissing {
+		if c.Covers(&tp.HashedTransaction) && c.Seq > ps.LastMissing {
 			ps.LastMissing = c.Seq
 			panic("test")
 		}
@@ -88,7 +88,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing
 	for cidx, c := range p.Codewords {
-		if c.Covers(&tx) && c.Seq > ps.LastMissing {
+		if c.Covers(&tp.HashedTransaction) && c.Seq > ps.LastMissing {
 			p.Codewords[cidx].AddCandidate(tp)
 		}
 	}
