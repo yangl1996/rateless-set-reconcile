@@ -38,7 +38,11 @@ func TestExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	// pick one transaction from the pool
-	there := p.Transactions[0].Transaction
+	var there Transaction
+	for k, _ := range p.TransactionId {
+		there = k
+		break
+	}
 	if !p.Exists(there) {
 		t.Error("failed to locate a transaction that exists in the pool")
 	}
@@ -77,7 +81,7 @@ func TestAddTransaction(t *testing.T) {
 	var shouldbe [TxSize]byte
 	copy(shouldbe[:], cwm.Symbol[:])
 	shouldbeCounter := cwm.Counter
-	for _, t := range p.Transactions {
+	for t, _ := range p.TransactionId {
 		shouldbeCounter -= 1
 		m, _ := t.MarshalBinary()
 		for i := 0; i < TxSize; i++ {
@@ -105,7 +109,6 @@ func TestLoopback(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := p.ProduceCodeword(0, math.MaxUint64/5, 0)
-	c1 := c
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
@@ -115,16 +118,6 @@ func TestLoopback(t *testing.T) {
 	}
 	if p.Codewords[0].Symbol != emptySymbol {
 		t.Error("codeword has nonzero byte remaining")
-	}
-	if len(p.Codewords[0].Members) != c1.Counter {
-		t.Error("not all codeword members are identified")
-	}
-	for k, _ := range p.Codewords[0].Members {
-		kw := WrapTransaction(k)
-		if !c1.Covers(&kw) {
-			t.Error("incorrect member")
-			break
-		}
 	}
 }
 
@@ -142,23 +135,23 @@ func TestOneoff(t *testing.T) {
 	}
 	count := 0
 	var missing Transaction
-	for _, tx := range s1.Transactions {
-		if count >= len(s1.Transactions)-1 {
-			missing = tx.Transaction
+	for tx, _ := range s1.TransactionId {
+		if count >= len(s1.TransactionId)-1 {
+			missing = tx
 			break
 		} else {
-			s2.AddTransaction(tx.Transaction)
+			s2.AddTransaction(tx)
 			count += 1
 		}
 	}
 	c := s1.ProduceCodeword(0, math.MaxUint64, 0) // we want the codeword to cover all elements
-	if c.Counter != len(s1.Transactions) {
-		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.Transactions))
+	if c.Counter != len(s1.TransactionId) {
+		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.TransactionId))
 	}
 	s2.InputCodeword(c)
 	s2.TryDecode()
-	if len(s2.Transactions) != len(s1.Transactions) {
-		t.Error("pool 2 contains", len(s2.Transactions), "transactions, less than pool 1")
+	if len(s2.TransactionId) != len(s1.TransactionId) {
+		t.Error("pool 2 contains", len(s2.TransactionId), "transactions, less than pool 1")
 	}
 	if len(s2.Codewords) != 0 {
 		t.Error("pool 2 contains", len(s2.Codewords), "codewords, not zero")
