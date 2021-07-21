@@ -73,8 +73,9 @@ func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 	return t
 }
 
-// HashWithSalt calculates the hash of the transaction suffixed by the salt.
-func (t *Transaction) HashWithSalt(salt []byte) [blake2b.Size]byte {
+// HashWithSaltInto calculates the hash of the transaction suffixed by the salt
+// and writes into dst.
+func (t *Transaction) HashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
 	h := hasherPool.Get().(hash.Hash)
 	defer hasherPool.Put(h)
 	h.Reset()
@@ -82,8 +83,14 @@ func (t *Transaction) HashWithSalt(salt []byte) [blake2b.Size]byte {
 	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
 	h.Write(t.checksum[:])
 	h.Write(salt)
+	h.Sum(dst[0:0])
+	return
+}
+
+// HashWithSalt calculates the hash of the transaction suffixed by the salt.
+func (t *Transaction) HashWithSalt(salt []byte) [blake2b.Size]byte {
 	var res [blake2b.Size]byte
-	h.Sum(res[0:0])
+	t.HashWithSaltInto(salt, &res)
 	return res
 }
 
@@ -161,12 +168,3 @@ func (t *HashedTransaction) Uint(idx int) uint64 {
         return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
 }
 
-// WrapTransaction computes the hash of the given transaction, and bundles
-// the hash and the transaction into a HashedTransaction.
-func WrapTransaction(t Transaction) HashedTransaction {
-        h := t.HashWithSalt(nil)
-        tx := HashedTransaction{}
-        tx.Transaction = t
-        copy(tx.Hash[:], h[:])
-        return tx
-}

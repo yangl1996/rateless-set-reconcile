@@ -22,6 +22,15 @@ func (t *TimestampedTransaction) MarkSeenAt(s int) {
 	return
 }
 
+// WrapTransaction takes a transaction and produces a TimestampedTransaction.
+func WrapTransaction(t Transaction) *TimestampedTransaction {
+	tp := &TimestampedTransaction{}
+	tp.Transaction = t
+	tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
+	t.HashWithSaltInto(nil, &tp.Hash)
+	return tp
+}
+
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	TransactionTrie Trie
@@ -54,9 +63,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	if tp, there := p.TransactionId[t]; there {
 		return tp
 	}
-	tx := WrapTransaction(t)
-	ps := PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
-	tp := &TimestampedTransaction{tx, ps}
+	tp := WrapTransaction(t)
 	// BUG: we only need to search for codewords with ps.LastMissing < c.Seq
 	// 1. ps.LastMissing >= c.Seq: no need to update anyhow; do not search
 	// 2. ps.LastMissing < c.Seq
@@ -80,15 +87,15 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 		// otherwise, it is already added before the codeword is
 		// released. As a result, we do not bother checking if tx is
 		// a member of c. Note that this is true even for multi-peer.
-		if c.Covers(&tp.HashedTransaction) && c.Seq > ps.LastMissing {
-			ps.LastMissing = c.Seq
+		if c.Covers(&tp.HashedTransaction) && c.Seq > tp.LastMissing {
+			tp.LastMissing = c.Seq
 			panic("test")
 		}
 	}
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing
 	for cidx, c := range p.Codewords {
-		if c.Covers(&tp.HashedTransaction) && c.Seq > ps.LastMissing {
+		if c.Covers(&tp.HashedTransaction) && c.Seq > tp.LastMissing {
 			p.Codewords[cidx].AddCandidate(tp)
 		}
 	}
