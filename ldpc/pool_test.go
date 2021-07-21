@@ -14,7 +14,7 @@ func setupData(n int) (*TransactionPool, error) {
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}
 		rand.Read(d[:])
-		p.AddTransaction(NewTransaction(d, 0))
+		p.AddTransaction(NewTransaction(d, 1))
 	}
 	return p, nil
 }
@@ -48,7 +48,7 @@ func TestExists(t *testing.T) {
 	}
 	d := [TxDataSize]byte{}
 	rand.Read(d[:])
-	if p.Exists(NewTransaction(d, 0)) {
+	if p.Exists(NewTransaction(d, 1)) {
 		t.Error("mistakenly located a transaction that does not exist in the pool")
 	}
 }
@@ -63,7 +63,7 @@ func TestAddTransaction(t *testing.T) {
 	// create a random transaction
 	d := [TxDataSize]byte{}
 	rand.Read(d[:])
-	tx := NewTransaction(d, 0)
+	tx := NewTransaction(d, 1)
 
 	// send to ourself two codewords, one with threshold close to 0, one with threshold=maxuint
 	cw0 := p.ProduceCodeword(0, 0, 0)

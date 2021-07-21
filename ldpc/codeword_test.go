@@ -13,17 +13,18 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 		panic("correct >= deg")
 	}
 	c := Codeword{}
+	c.Seq = 10
 	var members []*TimestampedTransaction
 	for i := 0; i < deg; i++ {
 		d := randomData()
-		tx := WrapTransaction(NewTransaction(d, 0))
+		tx := WrapTransaction(NewTransaction(d, 1))
 		members = append(members, tx)
 		c.ApplyTransaction(&tx.Transaction, Into)
 	}
 	cw := NewPendingCodeword(c)
 	for i := 0; i < (total-correct); i++ {
 		d := randomData()
-		tx := WrapTransaction(NewTransaction(d, 0))
+		tx := WrapTransaction(NewTransaction(d, 1))
 		cw.AddCandidate(tx)
 	}
 	for i := 0; i < correct; i++ {
