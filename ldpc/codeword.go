@@ -87,11 +87,9 @@ func (c *PendingCodeword) RegisterAsMember(t *TimestampedTransaction) {
 		c.Dirty = true
 	}
 	c.Members[t] = struct{}{}
-	// BUG: if we update t.FirstAvailable here, when we do Pool.MarkCodewordReleased,
-	// we will not register those transactions as updated.
-	//if t.FirstAvailable > c.Seq {
-	//	t.FirstAvailable = c.Seq
-	//}
+	if t.FirstAvailable > c.Seq {
+		t.FirstAvailable = c.Seq
+	}
 }
 
 // AddCandidate adds a candidate transaction t to the codeword c.
