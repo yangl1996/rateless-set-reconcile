@@ -8,22 +8,22 @@ import (
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct
 // and total candidates. If correct+1=deg, it also returns the expected transaction after
 // peeing. Otherwise, it returns an empty transaction.
-func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
+func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTransaction) {
 	if correct >= deg {
 		panic("correct >= deg")
 	}
 	c := Codeword{}
-	var members []Transaction
+	var members []*TimestampedTransaction
 	for i := 0; i < deg; i++ {
 		d := randomData()
-		tx := NewTransaction(d, 0)
+		tx := WrapTransaction(NewTransaction(d, 0))
 		members = append(members, tx)
-		c.ApplyTransaction(&tx, Into)
+		c.ApplyTransaction(&tx.Transaction, Into)
 	}
 	cw := NewPendingCodeword(c)
 	for i := 0; i < (total-correct); i++ {
 		d := randomData()
-		tx := NewTransaction(d, 0)
+		tx := WrapTransaction(NewTransaction(d, 0))
 		cw.AddCandidate(tx)
 	}
 	for i := 0; i < correct; i++ {
@@ -32,7 +32,7 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, Transaction) {
 	if correct+1==deg {
 		return cw, members[len(members)-1]
 	} else {
-		return cw, Transaction{}
+		return cw, nil
 	}
 }
 
@@ -62,16 +62,16 @@ func TestSpeculateNormal(t *testing.T) {
 	if !ok {
 		t.Error("failed to speculatively peel")
 	}
-	if tx != correct {
+	if tx != correct.Transaction {
 		t.Error("speculative peel returns wrong result")
 	}
 	// see if we can peel off tx and get a pure codeword
-	cw.PeelTransaction(tx)
+	cw.PeelTransactionNotCandidate(correct)
 	if !cw.IsPure() {
 		t.Error("codeword not pure")
 	}
 	// see if candidates are removed
-	if len(cw.Candidates) != 3 {
+	if len(cw.Candidates) != 0 {
 		t.Error("candidates not removed")
 	}
 
