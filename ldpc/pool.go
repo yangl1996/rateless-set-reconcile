@@ -144,7 +144,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		for _, txv := range p.TransactionTrie.Buckets[cw.UintIdx][bi].Items {
 			if cw.Covers(&txv.HashedTransaction) {
 				if txv.FirstAvailable <= cw.Seq {
-					cw.PeelTransaction(txv)
+					cw.PeelTransactionNotCandidate(txv)
 				} else if txv.LastMissing < cw.Seq {
 					cw.AddCandidate(txv)
 				}
@@ -165,7 +165,9 @@ func (p *TransactionPool) TryDecode() {
 			if err == nil {
 				// store the transaction and peel the c/w, so the c/w is pure
 				tp := p.AddTransaction(*tx)
-				p.Codewords[cidx].PeelTransaction(tp)
+				// tp cannot be a candidate; otherwise, it should have been
+				// peeled in ScanCandidate of the last pass
+				p.Codewords[cidx].PeelTransactionNotCandidate(tp)
 			}
 		}
 	}
@@ -177,7 +179,7 @@ func (p *TransactionPool) TryDecode() {
 		tx, ok := p.Codewords[cidx].SpeculatePeel()
 		if ok {
 			tp := p.AddTransaction(tx)
-			p.Codewords[cidx].PeelTransaction(tp)
+			p.Codewords[cidx].PeelTransactionNotCandidate(tp)
 		}
 	}
 	// release codewords and update transaction availability estimation
@@ -196,19 +198,8 @@ func (p *TransactionPool) TryDecode() {
 		}
 	}
 	// try peel the touched transactions off the codewords
-	for cidx, c := range p.Codewords {
-		for txv, _ := range p.Codewords[cidx].Candidates {
-			// Here, we should have check if txv is already a member of c,
-			// and should refrain from peeling txv off c if so. However,
-			// if txv is already peeled, it will NOT be a candidate in the
-			// first place! (Recall that txv is the interator of c.Candidates.)
-			// As a result, we do not need the check.
-			if c.Seq >= txv.FirstAvailable {
-				p.Codewords[cidx].PeelTransaction(txv)
-			} else if c.Seq <= txv.LastMissing {
-				p.Codewords[cidx].RemoveCandidate(txv)
-			}
-		}
+	for cidx, _ := range p.Codewords {
+		p.Codewords[cidx].ScanCandidates()
 	}
 	// if any codeword is updated, then we may decode and release more
 	if change {

@@ -56,61 +56,39 @@ func (c *Codeword) IsPure() bool {
 
 type PendingCodeword struct {
 	Codeword
-	Candidates map[*TimestampedTransaction]struct{}
+	Candidates []*TimestampedTransaction
 	Dirty bool	// if we should speculate this cw again because the candidates changed
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
 	return PendingCodeword {
 		c,
-		make(map[*TimestampedTransaction]struct{}, c.Counter),
+		nil,
 		true,
 	}
 }
 
-// PeelTransaction peels off a transaction t that is determined to be
-// a member of c from c and calls RegisterAsMember on t.
-// It must not be called if t is already peeled from c.
-func (c *PendingCodeword) PeelTransaction(t *TimestampedTransaction) {
+// PeelTransactionNotCandidate peels off a transaction t that is determined to be
+// a member of c from c, assuming it is NOT already a candidate of c, and updates
+// the FirstAvailable estimation for t.
+func (c *PendingCodeword) PeelTransactionNotCandidate(t *TimestampedTransaction) {
 	c.Codeword.ApplyTransaction(&t.Transaction, From)
-	c.RegisterAsMember(t)
-}
-
-// RegisterAsMember updates the members and candidates of c, and
-// updates the FirstAvailable estimation of t. It must not be called
-// if t is already peeled from c.
-func (c *PendingCodeword) RegisterAsMember(t *TimestampedTransaction) {
-	if _, there := c.Candidates[t]; there {
-		delete(c.Candidates, t)
-		c.Dirty = true
-	}
 	if t.FirstAvailable > c.Seq {
 		t.FirstAvailable = c.Seq
 	}
+	c.Dirty = true
 }
 
 // AddCandidate adds a candidate transaction t to the codeword c.
 func (c *PendingCodeword) AddCandidate(t *TimestampedTransaction) {
-	_, there := c.Candidates[t]
-	if there {
-		return
-	} else {
-		c.Candidates[t] = struct{}{}
-		c.Dirty = true
-		return
-	}
-}
-
-// RemoveCandidate removes a candidate transaction t from the codeword c.
-func (c *PendingCodeword) RemoveCandidate(t *TimestampedTransaction) {
-	_, there := c.Candidates[t]
-	if there {
-		delete(c.Candidates, t)
-		c.Dirty = true
-		return
-	} else {
-		return
-	}
+	// We would have checked if t is already in c.Candidates.
+	// However, AddCandidate is only called in two situations:
+	// a) when a codeword is first received; b) when a transaction
+	// is first received. As a result, it's impossible that a tx
+	// will be added twice.
+	c.Candidates = append(c.Candidates, t)
+	c.Dirty = true
+	return
 }
 
 // SpeculateCost calculates the cost of speculating this codeword.
@@ -155,6 +133,38 @@ func (c *PendingCodeword) ShouldSpeculate() bool {
 	return true
 }
 
+// ScanCandidates scans every candidate of c, peels those whose FirstAvailable time is
+// on or before c.Seq, and removes those whose LastMissing time is on or after c.Seq.
+func (c *PendingCodeword) ScanCandidates() {
+	cIdx := 0
+	for cIdx < len(c.Candidates) {
+		// Here, we should have check if txv is already a member of c,
+		// and should refrain from peeling txv off c if so. However,
+		// if txv is already peeled, it will NOT be a candidate in the
+		// first place! (Recall that txv is the interator of c.Candidates.)
+		// As a result, we do not need the check.
+		txv := c.Candidates[cIdx]
+		removed := false
+		if c.Seq >= txv.FirstAvailable {
+			// call PeelTransactionNotCandidate to peel it off and update the
+			// FirstAvailable estimation. We will need to remove txv from
+			// candidates manually
+			c.PeelTransactionNotCandidate(txv)
+			removed = true
+		} else if c.Seq <= txv.LastMissing {
+			removed = true
+		}
+		// remove txv from candidates by swapping the last candidate here
+		if removed {
+			c.Candidates[cIdx] = c.Candidates[len(c.Candidates)-1]
+			c.Candidates = c.Candidates[0:len(c.Candidates)-1]
+			c.Dirty = true
+		} else {
+			cIdx += 1
+		}
+	}
+}
+
 // SpeculatePeel tries to speculatively peel off candidates from a pending
 // codeword. If it succeeds and yields a new transaction that is not in its
 // candidate set, it returns the transaction and true. The new transaction
@@ -171,13 +181,6 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	}
 	var res Transaction
 
-	// collect the candidates
-	candidates := make([]*TimestampedTransaction, len(c.Candidates))
-	i := 0
-	for k, _ := range c.Candidates {
-		candidates[i] = k
-		i++
-	}
 	// depth: num of txs already peeled/unpeeled; start: start idx of candidate to look at;
 	// totalDepth: total num of txs to peel/unpeel; tryPeel: true=try peeling away, false=try unpeeling;
 	// solutions: indices of peeled/unpeeled transactions into candidates
@@ -195,11 +198,11 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			}
 		}
 		// iterate the ones to peel
-		for i := start; i < len(candidates); i++ {
+		for i := start; i < len(c.Candidates); i++ {
 			if tryPeel {
-				c.Codeword.ApplyTransaction(&candidates[i].Transaction, From)
+				c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, From)
 			} else {
-				c.Codeword.ApplyTransaction(&candidates[i].Transaction, Into)
+				c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, Into)
 			}
 			ok := recur(depth+1, i+1, totalDepth, tryPeel, solutions)
 			if ok {
@@ -209,9 +212,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			} else {
 				// if not correct, reverse the change
 				if tryPeel {
-					c.Codeword.ApplyTransaction(&candidates[i].Transaction, Into)
+					c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, Into)
 				} else {
-					c.Codeword.ApplyTransaction(&candidates[i].Transaction, From)
+					c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, From)
 				}
 			}
 		}
@@ -219,22 +222,26 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 
 	}
 	totDepth := c.Counter - 1	// number of transactions to peel; we want to leave one
-	if totDepth < len(candidates)/2 {
+	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
 		solutions := make([]int, totDepth)
 		if recur(0, 0, totDepth, true, solutions) {
 			// register those in the solutions set
 			for _, idx := range solutions {
-				c.RegisterAsMember(candidates[idx])
+				if c.Candidates[idx].FirstAvailable > c.Seq {
+					c.Candidates[idx].FirstAvailable = c.Seq
+				}
 			}
 			// then, try to find the remaining transaction
 			// do not bother looking the ones already in solutions
 			sidx := 0
-			for cidx, _ := range candidates {
+			for cidx, _ := range c.Candidates {
 				if sidx >= len(solutions) || cidx < solutions[sidx] {
-					if res == candidates[cidx].Transaction {
+					if res == c.Candidates[cidx].Transaction {
 						// found it; peel it off
-						c.PeelTransaction(candidates[cidx])
+						c.PeelTransactionNotCandidate(c.Candidates[cidx])
+						// clear the candidates
+						c.Candidates = nil
 						return res, false
 					}
 				} else if cidx == solutions[sidx] {
@@ -244,6 +251,8 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 				}
 			}
 			// failed to locate the remaining tx (res) in candidates; it must be new
+			// clear the candidates
+			c.Candidates = nil
 			return res, true
 		} else {
 			return res, false
@@ -251,19 +260,21 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	} else {
 		// iterate subsets to NOT peel
 		// first apply every candidate
-		for _, d := range candidates {
+		for _, d := range c.Candidates {
 			c.Codeword.ApplyTransaction(&d.Transaction, From)
 		}
-		totDepth = len(candidates)-totDepth
+		totDepth = len(c.Candidates)-totDepth
 		solutions := make([]int, totDepth)
 		if recur(0, 0, totDepth, false, solutions) {
 			// solutions contains the set of indices we DO NOT want to peel
 			// here, we register those that we DO want to peel, i.e., those
 			// in candidates but not in solutions
 			sidx := 0
-			for cidx, _ := range candidates {
+			for cidx, _ := range c.Candidates {
 				if sidx >= len(solutions) || cidx < solutions[sidx] {
-					c.RegisterAsMember(candidates[cidx])
+					if c.Candidates[cidx].FirstAvailable > c.Seq {
+						c.Candidates[cidx].FirstAvailable = c.Seq
+					}
 				} else if cidx == solutions[sidx] {
 					sidx += 1
 				} else {
@@ -273,16 +284,18 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			// then, try to find the remaining one (res) among the ones
 			// not peeled
 			for _, idx := range solutions {
-				if res == candidates[idx].Transaction {
+				if res == c.Candidates[idx].Transaction {
 					// found it; peel it off
-					c.PeelTransaction(candidates[idx])
+					c.PeelTransactionNotCandidate(c.Candidates[idx])
+					c.Candidates = nil
 					return res, false
 				}
 			}
 			// not found
+			c.Candidates = nil
 			return res, true
 		} else {
-			for _, d := range candidates {
+			for _, d := range c.Candidates {
 				c.Codeword.ApplyTransaction(&d.Transaction, Into)
 			}
 			return res, false
