@@ -20,6 +20,7 @@ func main() {
 	srcSize := flag.Int("s", 0, "sender pool transation count")
 	differenceSize := flag.Int("x", 0, "number of transactions that appear in the sender but not in the receiver")
 	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
+	mirrorProb := flag.Float64("m", 0, "probability that a refill transaction appears at the other end")
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
@@ -40,6 +41,7 @@ func main() {
 		*srcSize = c.SrcSize
 		*differenceSize = c.DifferenceSize
 		*reverseDifferenceSize = c.ReverseDifferenceSize
+		*mirrorProb = c.MirrorProb
 		*seed = c.Seed
 		*runs = c.Runs
 		*refillTransaction = c.RefillTransaction
@@ -72,6 +74,7 @@ func main() {
 		*srcSize,
 		*differenceSize,
 		*reverseDifferenceSize,
+		*mirrorProb,
 		*seed,
 		*runs,
 		*refillTransaction,
@@ -177,7 +180,7 @@ func main() {
 				defer close(cwpoolCh)
 			}
 			defer procwg.Done()
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -261,7 +264,7 @@ func main() {
 	return
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cwpool chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, seed int64) error {
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -340,25 +343,21 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, res, degree, diff, cw
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p1.getRandomTransaction()
 			p1.AddTransaction(t)
-			unique[0] += 1
-			/*
-				if rand.Float64() < 0.8 {
-					p2.AddTransaction(t)
-				} else {
-					unique += 1
-				}
-			*/
+			if rng.Float64() < mirror {
+				p2.AddTransaction(t)
+			} else {
+				unique[0] += 1
+			}
 		}
 		nadd = p2.pacer.tick(unique[1])
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p2.getRandomTransaction()
 			p2.AddTransaction(t)
-			unique[1] += 1
-			/*
-				if rand.Float64() < 0.8 {
-					p1.AddTransaction(t)
-				}
-			*/
+			if rng.Float64() < mirror {
+				p1.AddTransaction(t)
+			} else {
+				unique[1] += 1
+			}
 		}
 		received[0] = len(p1.TransactionId)
 		received[1] = len(p2.TransactionId)
@@ -375,6 +374,7 @@ type Config struct {
 	SrcSize               int
 	DifferenceSize        int
 	ReverseDifferenceSize int
+	MirrorProb            float64
 	Seed                  int64
 	Runs                  int
 	RefillTransaction     string
