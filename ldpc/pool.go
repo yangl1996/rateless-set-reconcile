@@ -111,7 +111,14 @@ func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
 				// BUG: This can be saved by updating the txv.FirstAvailable
 				// when we peeled it. (Codewords have pointers to txs,
 				// so they can actually update the time estimations there)
-				if _, there := c.Members[txv]; !there {
+
+				// Technically, we need to check if txv is a member of the codeword
+				// because we should only update LastMissing of txv when it is NOT
+				// a member of c but is covered by c. However, if txv IS a member,
+				// its FirstAvailable must have been updated to c.Seq when we peeled
+				// txv off c. As a result, txv.FirstAvailable <= c.Seq if and only
+				// if txv is a member of c.
+				if txv.FirstAvailable > c.Seq {
 					if c.Seq > txv.LastMissing {
 						txv.LastMissing = c.Seq
 					}
@@ -189,8 +196,6 @@ func (p *TransactionPool) TryDecode() {
 		}
 	}
 	// try peel the touched transactions off the codewords
-	// TODO: another way to do this: for pending codewords, for its bucket range, for covered, check if updated.
-	// TODO: or, we ensure that all transactions are first added as candidates?
 	for cidx, c := range p.Codewords {
 		for txv, _ := range p.Codewords[cidx].Candidates {
 			// BUG: This check can be saved if we know the txv.FirstAvailable
