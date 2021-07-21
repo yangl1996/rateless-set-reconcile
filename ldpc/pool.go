@@ -201,8 +201,11 @@ func (p *TransactionPool) TryDecode() {
 		}
 	}
 	// try peel the touched transactions off the codewords
+	// TODO: another way to do this: for pending codewords, for its bucket range, for covered, check if updated.
+	// TODO: or, we ensure that all transactions are first added as candidates?
 	for cidx, c := range p.Codewords {
 		for _, txv := range updatedTx {
+			// BUG: maybe we do not need updatedTx?
 			if c.Covers(&txv.HashedTransaction) {
 				// BUG: This check can be saved if we know the txv.FirstAvailable
 				// before the update. So that we only peel if the c.Seq is smaller
@@ -213,9 +216,7 @@ func (p *TransactionPool) TryDecode() {
 				if !there && c.Seq >= txv.FirstAvailable {
 					p.Codewords[cidx].PeelTransaction(txv)
 				}
-				if c.Seq < txv.FirstAvailable && c.Seq > txv.LastMissing {
-					p.Codewords[cidx].AddCandidate(txv)
-				} else {
+				if c.Seq >= txv.FirstAvailable || c.Seq <= txv.LastMissing {
 					p.Codewords[cidx].RemoveCandidate(txv)
 				}
 			}
