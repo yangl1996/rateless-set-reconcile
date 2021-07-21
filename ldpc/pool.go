@@ -104,7 +104,7 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 // It updates all known transactions' last missing and first seen timestamps,
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
-func (p *TransactionPool) MarkCodewordReleased(c PendingCodeword) {
+func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
 	bs, be := c.BucketIndexRange()
@@ -165,10 +165,10 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 // and puts decoded transactions into the pool.
 func (p *TransactionPool) TryDecode() {
 	// scan through the codewords to find ones with counter=1
-	for cidx, c := range p.Codewords {
-		if c.Counter == 1 {
+	for cidx, _ := range p.Codewords {
+		if p.Codewords[cidx].Counter == 1 {
 			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
+			err := tx.UnmarshalBinary(p.Codewords[cidx].Symbol[:])
 			if err == nil {
 				// store the transaction and peel the c/w, so the c/w is pure
 				tp := p.AddTransaction(*tx)
@@ -193,9 +193,8 @@ func (p *TransactionPool) TryDecode() {
 	cwIdx := 0	// idx of the cw we are currently working on 
 	change := false
 	for cwIdx < len(p.Codewords) {
-		c := p.Codewords[cwIdx]
-		if c.IsPure() {
-			p.MarkCodewordReleased(c)
+		if p.Codewords[cwIdx].IsPure() {
+			p.MarkCodewordReleased(&p.Codewords[cwIdx])
 			// remove this codeword by moving from the end of the list
 			p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
 			p.Codewords = p.Codewords[0:len(p.Codewords)-1]

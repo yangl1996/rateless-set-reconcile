@@ -306,7 +306,7 @@ type ReleasedCodeword struct {
 	Seq     int
 }
 
-func NewReleasedCodeword(c PendingCodeword) ReleasedCodeword {
+func NewReleasedCodeword(c *PendingCodeword) ReleasedCodeword {
 	return ReleasedCodeword{c.CodewordFilter, c.Seq}
 }
 
