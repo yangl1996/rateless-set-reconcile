@@ -163,6 +163,76 @@ func (c *PendingCodeword) ScanCandidates() {
 	}
 }
 
+// tryCombinations iterates through all combinations of the candidates to leave one
+// remaining transaction that is valid. It tries all subsets of size totalDepth of
+// c.Candidates. If tryPeel is true, it tries peeling off the selected subset from
+// the codeword; otherwise, it tries unpeeling them. The latter mode is useful when
+// the number of members to discover is more than half of the codeword counter.
+// It records the solutions as a strictly-increasing array of indices into c.Candidates
+// in solutions, which must be pre-allocated to be of length totalDepth. It returns
+// true when it successfully discovers a correct subset of members.
+func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solutions []int) (*Transaction, bool) {
+	tx := &Transaction{}
+	nc := len(c.Candidates)
+	depth := 0		// the current depth we are exploring
+	firstEntry := true	// first entry into a depth after previous depths have changed
+	for {
+		if depth == totalDepth {
+			// if we have selected a subset of size totalDepth,
+			// validate the remaining tx
+			err := tx.UnmarshalBinary(c.Symbol[:])
+			if err == nil {
+				return tx, true
+			} else {
+				// failed; rewind the stack
+				depth -= 1
+				firstEntry = false
+				continue
+			}
+		} else if depth == -1 {
+			// boom; depth=0 failed or totalDepth==0
+			return nil, false
+		}
+
+		if firstEntry {
+			// if it's the first time we enter this depth, we should start at
+			// the solution idx of the prev depth plus 1
+			// however, we do not add 1 here because we will increment the
+			// solution idx just below
+			if depth > 0 {
+				solutions[depth] = solutions[depth-1] + 1
+			}
+		} else {
+			// if it's not the first entry into this depth after previous
+			// depths have changed, we need to rollback the tx applied previously
+			if tryPeel {
+				c.Codeword.ApplyTransaction(&c.Candidates[solutions[depth]].Transaction, Into)
+			} else {
+				c.Codeword.ApplyTransaction(&c.Candidates[solutions[depth]].Transaction, From)
+			}
+			solutions[depth] += 1
+		}
+		// solutions[depth] must satisfy
+		//   solutions[depth] + totalDepth - depth - 1 < nc
+		// otherwise, we have run out of solutions at this depth
+		// and this branch has failed
+		if solutions[depth] + totalDepth - depth - 1 < nc {
+			// apply this solution and advance to the next depth
+			if tryPeel {
+				c.Codeword.ApplyTransaction(&c.Candidates[solutions[depth]].Transaction, From)
+			} else {
+				c.Codeword.ApplyTransaction(&c.Candidates[solutions[depth]].Transaction, Into)
+			}
+			// advance into the next depth
+			firstEntry = true
+			depth += 1
+		} else {
+			firstEntry = false
+			depth -= 1
+		}
+	}
+}
+
 // SpeculatePeel tries to speculatively peel off candidates from a pending
 // codeword. If it succeeds and yields a new transaction that is not in its
 // candidate set, it returns the transaction and true. The new transaction
@@ -223,7 +293,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
 		solutions := make([]int, totDepth)
-		if recur(0, 0, totDepth, true, solutions) {
+		tx, succ := c.tryCombinations(totDepth, true, solutions)
+		if succ {
+			res = *tx
 			// register those in the solutions set
 			for _, idx := range solutions {
 				c.Candidates[idx].MarkSeenAt(c.Seq)
@@ -263,7 +335,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		}
 		totDepth = len(c.Candidates)-totDepth
 		solutions := make([]int, totDepth)
-		if recur(0, 0, totDepth, false, solutions) {
+		tx, succ := c.tryCombinations(totDepth, false, solutions)
+		if succ {
+			res = *tx
 			// solutions contains the set of indices we DO NOT want to peel
 			// here, we register those that we DO want to peel, i.e., those
 			// in candidates but not in solutions
