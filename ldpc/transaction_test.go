@@ -1,10 +1,10 @@
 package ldpc
 
 import (
-	"hash"
 	"bytes"
 	"encoding/binary"
 	"golang.org/x/crypto/blake2b"
+	"hash"
 	"math/rand"
 	"testing"
 )
@@ -122,10 +122,10 @@ func TestUnmarshalFails(t *testing.T) {
 	}
 	d1 := randomData()
 	tx1 := NewTransaction(d1, 123)
-	m1, _:= tx1.MarshalBinary()
+	m1, _ := tx1.MarshalBinary()
 	d2 := randomData()
 	tx2 := NewTransaction(d2, 456)
-	m2, _:= tx2.MarshalBinary()
+	m2, _ := tx2.MarshalBinary()
 	dt := make([]byte, TxSize)
 	for i := 0; i < TxSize; i++ {
 		dt[i] = m1[i] ^ m2[i]

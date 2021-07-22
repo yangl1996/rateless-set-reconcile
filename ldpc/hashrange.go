@@ -1,8 +1,8 @@
 package ldpc
 
 import (
-	"math"
 	"golang.org/x/crypto/blake2b"
+	"math"
 )
 
 const MaxUintIdx = blake2b.Size / 8
@@ -42,13 +42,13 @@ func (r *HashRange) Covers(hash uint64) bool {
 
 // BucketIndexRange returns the starting and ending indices of buckets.
 // Both indices are inclusive and the caller must take the remainder
-// against NumBuckets before using. 
+// against NumBuckets before using.
 func (r *HashRange) BucketIndexRange() (int, int) {
 	start := int(r.start / BucketSize)
 	end := int(r.end / BucketSize)
 	if r.cyclic {
 		if end == start {
-			return 0, NumBuckets-1
+			return 0, NumBuckets - 1
 		} else if end < start {
 			return start, end + NumBuckets
 		} else {

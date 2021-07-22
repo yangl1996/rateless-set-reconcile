@@ -10,7 +10,7 @@ type Trie struct {
 }
 
 type TrieBucket struct {
-	Items []*TimestampedTransaction
+	Items   []*TimestampedTransaction
 	Counter int
 }
 
@@ -26,4 +26,3 @@ func (t *Trie) AddTransaction(tx *TimestampedTransaction) {
 	}
 	t.Counter += 1
 }
-

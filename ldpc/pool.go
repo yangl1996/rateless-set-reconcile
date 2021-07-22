@@ -7,7 +7,7 @@ import (
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
 	FirstAvailable int
-	LastMissing int
+	LastMissing    int
 }
 
 type TimestampedTransaction struct {
@@ -26,18 +26,18 @@ func (t *TimestampedTransaction) MarkSeenAt(s int) {
 func WrapTransaction(t Transaction) *TimestampedTransaction {
 	tp := &TimestampedTransaction{}
 	tp.Transaction = t
-	tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp-1)}
+	tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp - 1)}
 	t.HashWithSaltInto(nil, &tp.Hash)
 	return tp
 }
 
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
-	TransactionTrie Trie
-	TransactionId map[Transaction]*TimestampedTransaction
-	Codewords    []PendingCodeword
+	TransactionTrie   Trie
+	TransactionId     map[Transaction]*TimestampedTransaction
+	Codewords         []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
-	Seq          int
+	Seq               int
 }
 
 // NewTransactionPool creates an empty transaction pool.
@@ -117,7 +117,7 @@ func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 	// go through each transaction that we know of, is covered by c,
 	// but is not a member
 	bs, be := c.BucketIndexRange()
-	for bidx := bs; bidx <= be; bidx ++ {
+	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
 		if bidx >= NumBuckets {
 			bi = bidx - NumBuckets
@@ -148,7 +148,7 @@ func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	cw := NewPendingCodeword(c)
 	bs, be := cw.BucketIndexRange()
-	for bidx := bs; bidx <= be; bidx ++ {
+	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
 		if bidx >= NumBuckets {
 			bi = bidx - NumBuckets
@@ -198,13 +198,13 @@ func (p *TransactionPool) TryDecode() {
 			}
 		}
 		// release codewords and update transaction availability estimation
-		cwIdx := 0	// idx of the cw we are currently working on 
+		cwIdx := 0 // idx of the cw we are currently working on
 		for cwIdx < len(p.Codewords) {
 			if p.Codewords[cwIdx].IsPure() {
 				p.MarkCodewordReleased(&p.Codewords[cwIdx])
 				// remove this codeword by moving from the end of the list
 				p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
-				p.Codewords = p.Codewords[0:len(p.Codewords)-1]
+				p.Codewords = p.Codewords[0 : len(p.Codewords)-1]
 				change = true
 			} else {
 				cwIdx += 1
@@ -230,7 +230,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 
 	// go through the buckets
 	bs, be := cw.BucketIndexRange()
-	for bidx := bs; bidx <= be; bidx ++ {
+	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
 		if bidx >= NumBuckets {
 			bi = bidx - NumBuckets
@@ -243,4 +243,3 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 	}
 	return cw
 }
-

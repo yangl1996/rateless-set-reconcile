@@ -1,8 +1,8 @@
 package ldpc
 
 import (
-	"github.com/cespare/xxhash"
 	"encoding/binary"
+	"github.com/cespare/xxhash"
 	"golang.org/x/crypto/blake2b"
 	"hash"
 	"sync"
@@ -10,7 +10,7 @@ import (
 )
 
 const ChecksumSize = 8
-const TxSize = 512                   // the size of a transaction, including the checksum
+const TxSize = 512                           // the size of a transaction, including the checksum
 const TxDataSize = TxSize - ChecksumSize - 8 // transaction size minus the checksum size
 const TxBodySize = TxSize - ChecksumSize
 
@@ -21,7 +21,7 @@ var hasherPool = sync.Pool{
 	},
 }
 
-var checksumPool = sync.Pool {
+var checksumPool = sync.Pool{
 	New: func() interface{} {
 		h := xxhash.New()
 		return h
@@ -29,7 +29,7 @@ var checksumPool = sync.Pool {
 }
 
 type TransactionBody struct {
-	Data [TxDataSize]byte
+	Data      [TxDataSize]byte
 	Timestamp uint64
 }
 
@@ -102,7 +102,7 @@ func (t *Transaction) UintWithSalt(salt []byte) uint64 {
 }
 
 // ChecksumError catches a wrong checksum when trying to unmarshal a transaction.
-type ChecksumError struct {}
+type ChecksumError struct{}
 
 func (e ChecksumError) Error() string {
 	return "incorrect transaction checksum"
@@ -158,13 +158,12 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 
 // HashedTransaction holds the transaction content and its blake2b hash.
 type HashedTransaction struct {
-        Transaction
-        Hash [blake2b.Size]byte
+	Transaction
+	Hash [blake2b.Size]byte
 }
 
 // Uint converts the idx-th 8-byte value into an unsigned int and returns
 // the result.
 func (t *HashedTransaction) Uint(idx int) uint64 {
-        return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
+	return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
 }
-

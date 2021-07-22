@@ -4,7 +4,6 @@ import (
 	"testing"
 )
 
-
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct
 // and total candidates. If correct+1=deg, it also returns the expected transaction after
 // peeing. Otherwise, it returns an empty transaction.
@@ -22,7 +21,7 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 		c.ApplyTransaction(&tx.Transaction, Into)
 	}
 	cw := NewPendingCodeword(c)
-	for i := 0; i < (total-correct); i++ {
+	for i := 0; i < (total - correct); i++ {
 		d := randomData()
 		tx := WrapTransaction(NewTransaction(d, 1))
 		cw.AddCandidate(tx)
@@ -30,7 +29,7 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 	for i := 0; i < correct; i++ {
 		cw.AddCandidate(members[i])
 	}
-	if correct+1==deg {
+	if correct+1 == deg {
 		return cw, members[len(members)-1]
 	} else {
 		return cw, nil

@@ -14,10 +14,10 @@ const (
 
 // Codeword holds a codeword (symbol), its threshold, and its salt.
 type Codeword struct {
-	Symbol [TxSize]byte
+	Symbol  [TxSize]byte
 	Counter int
 	CodewordFilter
-	Seq     int
+	Seq int
 }
 
 type CodewordFilter struct {
@@ -57,11 +57,11 @@ func (c *Codeword) IsPure() bool {
 type PendingCodeword struct {
 	Codeword
 	Candidates []*TimestampedTransaction
-	Dirty bool	// if we should speculate this cw again because the candidates changed
+	Dirty      bool // if we should speculate this cw again because the candidates changed
 }
 
 func NewPendingCodeword(c Codeword) PendingCodeword {
-	return PendingCodeword {
+	return PendingCodeword{
 		c,
 		nil,
 		true,
@@ -117,7 +117,7 @@ func (c *PendingCodeword) ShouldSpeculate() bool {
 		return false
 	}
 	// cannot peel if the remaining degree is too high (there is no enough candidate)
-	if c.Counter - len(c.Candidates) > 1 {
+	if c.Counter-len(c.Candidates) > 1 {
 		return false
 	}
 	// does not need peeling if the remaining degree is too low
@@ -155,7 +155,7 @@ func (c *PendingCodeword) ScanCandidates() {
 		// remove txv from candidates by swapping the last candidate here
 		if removed {
 			c.Candidates[cIdx] = c.Candidates[len(c.Candidates)-1]
-			c.Candidates = c.Candidates[0:len(c.Candidates)-1]
+			c.Candidates = c.Candidates[0 : len(c.Candidates)-1]
 			c.Dirty = true
 		} else {
 			cIdx += 1
@@ -175,8 +175,8 @@ func (c *PendingCodeword) ScanCandidates() {
 func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solutions []int) (Transaction, bool) {
 	tx := Transaction{}
 	nc := len(c.Candidates)
-	depth := 0		// the current depth we are exploring
-	firstEntry := true	// first entry into a depth after previous depths have changed
+	depth := 0         // the current depth we are exploring
+	firstEntry := true // first entry into a depth after previous depths have changed
 	for {
 		if depth == totalDepth {
 			// if we have selected a subset of size totalDepth,
@@ -217,7 +217,7 @@ func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solution
 		//   solutions[depth] + totalDepth - depth - 1 < nc
 		// otherwise, we have run out of solutions at this depth
 		// and this branch has failed
-		if solutions[depth] + totalDepth - depth - 1 < nc {
+		if solutions[depth]+totalDepth-depth-1 < nc {
 			// apply this solution and advance to the next depth
 			if tryPeel {
 				c.Codeword.ApplyTransaction(&c.Candidates[solutions[depth]].Transaction, From)
@@ -249,7 +249,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		return Transaction{}, false
 	}
 
-	totDepth := c.Counter - 1	// number of transactions to peel; we want to leave one
+	totDepth := c.Counter - 1 // number of transactions to peel; we want to leave one
 	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
 		solutions := make([]int, totDepth)
@@ -292,7 +292,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		for _, d := range c.Candidates {
 			c.Codeword.ApplyTransaction(&d.Transaction, From)
 		}
-		totDepth = len(c.Candidates)-totDepth
+		totDepth = len(c.Candidates) - totDepth
 		solutions := make([]int, totDepth)
 		res, succ := c.tryCombinations(totDepth, false, solutions)
 		if succ {
@@ -335,10 +335,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 
 type ReleasedCodeword struct {
 	CodewordFilter
-	Seq     int
+	Seq int
 }
 
 func NewReleasedCodeword(c *PendingCodeword) ReleasedCodeword {
 	return ReleasedCodeword{c.CodewordFilter, c.Seq}
 }
-
