@@ -166,13 +166,14 @@ func (c *PendingCodeword) ScanCandidates() {
 // tryCombinations iterates through all combinations of the candidates to leave one
 // remaining transaction that is valid. It tries all subsets of size totalDepth of
 // c.Candidates. If tryPeel is true, it tries peeling off the selected subset from
-// the codeword; otherwise, it tries unpeeling them. The latter mode is useful when
-// the number of members to discover is more than half of the codeword counter.
+// the codeword; otherwise, it tries unpeeling them. The second mode is useful when
+// the number of members to discover is more than half of the codeword counter, where
+// the caller should first peel all candidates from c (leaving c.Counter <= 0).
 // It records the solutions as a strictly-increasing array of indices into c.Candidates
 // in solutions, which must be pre-allocated to be of length totalDepth. It returns
 // true when it successfully discovers a correct subset of members.
-func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solutions []int) (*Transaction, bool) {
-	tx := &Transaction{}
+func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solutions []int) (Transaction, bool) {
+	tx := Transaction{}
 	nc := len(c.Candidates)
 	depth := 0		// the current depth we are exploring
 	firstEntry := true	// first entry into a depth after previous depths have changed
@@ -180,7 +181,7 @@ func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solution
 		if depth == totalDepth {
 			// if we have selected a subset of size totalDepth,
 			// validate the remaining tx
-			err := tx.UnmarshalBinary(c.Symbol[:])
+			err := (&tx).UnmarshalBinary(c.Symbol[:])
 			if err == nil {
 				return tx, true
 			} else {
@@ -191,7 +192,7 @@ func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solution
 			}
 		} else if depth == -1 {
 			// boom; depth=0 failed or totalDepth==0
-			return nil, false
+			return tx, false
 		}
 
 		if firstEntry {
@@ -247,55 +248,13 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	if !shouldRun {
 		return Transaction{}, false
 	}
-	var res Transaction
 
-	// depth: num of txs already peeled/unpeeled; start: start idx of candidate to look at;
-	// totalDepth: total num of txs to peel/unpeel; tryPeel: true=try peeling away, false=try unpeeling;
-	// solutions: indices of peeled/unpeeled transactions into candidates
-	var recur func(depth, start, totalDepth int, tryPeel bool, solutions []int) bool
-	recur = func(depth, start, totalDepth int, tryPeel bool, solutions []int) bool {
-		if depth == totalDepth {
-			// peeled enough, see if the remaining one makes sense
-			tx := &Transaction{}
-			err := tx.UnmarshalBinary(c.Symbol[:])
-			if err == nil {
-				res = *tx
-				return true
-			} else {
-				return false
-			}
-		}
-		// iterate the ones to peel
-		for i := start; i < len(c.Candidates); i++ {
-			if tryPeel {
-				c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, From)
-			} else {
-				c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, Into)
-			}
-			ok := recur(depth+1, i+1, totalDepth, tryPeel, solutions)
-			if ok {
-				// if we made the correct choice
-				solutions[depth] = i
-				return true
-			} else {
-				// if not correct, reverse the change
-				if tryPeel {
-					c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, Into)
-				} else {
-					c.Codeword.ApplyTransaction(&c.Candidates[i].Transaction, From)
-				}
-			}
-		}
-		return false
-
-	}
 	totDepth := c.Counter - 1	// number of transactions to peel; we want to leave one
 	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
 		solutions := make([]int, totDepth)
-		tx, succ := c.tryCombinations(totDepth, true, solutions)
+		res, succ := c.tryCombinations(totDepth, true, solutions)
 		if succ {
-			res = *tx
 			// register those in the solutions set
 			for _, idx := range solutions {
 				c.Candidates[idx].MarkSeenAt(c.Seq)
@@ -335,9 +294,8 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		}
 		totDepth = len(c.Candidates)-totDepth
 		solutions := make([]int, totDepth)
-		tx, succ := c.tryCombinations(totDepth, false, solutions)
+		res, succ := c.tryCombinations(totDepth, false, solutions)
 		if succ {
-			res = *tx
 			// solutions contains the set of indices we DO NOT want to peel
 			// here, we register those that we DO want to peel, i.e., those
 			// in candidates but not in solutions
