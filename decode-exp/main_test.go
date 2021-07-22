@@ -7,7 +7,7 @@ import (
 
 func BenchmarkExperiment2000(b *testing.B) {
 	b.ReportAllocs()
-	b.SetBytes(ldpc.TxSize * 2000)
+	b.SetBytes(ldpc.TxSize * 2000 * 2)
 	for i := 0; i < b.N; i++ {
 		err := runExperiment(0, 0, 0, 1000, 2000, "p(0.7)", 0, nil, nil, nil, nil, "u(0.01)", 42)
 		if err != nil {
@@ -18,7 +18,7 @@ func BenchmarkExperiment2000(b *testing.B) {
 
 func BenchmarkExperiment5000(b *testing.B) {
 	b.ReportAllocs()
-	b.SetBytes(ldpc.TxSize * 5000)
+	b.SetBytes(ldpc.TxSize * 5000 * 2)
 	for i := 0; i < b.N; i++ {
 		err := runExperiment(0, 0, 0, 1000, 5000, "p(0.7)", 0, nil, nil, nil, nil, "u(0.01)", 42)
 		if err != nil {
@@ -29,7 +29,7 @@ func BenchmarkExperiment5000(b *testing.B) {
 
 func BenchmarkExperiment20000(b *testing.B) {
 	b.ReportAllocs()
-	b.SetBytes(ldpc.TxSize * 20000)
+	b.SetBytes(ldpc.TxSize * 20000 * 2)
 	for i := 0; i < b.N; i++ {
 		err := runExperiment(0, 0, 0, 1000, 20000, "p(0.7)", 0, nil, nil, nil, nil, "u(0.01)", 42)
 		if err != nil {
