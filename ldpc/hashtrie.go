@@ -1,6 +1,6 @@
 package ldpc
 
-const NumBucketBits = 16
+const NumBucketBits = 8
 const NumBuckets = 0x1 << NumBucketBits
 const BucketSize uint64 = 0x1 << (64 - NumBucketBits)
 
