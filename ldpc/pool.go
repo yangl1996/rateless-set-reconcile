@@ -40,6 +40,18 @@ type TransactionPool struct {
 	Seq               int
 }
 
+/* TODO:
+I  Append codewords as they arrive into ReleasedCodewords as placeholders,
+   mark them as not released yet so that they are not treated as released.
+   When creating pending codewords, add the index to the placeholder. When
+   the codeword is released, go to the placeholder and update it.
+II If we want to set lowerbound on transaction timestamp in codewords, we
+   can lazily remove outdated transactions from the trie. No need to actively
+   maintain it.
+III To further reduce allocations, preallocate into arries.
+*/
+
+
 // NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
