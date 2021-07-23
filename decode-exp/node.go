@@ -27,12 +27,12 @@ func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicke
 			if i >= nCopy {
 				break
 			}
-			node.TransactionPool.AddTransaction(tx)
+			node.TransactionPool.AddTransaction(tx, ldpc.MaxTimestamp)
 			i += 1
 		}
 	}
 	for i := 0; i < nNew; i++ {
-		node.TransactionPool.AddTransaction(node.getRandomTransaction())
+		node.TransactionPool.AddTransaction(node.getRandomTransaction(), ldpc.MaxTimestamp)
 	}
 	node.dist = dist
 	node.pacer = pacer

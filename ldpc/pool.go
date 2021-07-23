@@ -4,6 +4,8 @@ import (
 	"math"
 )
 
+const MaxTimestamp = math.MaxInt64
+
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
 	FirstAvailable int
@@ -32,14 +34,10 @@ type TransactionPool struct {
 }
 
 /* TODO:
-I  Append codewords as they arrive into ReleasedCodewords as placeholders,
-   mark them as not released yet so that they are not treated as released.
-   When creating pending codewords, add the index to the placeholder. When
-   the codeword is released, go to the placeholder and update it.
-II If we want to set lowerbound on transaction timestamp in codewords, we
+I  If we want to set lowerbound on transaction timestamp in codewords, we
    can lazily remove outdated transactions from the trie. No need to actively
    maintain it.
-III To further reduce allocations, preallocate into arries.
+II To further reduce allocations, preallocate into arries.
 */
 
 
@@ -62,16 +60,16 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction {
-	if tp, there := p.TransactionId[t]; there {
-		return tp
+func (p *TransactionPool) AddTransaction(t Transaction, seen int) *TimestampedTransaction {
+	if _, there := p.TransactionId[t]; there {
+		panic(t)
 	}
 	tp := &TimestampedTransaction{
 		HashedTransaction{
 			Transaction: t,
 		},
 		PeerStatus{
-			math.MaxInt64,
+			seen,
 			int(t.Timestamp - 1),
 		},
 	}
@@ -111,14 +109,18 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 			// (larger in number) estimation of LastMissing; we can
 			// stop here
 			break
-
 		}
 	}
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
-	// to codewords after ps.LastMissing
+	// to codewords after ps.LastMissing; or, if tx is determined to be seen before
+	// c.Seq, we can directly peel it off.
 	for cidx, _ := range p.Codewords {
-		if p.Codewords[cidx].Covers(&tp.HashedTransaction) && p.Codewords[cidx].Seq > tp.LastMissing {
-			p.Codewords[cidx].AddCandidate(tp)
+		if p.Codewords[cidx].Covers(&tp.HashedTransaction) {
+			if p.Codewords[cidx].Seq >= tp.FirstAvailable {
+				p.Codewords[cidx].PeelTransactionNotCandidate(tp)
+			} else if p.Codewords[cidx].Seq > tp.LastMissing {
+				p.Codewords[cidx].AddCandidate(tp)
+			}
 		}
 	}
 	p.TransactionTrie.AddTransaction(tp)
@@ -195,15 +197,32 @@ func (p *TransactionPool) TryDecode() {
 		change = false
 		// scan through the codewords to find ones with counter=1
 		for cidx, _ := range p.Codewords {
+			// clean up the candidates
+			p.Codewords[cidx].ScanCandidates()
 			if p.Codewords[cidx].Counter == 1 {
 				tx := &Transaction{}
 				err := tx.UnmarshalBinary(p.Codewords[cidx].Symbol[:])
 				if err == nil {
-					// store the transaction and peel the c/w, so the c/w is pure
-					tp := p.AddTransaction(*tx)
-					// tp cannot be a candidate; otherwise, it should have been
-					// peeled in ScanCandidate of the last pass
-					p.Codewords[cidx].PeelTransactionNotCandidate(tp)
+					// it's possible the decoded transaction is already
+					// in the candidate set; in that case, we do not want
+					// add the tx into the pool again -- it's already in
+					// the pool
+					alreadyThere := false
+					for nidx, _ := range p.Codewords[cidx].Candidates {
+						// compare the checksum first to save time
+						if p.Codewords[cidx].Candidates[nidx].Transaction.checksum == tx.checksum && p.Codewords[cidx].Candidates[nidx].Transaction == *tx {
+							alreadyThere = true
+							p.Codewords[cidx].PeelTransactionNotCandidate(p.Codewords[cidx].Candidates[nidx])
+							p.Codewords[cidx].Candidates = nil
+							break
+						}
+					}
+					if !alreadyThere {
+						// store the transaction and peel the c/w, so the c/w is pure
+						p.AddTransaction(*tx, p.Codewords[cidx].Seq)
+						// we would need to peel off tp from cidx, but
+						// AddTransaction does it for us.
+					}
 				}
 			}
 		}
@@ -214,8 +233,9 @@ func (p *TransactionPool) TryDecode() {
 			// has changed
 			tx, ok := p.Codewords[cidx].SpeculatePeel()
 			if ok {
-				tp := p.AddTransaction(tx)
-				p.Codewords[cidx].PeelTransactionNotCandidate(tp)
+				p.AddTransaction(tx, p.Codewords[cidx].Seq)
+				// we would need to peel off tp from cidx, but
+				// AddTransaction does it for us.
 			}
 		}
 		// release codewords and update transaction availability estimation
@@ -230,10 +250,6 @@ func (p *TransactionPool) TryDecode() {
 			} else {
 				cwIdx += 1
 			}
-		}
-		// try peel the touched transactions off the codewords
-		for cidx, _ := range p.Codewords {
-			p.Codewords[cidx].ScanCandidates()
 		}
 	}
 }

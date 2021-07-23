@@ -257,7 +257,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			sidx := 0
 			for cidx, _ := range c.Candidates {
 				if sidx >= len(solutions) || cidx < solutions[sidx] {
-					if res == c.Candidates[cidx].Transaction {
+					if res.checksum == c.Candidates[cidx].Transaction.checksum && res == c.Candidates[cidx].Transaction {
 						// found it; peel it off
 						c.PeelTransactionNotCandidate(c.Candidates[cidx])
 						// clear the candidates
@@ -305,7 +305,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			// then, try to find the remaining one (res) among the ones
 			// not peeled
 			for _, idx := range solutions {
-				if res == c.Candidates[idx].Transaction {
+				if res.checksum == c.Candidates[idx].Transaction.checksum && res == c.Candidates[idx].Transaction {
 					// found it; peel it off
 					c.PeelTransactionNotCandidate(c.Candidates[idx])
 					c.Dirty = false

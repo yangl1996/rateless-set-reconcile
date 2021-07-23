@@ -14,7 +14,7 @@ func setupData(n int) (*TransactionPool, error) {
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}
 		rand.Read(d[:])
-		p.AddTransaction(NewTransaction(d, 1))
+		p.AddTransaction(NewTransaction(d, 1), MaxTimestamp)
 	}
 	return p, nil
 }
@@ -71,7 +71,7 @@ func TestAddTransaction(t *testing.T) {
 	p.InputCodeword(cw0)
 	p.InputCodeword(cwm)
 
-	p.AddTransaction(tx)
+	p.AddTransaction(tx, MaxTimestamp)
 
 	// now, cw0 should be untouched
 	if p.Codewords[0].Symbol != cw0.Symbol || p.Codewords[0].Counter != cw0.Counter {
@@ -140,7 +140,7 @@ func TestOneoff(t *testing.T) {
 			missing = tx
 			break
 		} else {
-			s2.AddTransaction(tx)
+			s2.AddTransaction(tx, MaxTimestamp)
 			count += 1
 		}
 	}

@@ -13,6 +13,7 @@ import (
 	"runtime/trace"
 	"sync"
 	"time"
+	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 )
 
 func main() {
@@ -359,9 +360,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 		nadd := p1.pacer.tick(unique[0])
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p1.getRandomTransaction()
-			p1.AddTransaction(t)
+			p1.AddTransaction(t, ldpc.MaxTimestamp)
 			if rng.Float64() < mirror {
-				p2.AddTransaction(t)
+				p2.AddTransaction(t, ldpc.MaxTimestamp)
 			} else {
 				unique[0] += 1
 			}
@@ -369,9 +370,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 		nadd = p2.pacer.tick(unique[1])
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p2.getRandomTransaction()
-			p2.AddTransaction(t)
+			p2.AddTransaction(t, ldpc.MaxTimestamp)
 			if rng.Float64() < mirror {
-				p1.AddTransaction(t)
+				p1.AddTransaction(t, ldpc.MaxTimestamp)
 			} else {
 				unique[1] += 1
 			}
