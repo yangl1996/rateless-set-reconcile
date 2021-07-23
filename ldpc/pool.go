@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-const MaxTimestamp = math.MaxInt64
+const MaxTimestamp = math.MaxUint64
 
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
@@ -259,13 +259,19 @@ func (p *TransactionPool) TryDecode() {
 
 // ProduceCodeword selects transactions where the idx-th 8 byte of the hash
 // within HashRange specified by start and frac, and XORs the selected
-// transactions together.
-func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword {
+// transactions together. The smallest timestamp admissible to the codeword
+// will be the current sequence minus lookback, or 0.
+func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback uint64) Codeword {
 	rg := NewHashRange(start, frac)
 	cw := Codeword{}
 	cw.HashRange = rg
 	cw.UintIdx = idx
 	cw.Seq = p.Seq
+	if cw.Seq >= lookback {
+		cw.MinTimestamp = cw.Seq - lookback
+	} else {
+		cw.MinTimestamp = 0
+	}
 	p.Seq += 1
 
 	// go through the buckets

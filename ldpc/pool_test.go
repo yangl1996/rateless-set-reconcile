@@ -27,7 +27,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/5, rand.Intn(MaxUintIdx))
+		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/5, rand.Intn(MaxUintIdx), math.MaxUint64)
 	}
 }
 
@@ -68,8 +68,8 @@ func TestAddTransaction(t *testing.T) {
 	tx := NewTransaction(d, 1)
 
 	// send to ourself two codewords, one with threshold close to 0, one with threshold=maxuint
-	cw0 := p.ProduceCodeword(0, 0, 0)
-	cwm := p.ProduceCodeword(0, math.MaxUint64, 0)
+	cw0 := p.ProduceCodeword(0, 0, 0, math.MaxUint64)
+	cwm := p.ProduceCodeword(0, math.MaxUint64, 0, math.MaxUint64)
 	p.InputCodeword(cw0)
 	p.InputCodeword(cwm)
 
@@ -112,7 +112,7 @@ func TestLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := p.ProduceCodeword(0, math.MaxUint64/5, 0)
+	c := p.ProduceCodeword(0, math.MaxUint64/5, 0, math.MaxUint64)
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
@@ -151,7 +151,7 @@ func TestOneoff(t *testing.T) {
 			}
 		}
 	}
-	c := s1.ProduceCodeword(0, math.MaxUint64, 0) // we want the codeword to cover all elements
+	c := s1.ProduceCodeword(0, math.MaxUint64, 0, math.MaxUint64) // we want the codeword to cover all elements
 	if c.Counter != s1.TransactionTrie.Counter {
 		t.Fatal("codeword contains", c.Counter, "elements, not equal to", s1.TransactionTrie.Counter)
 	}

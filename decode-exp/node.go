@@ -50,5 +50,5 @@ func (n *node) getRandomTransaction() ldpc.Transaction {
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
-	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx))
+	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx), 10000)
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func BenchmarkExperiment(b *testing.B) {
-	numTxs := []int{2000, 5000, 10000, 20000}
+	numTxs := []int{2000, 5000, 10000, 20000, 50000}
 	for _, nt := range numTxs {
 		name := strconv.Itoa(nt)
 		b.Run(name, func(b *testing.B) {

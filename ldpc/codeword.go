@@ -23,11 +23,12 @@ type Codeword struct {
 type CodewordFilter struct {
 	HashRange
 	UintIdx int
+	MinTimestamp uint64
 }
 
 // Covers returns if the hash range of the codeword filter covers the given transaction.
 func (c *CodewordFilter) Covers(t *HashedTransaction) bool {
-	return c.HashRange.Covers(t.Uint(c.UintIdx))
+	return t.Timestamp >= c.MinTimestamp && c.HashRange.Covers(t.Uint(c.UintIdx))
 }
 
 // ApplyTransaction adds or removes a transaction into/from the codeword,
