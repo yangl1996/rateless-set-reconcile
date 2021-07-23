@@ -33,10 +33,11 @@ type TransactionPool struct {
 }
 
 /* TODO:
-I  If we want to set lowerbound on transaction timestamp in codewords, we
-   can lazily remove outdated transactions from the trie. No need to actively
-   maintain it.
-II To further reduce allocations, preallocate into arries.
+I  We can lazily remove outdated transactions (which are not going to be
+   included in any codeword, ours or peers'), from the trie. No need to actively
+   maintain it. Just remove them as we scan the trie buckets.
+II To further reduce allocations, preallocate transactions and codewords  into
+   arries.
 */
 
 
