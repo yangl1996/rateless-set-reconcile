@@ -46,7 +46,7 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 func (n *node) getRandomTransaction() ldpc.Transaction {
 	d := [ldpc.TxDataSize]byte{}
 	n.rng.Read(d[:])
-	return ldpc.NewTransaction(d, uint64(n.Seq))
+	return ldpc.NewTransaction(d, n.Seq)
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {

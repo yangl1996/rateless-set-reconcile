@@ -17,7 +17,7 @@ type Codeword struct {
 	Symbol  [TxSize]byte
 	Counter int
 	CodewordFilter
-	Seq int
+	Seq uint64
 }
 
 type CodewordFilter struct {
@@ -328,7 +328,7 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 
 type ReleasedCodeword struct {
 	CodewordFilter
-	Seq int
+	Seq uint64
 	Released bool
 }
 

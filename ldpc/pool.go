@@ -8,8 +8,8 @@ const MaxTimestamp = math.MaxInt64
 
 // PeerStatus represents the status of a transaction at a peer.
 type PeerStatus struct {
-	FirstAvailable int
-	LastMissing    int
+	FirstAvailable uint64
+	LastMissing    uint64
 }
 
 type TimestampedTransaction struct {
@@ -17,7 +17,7 @@ type TimestampedTransaction struct {
 	PeerStatus
 }
 
-func (t *TimestampedTransaction) MarkSeenAt(s int) {
+func (t *TimestampedTransaction) MarkSeenAt(s uint64) {
 	if t.FirstAvailable > s {
 		t.FirstAvailable = s
 	}
@@ -29,7 +29,7 @@ type TransactionPool struct {
 	TransactionTrie   Trie
 	Codewords         []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
-	Seq               int
+	Seq               uint64
 }
 
 /* TODO:
@@ -69,7 +69,7 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *TransactionPool) AddTransaction(t Transaction, seen int) *TimestampedTransaction {
+func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *TimestampedTransaction {
 	// we ensured there's no duplicate calls to AddTransaction
 	tp := &TimestampedTransaction{
 		HashedTransaction{
@@ -77,7 +77,7 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen int) *TimestampedTr
 		},
 		PeerStatus{
 			seen,
-			int(t.Timestamp - 1),
+			t.Timestamp - 1,
 		},
 	}
 	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
@@ -276,7 +276,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int) Codeword 
 			bi = bidx - NumBuckets
 		}
 		for _, v := range p.TransactionTrie.Buckets[cw.UintIdx][bi].Items {
-			if cw.Covers(&v.HashedTransaction) && int(v.Timestamp) <= cw.Seq {
+			if cw.Covers(&v.HashedTransaction) && v.Timestamp <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)
 			}
 		}

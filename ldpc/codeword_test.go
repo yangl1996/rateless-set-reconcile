@@ -8,7 +8,7 @@ import (
 func wrapTransaction(t Transaction) *TimestampedTransaction {
 	tp := &TimestampedTransaction{}
         tp.Transaction = t
-        tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp - 1)}
+        tp.PeerStatus = PeerStatus{math.MaxInt64, t.Timestamp - 1}
 	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
         return tp
 }
