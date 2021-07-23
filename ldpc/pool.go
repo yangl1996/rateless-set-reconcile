@@ -116,8 +116,8 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	}
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing
-	for cidx, c := range p.Codewords {
-		if c.Covers(&tp.HashedTransaction) && c.Seq > tp.LastMissing {
+	for cidx, _ := range p.Codewords {
+		if p.Codewords[cidx].Covers(&tp.HashedTransaction) && p.Codewords[cidx].Seq > tp.LastMissing {
 			p.Codewords[cidx].AddCandidate(tp)
 		}
 	}
