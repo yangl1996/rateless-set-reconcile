@@ -12,31 +12,35 @@ type node struct {
 	pacer transactionPacer
 }
 
-func newNode(srcPool *ldpc.TransactionPool, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer) (*node, error) {
+func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer) (*node, []ldpc.Transaction, error) {
 	node := &node{}
 	node.rng = rng
 	var err error
 	node.TransactionPool, err = ldpc.NewTransactionPool()
 	if err != nil {
-		return node, err
+		return node, nil, err
 	}
+	res := make([]ldpc.Transaction, 0, nCopy+nNew)
 
 	if srcPool != nil {
 		i := 0
-		for tx, _ := range srcPool.TransactionId {
+		for _, tx := range srcPool {
 			if i >= nCopy {
 				break
 			}
 			node.TransactionPool.AddTransaction(tx, ldpc.MaxTimestamp)
 			i += 1
+			res = append(res, tx)
 		}
 	}
 	for i := 0; i < nNew; i++ {
-		node.TransactionPool.AddTransaction(node.getRandomTransaction(), ldpc.MaxTimestamp)
+		tx := node.getRandomTransaction()
+		node.TransactionPool.AddTransaction(tx, ldpc.MaxTimestamp)
+		res = append(res, tx)
 	}
 	node.dist = dist
 	node.pacer = pacer
-	return node, nil
+	return node, res, nil
 }
 
 func (n *node) getRandomTransaction() ldpc.Transaction {

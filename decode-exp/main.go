@@ -292,7 +292,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p1, err := newNode(nil, 0, s, dist1, rng, pacer1)
+	p1, txs, err := newNode(nil, 0, s, dist1, rng, pacer1)
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p2, err := newNode(p1.TransactionPool, s-d, r, dist2, rng, pacer2)
+	p2, _, err := newNode(txs, s-d, r, dist2, rng, pacer2)
 	if err != nil {
 		return err
 	}
@@ -318,8 +318,8 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	i := 0                     // iteration counter
 	lastAct := 0               // last iteration where there's any progress
 	received := make([]int, 2) // transaction pool size as of the end of prev iter
-	received[0] = len(p1.TransactionId)
-	received[1] = len(p2.TransactionId)
+	received[0] = p1.TransactionTrie.Counter
+	received[1] = p2.TransactionTrie.Counter
 	decoded := make([]int, 2) // num transactions decoded
 	decoded[0] = 0
 	decoded[1] = 0
@@ -337,7 +337,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 		p2.TryDecode()
 		p1.InputCodeword(c2)
 		p1.TryDecode()
-		for cnt := 0; cnt < len(p2.TransactionId)-received[1]; cnt++ {
+		for cnt := 0; cnt < p2.TransactionTrie.Counter-received[1]; cnt++ {
 			if res != nil {
 				res <- i
 			}
@@ -348,7 +348,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				return nil
 			}
 		}
-		for cnt := 0; cnt < len(p1.TransactionId)-received[0]; cnt++ {
+		for cnt := 0; cnt < p1.TransactionTrie.Counter-received[0]; cnt++ {
 			lastAct = i
 			decoded[0] += 1
 			unique[1] -= 1
@@ -377,8 +377,8 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				unique[1] += 1
 			}
 		}
-		received[0] = len(p1.TransactionId)
-		received[1] = len(p2.TransactionId)
+		received[0] = p1.TransactionTrie.Counter
+		received[1] = p2.TransactionTrie.Counter
 		if diff != nil {
 			diff <- unique[0]
 		}
