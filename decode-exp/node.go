@@ -10,9 +10,10 @@ type node struct {
 	dist  thresholdPicker
 	rng   *rand.Rand
 	pacer transactionPacer
+	lookback uint64
 }
 
-func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer) (*node, []ldpc.Transaction, error) {
+func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer, lookback uint64) (*node, []ldpc.Transaction, error) {
 	node := &node{}
 	node.rng = rng
 	var err error
@@ -40,6 +41,7 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 	}
 	node.dist = dist
 	node.pacer = pacer
+	node.lookback = lookback
 	return node, res, nil
 }
 
@@ -50,5 +52,5 @@ func (n *node) getRandomTransaction() ldpc.Transaction {
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
-	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx), 10000)
+	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx), n.lookback)
 }

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"math"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -31,6 +32,7 @@ func main() {
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
 	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
+	lookbackTime := flag.Uint64("l", 0, "lookback timespan of codewords, 0 for infinity")
 	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
 
@@ -51,6 +53,7 @@ func main() {
 		*timeoutDuration = c.TimeoutDuration
 		*timeoutCounter = c.TimeoutCounter
 		*degreeDistString = c.DegreeDistString
+		*lookbackTime = c.LookbackTime
 		// we then parse the command line args again, so that only the ones explicitly given
 		// in the command line will be overwritten
 		flag.Parse()
@@ -84,6 +87,7 @@ func main() {
 		*timeoutDuration,
 		*timeoutCounter,
 		*degreeDistString,
+		*lookbackTime,
 	}
 	// create output files
 	var f *os.File
@@ -198,7 +202,7 @@ func main() {
 				defer close(cwpoolCh)
 			}
 			defer procwg.Done()
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, *lookbackTime, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -282,7 +286,10 @@ func main() {
 	return
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
+	if lookback == 0 {
+		lookback = math.MaxUint64
+	}
 	rng := rand.New(rand.NewSource(seed))
 	dist1, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -292,7 +299,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p1, txs, err := newNode(nil, 0, s, dist1, rng, pacer1)
+	p1, txs, err := newNode(nil, 0, s, dist1, rng, pacer1, lookback)
 	if err != nil {
 		return err
 	}
@@ -305,7 +312,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p2, _, err := newNode(txs, s-d, r, dist2, rng, pacer2)
+	p2, _, err := newNode(txs, s-d, r, dist2, rng, pacer2, lookback)
 	if err != nil {
 		return err
 	}
@@ -399,6 +406,7 @@ type Config struct {
 	TimeoutDuration       int
 	TimeoutCounter        int
 	DegreeDistString      string
+	LookbackTime	      uint64
 }
 
 func readConfigString(prefix string) (Config, error) {
