@@ -22,15 +22,6 @@ func (t *TimestampedTransaction) MarkSeenAt(s int) {
 	return
 }
 
-// WrapTransaction takes a transaction and produces a TimestampedTransaction.
-func WrapTransaction(t Transaction) *TimestampedTransaction {
-	tp := &TimestampedTransaction{}
-	tp.Transaction = t
-	tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp - 1)}
-	t.HashWithSaltInto(nil, &tp.Hash)
-	return tp
-}
-
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	TransactionTrie   Trie
@@ -75,7 +66,16 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	if tp, there := p.TransactionId[t]; there {
 		return tp
 	}
-	tp := WrapTransaction(t)	// tp.LastMissing is set to t.Seq-1
+	tp := &TimestampedTransaction{
+		HashedTransaction{
+			Transaction: t,
+		},
+		PeerStatus{
+			math.MaxInt64,
+			int(t.Timestamp - 1),
+		},
+	}
+	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
 	// get a better estimation on the LastMissing timestamp of the tx by
 	// looking at  there
 	// are two cases:

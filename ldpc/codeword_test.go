@@ -2,7 +2,16 @@ package ldpc
 
 import (
 	"testing"
+	"math"
 )
+
+func wrapTransaction(t Transaction) *TimestampedTransaction {
+	tp := &TimestampedTransaction{}
+        tp.Transaction = t
+        tp.PeerStatus = PeerStatus{math.MaxInt64, int(t.Timestamp - 1)}
+	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
+        return tp
+}
 
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct
 // and total candidates. If correct+1=deg, it also returns the expected transaction after
@@ -16,14 +25,14 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 	var members []*TimestampedTransaction
 	for i := 0; i < deg; i++ {
 		d := randomData()
-		tx := WrapTransaction(NewTransaction(d, 1))
+		tx := wrapTransaction(NewTransaction(d, 1))
 		members = append(members, tx)
 		c.ApplyTransaction(&tx.Transaction, Into)
 	}
 	cw := PendingCodeword{c, nil, true, 0}
 	for i := 0; i < (total - correct); i++ {
 		d := randomData()
-		tx := WrapTransaction(NewTransaction(d, 1))
+		tx := wrapTransaction(NewTransaction(d, 1))
 		cw.AddCandidate(tx)
 	}
 	for i := 0; i < correct; i++ {
