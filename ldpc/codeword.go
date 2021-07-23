@@ -58,14 +58,7 @@ type PendingCodeword struct {
 	Codeword
 	Candidates []*TimestampedTransaction
 	Dirty      bool // if we should speculate this cw again because the candidates changed
-}
-
-func NewPendingCodeword(c Codeword) PendingCodeword {
-	return PendingCodeword{
-		c,
-		nil,
-		true,
-	}
+	releasedIdx int	// index to the released codeword stub of this codeword
 }
 
 // PeelTransactionNotCandidate peels off a transaction t that is determined to be
@@ -336,8 +329,6 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 type ReleasedCodeword struct {
 	CodewordFilter
 	Seq int
+	Released bool
 }
 
-func NewReleasedCodeword(c *PendingCodeword) ReleasedCodeword {
-	return ReleasedCodeword{c.CodewordFilter, c.Seq}
-}

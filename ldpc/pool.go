@@ -75,35 +75,43 @@ func (p *TransactionPool) AddTransaction(t Transaction) *TimestampedTransaction 
 	if tp, there := p.TransactionId[t]; there {
 		return tp
 	}
-	tp := WrapTransaction(t)
+	tp := WrapTransaction(t)	// tp.LastMissing is set to t.Seq-1
 	// get a better estimation on the LastMissing timestamp of the tx by
 	// looking at  there
 	// are two cases:
 	// 1. ps.LastMissing >= c.Seq: no need to update anyhow; do not search
 	// 2. ps.LastMissing < c.Seq
-	//   The peer must have not received the transaction at c.Seq. Note that
-	//   ps.LastMissing is lower-bounded by the transaction timestamp. So the
-	//   transaction must not be generated after c.Seq.
+	// The peer must have not received the transaction at c.Seq. Note that
+	// ps.LastMissing is lower-bounded by the transaction timestamp. So the
+	// transaction must not be generated after c.Seq.
 	//
-	//   Also, for this line to be triggered, the transaction must be received
-	//   by us after the codeword is released (because we are digging the
-	//   released transaction in AddNewTransaction).
+	// Also, for this line to be triggered, the transaction must be received
+	// by us after the codeword is released (because we are digging the
+	// released transaction in AddNewTransaction).
 	//
-	//         -----------------------------------------------> Time
-	//             |           |          |          |
-	//              - Tx gen    - c.Seq    - c rls    - Tx add
+	//       -----------------------------------------------> Time
+	//           |           |          |          |
+	//            - Tx gen    - c.Seq    - c rls    - Tx add
 	//
-	//   So, we search backwards in time, and stop at the first c which misses
-	//   tx or when we hit tx.Seq
-	// BUG: we only need to search for codewords with ps.LastMissing < c.Seq
-	for _, c := range p.ReleasedCodewords {
-		// tx cannot be a member of any codeword in ReleasedCodewords
-		// otherwise, it is already added before the codeword is
-		// released. As a result, we do not bother checking if tx is
-		// a member of c. Note that this is true even for multi-peer.
-		if c.Covers(&tp.HashedTransaction) && c.Seq > tp.LastMissing {
-			tp.LastMissing = c.Seq
-			panic("test")
+	// So, we search backwards in time, and stop at the first c which misses
+	// tx or when we hit tx.Seq
+	for i := len(p.ReleasedCodewords)-1; i >= 0; i-- {
+		// stop the search when the codeword is older than the tx LastMissing
+		if p.ReleasedCodewords[i].Seq <= tp.LastMissing {
+			break
+		}
+		// stop at the first released code
+		if p.ReleasedCodewords[i].Released && p.ReleasedCodewords[i].Covers(&tp.HashedTransaction) {
+			// tx cannot be a member of any codeword in ReleasedCodewords
+			// otherwise, it is already added before the codeword is
+			// released. As a result, we do not bother checking if tx is
+			// a member of c. Note that this is true even for multi-peer.
+			tp.LastMissing = p.ReleasedCodewords[i].Seq
+			// we are searching backwards, so we won't get any better
+			// (larger in number) estimation of LastMissing; we can
+			// stop here
+			break
+
 		}
 	}
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
@@ -150,15 +158,16 @@ func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 			}
 		}
 	}
-	r := NewReleasedCodeword(c)
-	p.ReleasedCodewords = append(p.ReleasedCodewords, r)
+	p.ReleasedCodewords[c.releasedIdx].Released = true
 	return
 }
 
 // InputCodeword takes a new codeword, peels transactions that we are sure is a member of
-// it, and stores it.
+// it, and stores it. It also creates a stub in p.ReleasedCodewords and stores in the
+// pending codeword the index to the stub.
 func (p *TransactionPool) InputCodeword(c Codeword) {
-	cw := NewPendingCodeword(c)
+	p.ReleasedCodewords = append(p.ReleasedCodewords, ReleasedCodeword{c.CodewordFilter, c.Seq, false})
+	cw := PendingCodeword{c, nil, true, len(p.ReleasedCodewords)-1}
 	bs, be := cw.BucketIndexRange()
 	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx

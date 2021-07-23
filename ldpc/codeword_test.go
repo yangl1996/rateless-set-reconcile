@@ -20,7 +20,7 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 		members = append(members, tx)
 		c.ApplyTransaction(&tx.Transaction, Into)
 	}
-	cw := NewPendingCodeword(c)
+	cw := PendingCodeword{c, nil, true, 0}
 	for i := 0; i < (total - correct); i++ {
 		d := randomData()
 		tx := WrapTransaction(NewTransaction(d, 1))
