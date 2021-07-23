@@ -39,9 +39,11 @@ func TestExists(t *testing.T) {
 	}
 	// pick one transaction from the pool
 	var there Transaction
-	for k, _ := range p.TransactionId {
-		there = k
-		break
+	for j := 0; j < NumBuckets; j++ {
+		for _, v := range p.TransactionTrie.Buckets[0][j].Items {
+			there = v.Transaction
+			break
+		}
 	}
 	if !p.Exists(there) {
 		t.Error("failed to locate a transaction that exists in the pool")
@@ -81,11 +83,13 @@ func TestAddTransaction(t *testing.T) {
 	var shouldbe [TxSize]byte
 	copy(shouldbe[:], cwm.Symbol[:])
 	shouldbeCounter := cwm.Counter
-	for t, _ := range p.TransactionId {
-		shouldbeCounter -= 1
-		m, _ := t.MarshalBinary()
-		for i := 0; i < TxSize; i++ {
-			shouldbe[i] ^= m[i]
+	for j := 0; j < NumBuckets; j++ {
+		for _, v := range p.TransactionTrie.Buckets[0][j].Items {
+			shouldbeCounter -= 1
+			m, _ := v.Transaction.MarshalBinary()
+			for i := 0; i < TxSize; i++ {
+				shouldbe[i] ^= m[i]
+			}
 		}
 	}
 	if p.Codewords[1].Symbol != shouldbe {
@@ -135,23 +139,26 @@ func TestOneoff(t *testing.T) {
 	}
 	count := 0
 	var missing Transaction
-	for tx, _ := range s1.TransactionId {
-		if count >= len(s1.TransactionId)-1 {
-			missing = tx
-			break
-		} else {
-			s2.AddTransaction(tx, MaxTimestamp)
-			count += 1
+	for j := 0; j < NumBuckets; j++ {
+		for _, v := range s1.TransactionTrie.Buckets[0][j].Items {
+			tx := v.Transaction
+			if count >= s1.TransactionTrie.Counter-1 {
+				missing = tx
+				break
+			} else {
+				s2.AddTransaction(tx, MaxTimestamp)
+				count += 1
+			}
 		}
 	}
 	c := s1.ProduceCodeword(0, math.MaxUint64, 0) // we want the codeword to cover all elements
-	if c.Counter != len(s1.TransactionId) {
-		t.Fatal("codeword contains", c.Counter, "elements, not equal to", len(s1.TransactionId))
+	if c.Counter != s1.TransactionTrie.Counter {
+		t.Fatal("codeword contains", c.Counter, "elements, not equal to", s1.TransactionTrie.Counter)
 	}
 	s2.InputCodeword(c)
 	s2.TryDecode()
-	if len(s2.TransactionId) != len(s1.TransactionId) {
-		t.Error("pool 2 contains", len(s2.TransactionId), "transactions, less than pool 1")
+	if s2.TransactionTrie.Counter != s1.TransactionTrie.Counter {
+		t.Error("pool 2 contains", s2.TransactionTrie.Counter, "transactions, less than pool 1")
 	}
 	if len(s2.Codewords) != 0 {
 		t.Error("pool 2 contains", len(s2.Codewords), "codewords, not zero")

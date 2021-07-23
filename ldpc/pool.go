@@ -27,7 +27,6 @@ func (t *TimestampedTransaction) MarkSeenAt(s int) {
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
 	TransactionTrie   Trie
-	TransactionId     map[Transaction]*TimestampedTransaction
 	Codewords         []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
 	Seq               int
@@ -45,15 +44,25 @@ II To further reduce allocations, preallocate into arries.
 func NewTransactionPool() (*TransactionPool, error) {
 	p := &TransactionPool{}
 	p.TransactionTrie = Trie{}
-	p.TransactionId = make(map[Transaction]*TimestampedTransaction)
 	p.Seq = 1
 	return p, nil
 }
 
 // Exists checks if a given transaction exists in the pool.
+// This method is slow and should only be used in tests.
 func (p *TransactionPool) Exists(t Transaction) bool {
-	_, yes := p.TransactionId[t]
-	return yes
+	tp := HashedTransaction{
+		Transaction: t,
+	}
+	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
+	h := tp.Uint(0)
+	b := p.TransactionTrie.Buckets[0][h/BucketSize]
+	for _, v := range b.Items {
+		if v.Transaction == t {
+			return true
+		}
+	}
+	return false
 }
 
 // AddTransaction adds the transaction into the pool, and searches through all
@@ -61,9 +70,7 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
 func (p *TransactionPool) AddTransaction(t Transaction, seen int) *TimestampedTransaction {
-	if _, there := p.TransactionId[t]; there {
-		panic(t)
-	}
+	// we ensured there's no duplicate calls to AddTransaction
 	tp := &TimestampedTransaction{
 		HashedTransaction{
 			Transaction: t,
@@ -124,10 +131,6 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen int) *TimestampedTr
 		}
 	}
 	p.TransactionTrie.AddTransaction(tp)
-	p.TransactionId[t] = tp
-	if p.TransactionTrie.Counter != len(p.TransactionId) {
-		panic("mismatch")
-	}
 	return tp
 }
 
