@@ -159,7 +159,24 @@ func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 // pending codeword the index to the stub.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	p.ReleasedCodewords = append(p.ReleasedCodewords, ReleasedCodeword{c.CodewordFilter, c.Seq, false})
-	cw := PendingCodeword{c, make([]*TimestampedTransaction, 0, c.Counter), true, len(p.ReleasedCodewords)-1}
+	cwIdx := len(p.Codewords)
+	if cwIdx < cap(p.Codewords) {
+		p.Codewords = p.Codewords[0:cwIdx+1]
+		p.Codewords[cwIdx] = PendingCodeword {
+			c,
+			p.Codewords[cwIdx].Candidates[0:0],
+			true,
+			len(p.ReleasedCodewords)-1,
+		}
+	} else {
+		p.Codewords = append(p.Codewords, PendingCodeword{
+			c,
+			make([]*TimestampedTransaction, 0, c.Counter),
+			true,
+			len(p.ReleasedCodewords)-1,
+		})
+	}
+	cw := &p.Codewords[cwIdx]
 	bs, be := cw.BucketIndexRange()
 	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
@@ -176,7 +193,6 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			}
 		}
 	}
-	p.Codewords = append(p.Codewords, cw)
 }
 
 // TryDecode recursively peels transactions that we know are members of some codewords,
@@ -236,7 +252,12 @@ func (p *TransactionPool) TryDecode() {
 			if p.Codewords[cwIdx].IsPure() {
 				p.MarkCodewordReleased(&p.Codewords[cwIdx])
 				// remove this codeword by moving from the end of the list
+				// however, we want to preserve the slice (and the backing
+				// array) of the deleted item so that they can be reused
+				// later when we put a new codeword there.
+				origSlice := p.Codewords[cwIdx].Candidates
 				p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
+				p.Codewords[len(p.Codewords)-1].Candidates = origSlice
 				p.Codewords = p.Codewords[0 : len(p.Codewords)-1]
 				change = true
 			} else {
