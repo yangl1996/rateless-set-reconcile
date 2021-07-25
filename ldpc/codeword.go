@@ -81,6 +81,8 @@ func (c *PendingCodeword) AddCandidate(t *TimestampedTransaction) {
 	return
 }
 
+const NoSpecDepth = 10
+
 // SpeculateCost calculates the cost of speculating this codeword.
 // It returns math.MaxInt64 if the cost is too high to calculate.
 func (c *PendingCodeword) SpeculateCost() int {
@@ -90,7 +92,7 @@ func (c *PendingCodeword) SpeculateCost() int {
 	if k > n/2 {
 		k = n - k
 	}
-	if k >= 10 {
+	if k >= NoSpecDepth {
 		return math.MaxInt64
 	}
 	for i := 1; i <= k; i++ {
@@ -246,7 +248,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	totDepth := c.Counter - 1 // number of transactions to peel; we want to leave one
 	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
-		solutions := make([]int, totDepth)
+		var solutions []int
+		var solBack [NoSpecDepth]int	// pre-allocate an array on the stack to back solutions
+		solutions = solBack[0:totDepth]
 		res, succ = c.tryCombinations(totDepth, true, solutions)
 		if succ {
 			// Register those in the solutions set and remove them from the
@@ -271,7 +275,9 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			c.Codeword.ApplyTransaction(&d.Transaction, From)
 		}
 		totDepth = len(c.Candidates) - totDepth
-		solutions := make([]int, totDepth)
+		var solutions []int
+		var solBack [NoSpecDepth]int	// pre-allocate an array on the stack to back solutions
+		solutions = solBack[0:totDepth]
 		res, succ = c.tryCombinations(totDepth, false, solutions)
 		if succ {
 			// solutions[] contains the set of indices we DO NOT want to peel
