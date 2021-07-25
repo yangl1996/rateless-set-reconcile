@@ -162,12 +162,11 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 	cwIdx := len(p.Codewords)
 	if cwIdx < cap(p.Codewords) {
 		p.Codewords = p.Codewords[0:cwIdx+1]
-		p.Codewords[cwIdx] = PendingCodeword {
-			c,
-			p.Codewords[cwIdx].Candidates[0:0],
-			true,
-			len(p.ReleasedCodewords)-1,
-		}
+		p.Codewords[cwIdx].Codeword = c
+		p.Codewords[cwIdx].Candidates = p.Codewords[cwIdx].Candidates[0:0]
+		p.Codewords[cwIdx].Dirty = true
+		p.Codewords[cwIdx].releasedIdx = len(p.ReleasedCodewords)-1
+
 	} else {
 		p.Codewords = append(p.Codewords, PendingCodeword{
 			c,
