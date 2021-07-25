@@ -78,7 +78,7 @@ func TestSpeculateNormal(t *testing.T) {
 		t.Error("codeword not pure")
 	}
 	// see if candidates are removed
-	if len(cw.Candidates) != 0 {
+	if len(cw.Candidates) != 3 {
 		t.Error("candidates not removed")
 	}
 
