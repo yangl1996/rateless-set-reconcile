@@ -53,7 +53,7 @@ func (t *TransactionBody) UnmarshalBinary(data []byte) error {
 // to simulate the signatures of real-world transactions.
 type Transaction struct {
 	TransactionBody
-	checksum [ChecksumSize]byte
+	checksum uint64
 }
 
 // NewTransaction creates a transaction from the given data by calculating
@@ -64,12 +64,12 @@ func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 		TransactionBody: TransactionBody{d, ts},
 	}
 
-	h := checksumPool.Get().(hash.Hash)
+	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(t.Data[:])
 	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
-	h.Sum(t.checksum[0:0])
+	t.checksum = h.Sum64()
 	return t
 }
 
@@ -81,7 +81,7 @@ func (t *Transaction) HashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
 	h.Reset()
 	h.Write(t.Data[:])
 	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
-	h.Write(t.checksum[:])
+	h.Write((*[8]byte)(unsafe.Pointer(&t.checksum))[:])
 	h.Write(salt)
 	h.Sum(dst[0:0])
 	return
@@ -124,7 +124,7 @@ func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := make([]byte, TxSize)
 	copy(b[0:TxDataSize], t.Data[:])
 	copy(b[TxDataSize:TxBodySize], (*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
-	copy(b[TxBodySize:TxSize], t.checksum[:])
+	copy(b[TxBodySize:TxSize], (*[8]byte)(unsafe.Pointer(&t.checksum))[:])
 	return b, nil
 }
 
@@ -138,14 +138,15 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	}
 	// check the checksum; we write the computed checksum into t
 	// to avoid allocating [ChecksumSize]byte
-	h := checksumPool.Get().(hash.Hash)
+	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(data[0:TxBodySize])
-	h.Sum(t.checksum[0:0])
-	if *(*uint64)(unsafe.Pointer(&data[TxBodySize])) != *(*uint64)(unsafe.Pointer(&t.checksum[0])) {
+	cs := h.Sum64()
+	if *(*uint64)(unsafe.Pointer(&data[TxBodySize])) != cs {
 		return ChecksumError{}
 	} else {
+		t.checksum = cs
 		return (&t.TransactionBody).UnmarshalBinary(data[0:TxBodySize])
 	}
 }
