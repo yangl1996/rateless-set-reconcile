@@ -140,28 +140,14 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *Timestampe
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
 func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
-	// go through each transaction that we know of, is covered by c,
-	// but is not a member
-	bs, be := c.BucketIndexRange()
-	for bidx := bs; bidx <= be; bidx++ {
-		bi := bidx
-		if bidx >= NumBuckets {
-			bi = bidx - NumBuckets
-		}
-		for _, txv := range p.TransactionTrie.Buckets[c.UintIdx][bi].Items {
-			if c.Covers(&txv.HashedTransaction) {
-				// Technically, we need to check if txv is a member of the codeword
-				// because we should only update LastMissing of txv when it is NOT
-				// a member of c but is covered by c. However, if txv IS a member,
-				// its FirstAvailable must have been updated to c.Seq when we peeled
-				// txv off c. As a result, txv.FirstAvailable <= c.Seq if and only
-				// if txv is a member of c.
-				if txv.FirstAvailable > c.Seq {
-					if c.Seq > txv.LastMissing {
-						txv.LastMissing = c.Seq
-					}
-				}
-			}
+	// Go through candidates of c. There might very well be transactions in
+	// TransactionTrie that are covered by c and not members of c, but if
+	// they do not appear in c.Candidates, their LastMissing estimation will
+	// not be updated by the release of c. As a result, we only need to search
+	// in c.Candidates, not in the whole TransactionTrie.
+	for _, txv := range c.Candidates {
+		if c.Seq > txv.LastMissing {
+			txv.LastMissing = c.Seq
 		}
 	}
 	p.ReleasedCodewords[c.releasedIdx].Released = true
@@ -215,9 +201,11 @@ func (p *TransactionPool) TryDecode() {
 					for nidx, _ := range p.Codewords[cidx].Candidates {
 						// compare the checksum first to save time
 						if p.Codewords[cidx].Candidates[nidx].Transaction.checksum == tx.checksum && p.Codewords[cidx].Candidates[nidx].Transaction == *tx {
+							// it we found the decoded transaction is already in the candidates, we should remove it from the candidates set
 							alreadyThere = true
 							p.Codewords[cidx].PeelTransactionNotCandidate(p.Codewords[cidx].Candidates[nidx])
-							p.Codewords[cidx].Candidates = nil
+							p.Codewords[cidx].Candidates[nidx] = p.Codewords[cidx].Candidates[len(p.Codewords[cidx].Candidates)-1]
+							p.Codewords[cidx].Candidates = p.Codewords[cidx].Candidates[0:len(p.Codewords[cidx].Candidates)-1]
 							break
 						}
 					}

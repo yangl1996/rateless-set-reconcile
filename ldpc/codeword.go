@@ -242,41 +242,27 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 	if !shouldRun {
 		return Transaction{}, false
 	}
+	var res Transaction
+	var succ bool
 
 	totDepth := c.Counter - 1 // number of transactions to peel; we want to leave one
 	if totDepth < len(c.Candidates)/2 {
 		// iterate subsets to peel
 		solutions := make([]int, totDepth)
-		res, succ := c.tryCombinations(totDepth, true, solutions)
+		res, succ = c.tryCombinations(totDepth, true, solutions)
 		if succ {
-			// register those in the solutions set
-			for _, idx := range solutions {
-				c.Candidates[idx].MarkSeenAt(c.Seq)
+			// Register those in the solutions set and remove them from the
+			// candidates list. We would like to do both in one pass.
+			// To do that, we go backward wrt the index into Candidates.
+			// We cannot go forward because we will be pulling candidates from
+			// the end of the set when deleting items in the front; such pulled
+			// items may need to be deleted again. Going backwards does not have
+			// this problem.
+			for sidx := len(solutions)-1; sidx >= 0; sidx-- {
+				c.Candidates[solutions[sidx]].MarkSeenAt(c.Seq)
+				c.Candidates[solutions[sidx]] = c.Candidates[len(c.Candidates)-1]
+				c.Candidates = c.Candidates[0:len(c.Candidates)-1]
 			}
-			// then, try to find the remaining transaction
-			// do not bother looking the ones already in solutions
-			sidx := 0
-			for cidx, _ := range c.Candidates {
-				if sidx >= len(solutions) || cidx < solutions[sidx] {
-					if res.checksum == c.Candidates[cidx].Transaction.checksum && res == c.Candidates[cidx].Transaction {
-						// found it; peel it off
-						c.PeelTransactionNotCandidate(c.Candidates[cidx])
-						// clear the candidates
-						c.Candidates = nil
-						c.Dirty = false
-						return res, false
-					}
-				} else if cidx == solutions[sidx] {
-					sidx += 1
-				} else {
-					panic("how")
-				}
-			}
-			// failed to locate the remaining tx (res) in candidates; it must be new
-			// clear the candidates
-			c.Candidates = nil
-			c.Dirty = false
-			return res, true
 		} else {
 			return res, false
 		}
@@ -288,36 +274,23 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 		}
 		totDepth = len(c.Candidates) - totDepth
 		solutions := make([]int, totDepth)
-		res, succ := c.tryCombinations(totDepth, false, solutions)
+		res, succ = c.tryCombinations(totDepth, false, solutions)
 		if succ {
-			// solutions contains the set of indices we DO NOT want to peel
-			// here, we register those that we DO want to peel, i.e., those
-			// in candidates but not in solutions
-			sidx := 0
-			for cidx, _ := range c.Candidates {
-				if sidx >= len(solutions) || cidx < solutions[sidx] {
+			// solutions[] contains the set of indices we DO NOT want to peel
+			// here; we want to leave them alone, and MarkSeen/delete those
+			// we DO need to peel, i.e., those not in solutions[].
+			// As a solution, we go backwards wrt index into Candidates, and
+			// skip those which also exist in solutions.
+			sidx := len(solutions)-1
+			for cidx := len(c.Candidates)-1; cidx >= 0; cidx-- {
+				if sidx < 0 || cidx > solutions[sidx] {
 					c.Candidates[cidx].MarkSeenAt(c.Seq)
+					c.Candidates[cidx] = c.Candidates[len(c.Candidates)-1]
+					c.Candidates = c.Candidates[0:len(c.Candidates)-1]
 				} else if cidx == solutions[sidx] {
-					sidx += 1
-				} else {
-					panic("how!")
+					sidx -= 1
 				}
 			}
-			// then, try to find the remaining one (res) among the ones
-			// not peeled
-			for _, idx := range solutions {
-				if res.checksum == c.Candidates[idx].Transaction.checksum && res == c.Candidates[idx].Transaction {
-					// found it; peel it off
-					c.PeelTransactionNotCandidate(c.Candidates[idx])
-					c.Dirty = false
-					c.Candidates = nil
-					return res, false
-				}
-			}
-			// not found
-			c.Dirty = false
-			c.Candidates = nil
-			return res, true
 		} else {
 			for _, d := range c.Candidates {
 				c.Codeword.ApplyTransaction(&d.Transaction, Into)
@@ -325,6 +298,22 @@ func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
 			return res, false
 		}
 	}
+	c.Dirty = false
+	// then, try to find the remaining transaction; we have removed
+	// the solutions from Candidates, so Candidates only contains non-members.
+	for cidx, _ := range c.Candidates {
+		if res.checksum == c.Candidates[cidx].Transaction.checksum && res == c.Candidates[cidx].Transaction {
+			// found it; peel it off (which marks FirstAvailable for us)
+			c.PeelTransactionNotCandidate(c.Candidates[cidx])
+			// remove the candidate
+			c.Candidates[cidx] = c.Candidates[len(c.Candidates)-1]
+			c.Candidates = c.Candidates[0:len(c.Candidates)-1]
+			// no more member to look for; we can return
+			return res, false
+		}
+	}
+	// failed to locate the remaining tx (res) in candidates; it must be new
+	return res, true
 }
 
 type ReleasedCodeword struct {
