@@ -159,7 +159,7 @@ func (p *TransactionPool) MarkCodewordReleased(c *PendingCodeword) {
 // pending codeword the index to the stub.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	p.ReleasedCodewords = append(p.ReleasedCodewords, ReleasedCodeword{c.CodewordFilter, c.Seq, false})
-	cw := PendingCodeword{c, nil, true, len(p.ReleasedCodewords)-1}
+	cw := PendingCodeword{c, make([]*TimestampedTransaction, 0, c.Counter), true, len(p.ReleasedCodewords)-1}
 	bs, be := cw.BucketIndexRange()
 	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
