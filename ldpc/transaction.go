@@ -132,27 +132,21 @@ func (t *Transaction) MarshalBinary() (data []byte, err error) {
 // under two conditions: (1) the input data is unequal to TxSize (2) the
 // checksum does not match the transaction data.
 func (t *Transaction) UnmarshalBinary(data []byte) error {
+	// check transaction size
 	if len(data) != TxSize {
 		return DataSizeError{len(data)}
 	}
-	tb := TransactionBody{}
-	err := (&tb).UnmarshalBinary(data[0:TxBodySize])
-	if err != nil {
-		return err
-	}
-	t.TransactionBody = tb
-	copy(t.checksum[:], data[TxBodySize:TxSize])
-
-	var cs [ChecksumSize]byte
+	// check the checksum; we write the computed checksum into t
+	// to avoid allocating [ChecksumSize]byte
 	h := checksumPool.Get().(hash.Hash)
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(data[0:TxBodySize])
-	h.Sum(cs[0:0])
-	if cs != t.checksum {
+	h.Sum(t.checksum[0:0])
+	if *(*uint64)(unsafe.Pointer(&data[TxBodySize])) != *(*uint64)(unsafe.Pointer(&t.checksum[0])) {
 		return ChecksumError{}
 	} else {
-		return nil
+		return (&t.TransactionBody).UnmarshalBinary(data[0:TxBodySize])
 	}
 }
 
