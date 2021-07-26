@@ -7,7 +7,7 @@ import (
 )
 
 func setupData(n int) (*TransactionPool, error) {
-	p, err := NewTransactionPool()
+	p, err := NewTransactionPool(MaxTimestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func TestOneoff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s2, err := NewTransactionPool()
+	s2, err := NewTransactionPool(MaxTimestamp)
 	if err != nil {
 		t.Fatal(err)
 	}

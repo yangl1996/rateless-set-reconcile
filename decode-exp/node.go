@@ -17,7 +17,7 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 	node := &node{}
 	node.rng = rng
 	var err error
-	node.TransactionPool, err = ldpc.NewTransactionPool()
+	node.TransactionPool, err = ldpc.NewTransactionPool(lookback)
 	if err != nil {
 		return node, nil, err
 	}
