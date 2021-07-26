@@ -235,13 +235,7 @@ func (c *PendingCodeword) tryCombinations(totalDepth int, tryPeel bool, solution
 // does not yield a new transaction, i.e., all transactions are in the
 // candidate set, then it return an empty transaction and false. If it fails,
 // then it does not alter c and returns an empty transaction and false.
-// It does nothing if the codeword c should not be speculated (see ShouldSpeculate).
 func (c *PendingCodeword) SpeculatePeel() (Transaction, bool) {
-	shouldRun := c.ShouldSpeculate()
-	c.Dirty = false
-	if !shouldRun {
-		return Transaction{}, false
-	}
 	var res Transaction
 	var succ bool
 
