@@ -60,15 +60,16 @@ type Transaction struct {
 // and storing the MD5 checksum. (We use MD5 because this is a simulation
 // and security does not matter.)
 func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
+	t := Transaction {
+		TransactionBody: TransactionBody{d, ts},
+	}
 	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
-	h.Write(d[:])
-	h.Write((*[8]byte)(unsafe.Pointer(&ts))[:])
-	return Transaction{
-		TransactionBody: TransactionBody{d, ts},
-		checksum: h.Sum64(),
-	}
+	h.Write(t.Data[:])
+	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
+	t.checksum = h.Sum64()
+	return t
 }
 
 // HashWithSaltInto calculates the hash of the transaction suffixed by the salt
