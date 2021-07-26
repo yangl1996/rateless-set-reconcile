@@ -61,15 +61,28 @@ type Transaction struct {
 // and security does not matter.)
 func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
 	t := Transaction {
-		TransactionBody: TransactionBody{d, ts},
+		TransactionBody: TransactionBody {
+			Data: d,
+			Timestamp: ts,
+		},
 	}
 	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
-	h.Write(t.Data[:])
-	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
+	h.Write(((*[TxDataSize]byte)(noescape(unsafe.Pointer(&t.Data[0]))))[:])
+	h.Write(((*[8]byte)(noescape(unsafe.Pointer(&t.Timestamp))))[:])
 	t.checksum = h.Sum64()
 	return t
+}
+
+// noescape hides a pointer from escape analysis. I learned this trick
+// from https://segment.com/blog/allocation-efficiency-in-high-performance-go-services/
+// and the origin is https://golang.org/src/strings/builder.go
+// this is crazy...
+//go:nosplit
+func noescape(p unsafe.Pointer) unsafe.Pointer {
+	x := uintptr(p)
+	return unsafe.Pointer(x ^ 0)
 }
 
 // HashWithSaltInto calculates the hash of the transaction suffixed by the salt
