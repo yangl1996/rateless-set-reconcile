@@ -39,15 +39,11 @@ func TestNewTransaction(t *testing.T) {
 	tx := NewTransaction(d, 123)
 	buf, _ := tx.TransactionBody.MarshalBinary()
 
-	hasher := checksumPool.Get().(hash.Hash)
+	hasher := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(hasher)
 	hasher.Reset()
 	hasher.Write(buf[:])
-	var h [ChecksumSize]byte
-	hasher.Sum(h[0:0])
-	if h != tx.checksum {
-		t.Error(h)
-		t.Error(tx.checksum)
+	if hasher.Sum64() != tx.checksum {
 		t.Error("incorrect checksum in created transaction")
 	}
 	tb := TransactionBody{d, 123}
@@ -63,7 +59,9 @@ func TestHashingAndUint(t *testing.T) {
 	s := []byte{}
 	bodyBytes, _ := tx.TransactionBody.MarshalBinary()
 	s = append(s, bodyBytes...)
-	s = append(s, tx.checksum[:]...)
+	csBytes := make([]byte, ChecksumSize)
+	binary.LittleEndian.PutUint64(csBytes[:], tx.checksum)
+	s = append(s, csBytes...)
 	s = append(s, 1, 2, 3) // salt
 	hash := blake2b.Sum512(s)
 	salt := []byte{1, 2, 3}

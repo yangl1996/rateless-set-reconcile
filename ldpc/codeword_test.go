@@ -101,7 +101,7 @@ func TestSpeculateNotEnoughCandidates(t *testing.T) {
 
 	// then test if peeling fails when there are not
 	cw, _ = prepareCodeword(3, 1, 1)
-	_, ok = cw.SpeculatePeel()
+	ok = cw.ShouldSpeculate()
 	if ok {
 		t.Error("peeling did not fail when there are not enough candidates")
 	}
@@ -120,7 +120,7 @@ func TestSpeculateTooLowDegree(t *testing.T) {
 
 	// then test if it fails when degree is less than 2
 	cw, _ = prepareCodeword(1, 0, 0)
-	_, ok = cw.SpeculatePeel()
+	ok = cw.ShouldSpeculate()
 	if ok {
 		t.Error("peeling succeeded when degree is only 1")
 	}
@@ -137,7 +137,7 @@ func TestCostTooHigh(t *testing.T) {
 
 	// then test when the cost is high
 	cw, _ = prepareCodeword(15, 14, 40)
-	_, ok = cw.SpeculatePeel()
+	ok = cw.ShouldSpeculate()
 	if ok {
 		t.Error("peeling succeeded when cost is very high")
 	}
