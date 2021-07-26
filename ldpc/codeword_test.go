@@ -45,6 +45,19 @@ func prepareCodeword(deg, correct, total int) (PendingCodeword, *TimestampedTran
 	}
 }
 
+// BenchmarkApplyTransaction benchmarks ApplyTransaction.
+func BenchmarkApplyTransaction(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(TxSize)
+	c := Codeword{}
+	d := randomData()
+	tx := NewTransaction(d, 1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.ApplyTransaction(&tx, Into)
+	}
+}
+
 // BenchmarkSpeculate benchmarks the performance of speculative peeling.
 func BenchmarkSpeculate(b *testing.B) {
 	b.ReportAllocs()
