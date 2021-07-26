@@ -33,12 +33,6 @@ type TransactionPool struct {
 	Timeout           uint64 // transactions older than Seq-Timeout will be removed
 }
 
-/* TODO:
-I  We can lazily remove outdated transactions (which are not going to be
-   included in any codeword, ours or peers'), from the trie. No need to actively
-   maintain it. Just remove them as we scan the trie buckets.
-*/
-
 // NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool(timeout uint64) (*TransactionPool, error) {
 	p := &TransactionPool{}
