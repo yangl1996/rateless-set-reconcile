@@ -323,7 +323,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	// start sending codewords from p1 to p2
 	// prepare the counters
 	i := 0                     // iteration counter
-	lastAct := 0               // last iteration where there's any progress
+	lastAct := make([]int, 2)  // last iteration where there's any progress
 	received := make([]int, 2) // transaction pool size as of the end of prev iter
 	received[0] = p1.TransactionTrie.Counter
 	received[1] = p2.TransactionTrie.Counter
@@ -348,7 +348,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			if res != nil {
 				res <- i
 			}
-			lastAct = i
+			lastAct[1] = i
 			decoded[1] += 1
 			unique[0] -= 1
 			if tcnt != 0 && tcnt <= decoded[1] {
@@ -356,11 +356,12 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			}
 		}
 		for cnt := 0; cnt < p1.TransactionTrie.Counter-received[0]; cnt++ {
-			lastAct = i
+			lastAct[0] = i
 			decoded[0] += 1
 			unique[1] -= 1
 		}
-		if i-lastAct > tout {
+		// stop if any node is stuck
+		if i-lastAct[0] > tout || i-lastAct[1] > tout {
 			return nil
 		}
 		// add transactions to pools
