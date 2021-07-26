@@ -1,9 +1,9 @@
 package main
 
 import (
-	"testing"
-	"strconv"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
+	"strconv"
+	"testing"
 )
 
 func BenchmarkExperiment(b *testing.B) {

@@ -7,9 +7,9 @@ import (
 
 type node struct {
 	*ldpc.TransactionPool
-	dist  thresholdPicker
-	rng   *rand.Rand
-	pacer transactionPacer
+	dist     thresholdPicker
+	rng      *rand.Rand
+	pacer    transactionPacer
 	lookback uint64
 }
 

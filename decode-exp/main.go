@@ -6,15 +6,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
+	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"math"
+	"math/rand"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
 	"sync"
 	"time"
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 )
 
 func main() {
@@ -407,7 +407,7 @@ type Config struct {
 	TimeoutDuration       int
 	TimeoutCounter        int
 	DegreeDistString      string
-	LookbackTime	      uint64
+	LookbackTime          uint64
 }
 
 func readConfigString(prefix string) (Config, error) {
