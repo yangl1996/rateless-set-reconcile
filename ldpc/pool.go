@@ -30,7 +30,7 @@ type TransactionPool struct {
 	Codewords         []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
 	Seq               uint64
-	Timeout uint64	// transactions older than Seq-Timeout will be removed
+	Timeout           uint64 // transactions older than Seq-Timeout will be removed
 }
 
 /* TODO:
@@ -38,7 +38,6 @@ I  We can lazily remove outdated transactions (which are not going to be
    included in any codeword, ours or peers'), from the trie. No need to actively
    maintain it. Just remove them as we scan the trie buckets.
 */
-
 
 // NewTransactionPool creates an empty transaction pool.
 func NewTransactionPool(timeout uint64) (*TransactionPool, error) {
@@ -101,7 +100,7 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *Timestampe
 	//
 	// So, we search backwards in time, and stop at the first c which misses
 	// tx or when we hit tx.Seq
-	for i := len(p.ReleasedCodewords)-1; i >= 0; i-- {
+	for i := len(p.ReleasedCodewords) - 1; i >= 0; i-- {
 		// stop the search when the codeword is older than the tx LastMissing
 		if p.ReleasedCodewords[i].Seq <= tp.LastMissing {
 			break
@@ -161,18 +160,18 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 	p.ReleasedCodewords = append(p.ReleasedCodewords, ReleasedCodeword{c.CodewordFilter, c.Seq, false})
 	cwIdx := len(p.Codewords)
 	if cwIdx < cap(p.Codewords) {
-		p.Codewords = p.Codewords[0:cwIdx+1]
+		p.Codewords = p.Codewords[0 : cwIdx+1]
 		p.Codewords[cwIdx].Codeword = c
 		p.Codewords[cwIdx].Candidates = p.Codewords[cwIdx].Candidates[0:0]
 		p.Codewords[cwIdx].Dirty = true
-		p.Codewords[cwIdx].releasedIdx = len(p.ReleasedCodewords)-1
+		p.Codewords[cwIdx].releasedIdx = len(p.ReleasedCodewords) - 1
 
 	} else {
 		p.Codewords = append(p.Codewords, PendingCodeword{
 			c,
 			make([]*TimestampedTransaction, 0, c.Counter),
 			true,
-			len(p.ReleasedCodewords)-1,
+			len(p.ReleasedCodewords) - 1,
 		})
 	}
 	cw := &p.Codewords[cwIdx]
@@ -182,12 +181,13 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		if bidx >= NumBuckets {
 			bi = bidx - NumBuckets
 		}
+		// lazily remove old transactions from the trie
 		tidx := 0
 		for tidx < len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items) {
 			txv := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx]
-			if p.Seq > txv.Timestamp && p.Seq - txv.Timestamp > p.Timeout {
+			if p.Seq > txv.Timestamp && p.Seq-txv.Timestamp > p.Timeout {
 				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx] = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0:len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
+				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0 : len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
 				continue
 			} else if cw.Covers(&txv.HashedTransaction) {
 				if txv.FirstAvailable <= cw.Seq {
@@ -227,7 +227,7 @@ func (p *TransactionPool) TryDecode() {
 							alreadyThere = true
 							p.Codewords[cidx].PeelTransactionNotCandidate(p.Codewords[cidx].Candidates[nidx])
 							p.Codewords[cidx].Candidates[nidx] = p.Codewords[cidx].Candidates[len(p.Codewords[cidx].Candidates)-1]
-							p.Codewords[cidx].Candidates = p.Codewords[cidx].Candidates[0:len(p.Codewords[cidx].Candidates)-1]
+							p.Codewords[cidx].Candidates = p.Codewords[cidx].Candidates[0 : len(p.Codewords[cidx].Candidates)-1]
 							break
 						}
 					}
@@ -297,12 +297,13 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 		if bidx >= NumBuckets {
 			bi = bidx - NumBuckets
 		}
+		// lazily remove old transactions from the trie
 		tidx := 0
 		for tidx < len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items) {
 			v := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx]
-			if p.Seq > v.Timestamp && p.Seq - v.Timestamp > p.Timeout {
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
 				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx] = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0:len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
+				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0 : len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) && v.Timestamp <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)

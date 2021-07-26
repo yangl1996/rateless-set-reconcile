@@ -1,16 +1,16 @@
 package ldpc
 
 import (
-	"testing"
 	"math"
+	"testing"
 )
 
 func wrapTransaction(t Transaction) *TimestampedTransaction {
 	tp := &TimestampedTransaction{}
-        tp.Transaction = t
-        tp.PeerStatus = PeerStatus{math.MaxInt64, t.Timestamp - 1}
+	tp.Transaction = t
+	tp.PeerStatus = PeerStatus{math.MaxInt64, t.Timestamp - 1}
 	tp.Transaction.HashWithSaltInto(nil, &tp.Hash)
-        return tp
+	return tp
 }
 
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct

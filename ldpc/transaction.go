@@ -60,9 +60,9 @@ type Transaction struct {
 // and storing the MD5 checksum. (We use MD5 because this is a simulation
 // and security does not matter.)
 func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
-	t := Transaction {
-		TransactionBody: TransactionBody {
-			Data: d,
+	t := Transaction{
+		TransactionBody: TransactionBody{
+			Data:      d,
 			Timestamp: ts,
 		},
 	}
