@@ -7,8 +7,8 @@ import (
 )
 
 func BenchmarkExperiment(b *testing.B) {
-	numTxs := []int{2000, 5000, 10000, 20000, 50000}
-	lookback := []uint64{500, 2000, 10000, 0}
+	numTxs := []int{10000, 20000, 50000, 100000, 200000, 300000, 500000, 1000000}
+	lookback := []uint64{2000}
 	for _, nt := range numTxs {
 		name := strconv.Itoa(nt)
 		b.Run(name, func(b *testing.B) {
