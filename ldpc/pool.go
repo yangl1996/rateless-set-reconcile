@@ -235,15 +235,15 @@ func (p *TransactionPool) TryDecode() {
 		}
 		for cidx, _ := range p.Codewords {
 			// try to speculatively peel
-			// no worry that we are doing redundant work by scanning through all
-			// codewords: SpeculatePeel is smart enough to do nothing if nothing
-			// has changed
-			tx, ok := p.Codewords[cidx].SpeculatePeel()
-			if ok {
-				p.AddTransaction(tx, p.Codewords[cidx].Seq)
-				// we would need to peel off tp from cidx, but
-				// AddTransaction does it for us.
+			if p.Codewords[cidx].ShouldSpeculate() {
+				tx, ok := p.Codewords[cidx].SpeculatePeel()
+				if ok {
+					p.AddTransaction(tx, p.Codewords[cidx].Seq)
+					// we would need to peel off tp from cidx, but
+					// AddTransaction does it for us.
+				}
 			}
+			p.Codewords[cidx].Dirty = false
 		}
 		// release codewords and update transaction availability estimation
 		cwIdx := 0 // idx of the cw we are currently working on
