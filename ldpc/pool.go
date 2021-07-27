@@ -176,7 +176,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi]
+		bucket := &p.TransactionTrie.Buckets[cw.UintIdx][bi]
 		tidx := 0
 		for tidx < len(bucket.Items) {
 			v := bucket.Items[tidx]
@@ -294,7 +294,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi]
+		bucket := &p.TransactionTrie.Buckets[cw.UintIdx][bi]
 		tidx := 0
 		for tidx < len(bucket.Items) {
 			v := bucket.Items[tidx]
