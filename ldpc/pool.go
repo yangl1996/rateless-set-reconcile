@@ -176,14 +176,14 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items
+		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi]
 		tidx := 0
-		for tidx < len(bucket) {
-			v := bucket[tidx]
+		for tidx < len(bucket.Items) {
+			v := bucket.Items[tidx]
 			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
-				newLen := len(bucket)-1
-				bucket[tidx] = bucket[newLen]
-				bucket = bucket[0 : newLen]
+				newLen := len(bucket.Items)-1
+				bucket.Items[tidx] = bucket.Items[newLen]
+				bucket.Items = bucket.Items[0 : newLen]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) {
 				if v.FirstAvailable <= cw.Seq {
@@ -294,14 +294,14 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items
+		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi]
 		tidx := 0
-		for tidx < len(bucket) {
-			v := bucket[tidx]
+		for tidx < len(bucket.Items) {
+			v := bucket.Items[tidx]
 			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
-				newLen := len(bucket)-1
-				bucket[tidx] = bucket[newLen]
-				bucket = bucket[0 : newLen]
+				newLen := len(bucket.Items)-1
+				bucket.Items[tidx] = bucket.Items[newLen]
+				bucket.Items = bucket.Items[0 : newLen]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) && v.Timestamp <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)
