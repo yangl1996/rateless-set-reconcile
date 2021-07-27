@@ -27,7 +27,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/5, rand.Intn(MaxUintIdx), math.MaxUint64)
+		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/100, rand.Intn(MaxUintIdx), math.MaxUint64)
 	}
 }
 
