@@ -294,6 +294,14 @@ func (e StuckError) Error() string {
 	return fmt.Sprintf("node %v is stuck", e.nid)
 }
 
+type TransactionCountError struct {
+	nid int
+}
+
+func (e TransactionCountError) Error() string {
+	return fmt.Sprintf("transaction count limit reached at node %v", e.nid)
+}
+
 func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
 	if lookback == 0 {
 		lookback = math.MaxUint64
@@ -360,7 +368,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			decoded[1] += 1
 			unique[0] -= 1
 			if tcnt != 0 && tcnt <= decoded[1] {
-				return nil
+				return TransactionCountError{2}
 			}
 		}
 		for cnt := 0; cnt < p1.TransactionTrie.Counter-received[0]; cnt++ {
