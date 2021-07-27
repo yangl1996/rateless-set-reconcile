@@ -176,18 +176,20 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
+		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items
 		tidx := 0
-		for tidx < len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items) {
-			txv := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx]
-			if p.Seq > txv.Timestamp && p.Seq-txv.Timestamp > p.Timeout {
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx] = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0 : len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
+		for tidx < len(bucket) {
+			v := bucket[tidx]
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
+				newLen := len(bucket)-1
+				bucket[tidx] = bucket[newLen]
+				bucket = bucket[0 : newLen]
 				continue
-			} else if cw.Covers(&txv.HashedTransaction) {
-				if txv.FirstAvailable <= cw.Seq {
-					cw.PeelTransactionNotCandidate(txv)
-				} else if txv.LastMissing < cw.Seq {
-					cw.AddCandidate(txv)
+			} else if cw.Covers(&v.HashedTransaction) {
+				if v.FirstAvailable <= cw.Seq {
+					cw.PeelTransactionNotCandidate(v)
+				} else if v.LastMissing < cw.Seq {
+					cw.AddCandidate(v)
 				}
 			}
 			tidx += 1
@@ -292,12 +294,14 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 			bi = bidx - NumBuckets
 		}
 		// lazily remove old transactions from the trie
+		bucket := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items
 		tidx := 0
-		for tidx < len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items) {
-			v := p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx]
+		for tidx < len(bucket) {
+			v := bucket[tidx]
 			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[tidx] = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
-				p.TransactionTrie.Buckets[cw.UintIdx][bi].Items = p.TransactionTrie.Buckets[cw.UintIdx][bi].Items[0 : len(p.TransactionTrie.Buckets[cw.UintIdx][bi].Items)-1]
+				newLen := len(bucket)-1
+				bucket[tidx] = bucket[newLen]
+				bucket = bucket[0 : newLen]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) && v.Timestamp <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)
