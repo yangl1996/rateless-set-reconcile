@@ -286,6 +286,14 @@ func main() {
 	return
 }
 
+type StuckError struct {
+	nid int
+}
+
+func (e StuckError) Error() string {
+	return fmt.Sprintf("node %v is stuck", e.nid)
+}
+
 func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
 	if lookback == 0 {
 		lookback = math.MaxUint64
@@ -361,8 +369,11 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			unique[1] -= 1
 		}
 		// stop if any node is stuck
-		if i-lastAct[0] > tout || i-lastAct[1] > tout {
-			return nil
+		if i-lastAct[0] > tout {
+			return StuckError{1}
+		}
+		if i-lastAct[1] > tout {
+			return StuckError{2}
 		}
 		// add transactions to pools
 		nadd := p1.pacer.tick(unique[0])
