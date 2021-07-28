@@ -23,8 +23,8 @@ func BenchmarkExperiment(b *testing.B) {
 					b.SetBytes(int64(ldpc.TxSize * nt * 2))
 					for i := 0; i < b.N; i++ {
 						err := runExperiment(0, 0, 0, 1000, nt, "p(0.7)", 0, nil, nil, nil, nil, "u(0.01)", lb, 42)
-						if err != nil {
-							b.Fatal(err)
+						if _, is := err.(TransactionCountError); !is {
+							b.Fatal("decoding experiment failed")
 						}
 					}
 				})
