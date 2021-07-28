@@ -91,7 +91,7 @@ func main() {
 	}
 	// create output files
 	var f *os.File
-	var degreeF *os.File
+	var rippleF *os.File
 	var pressureF *os.File
 	var cwpoolF *os.File
 	if *outputPrefix != "" {
@@ -111,12 +111,12 @@ func main() {
 		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 
-		degreeF, err = os.Create(*outputPrefix + "-codeword-degree-dist.dat")
+		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Fprintf(degreeF, "# codeword degree     count\n")
+		fmt.Fprintf(rippleF, "# ripple size     count\n")
 
 		pressureF, err = os.Create(*outputPrefix + "-ntx-unique-to-p1.dat")
 		if err != nil {
@@ -166,9 +166,9 @@ func main() {
 	}
 
 	var chs []chan int    // channels for the interation-#decoded result
-	var degreeCh chan int // channel to collect the degree of codewords
-	if degreeF != nil {
-		degreeCh = make(chan int, 1000)
+	var rippleCh chan int // channel to collect the ripple sizes
+	if rippleF != nil {
+		rippleCh = make(chan int, 1000)
 	}
 	var pressureChs []chan int // channel to collect num of undecoded transactions
 	var cwpoolChs []chan int   // channel to collect the number of unreleased codewords
@@ -202,7 +202,7 @@ func main() {
 				defer close(cwpoolCh)
 			}
 			defer procwg.Done()
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, degreeCh, pressureCh, cwpoolCh, *degreeDistString, *lookbackTime, s)
+			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, rippleCh, pressureCh, cwpoolCh, *degreeDistString, *lookbackTime, s)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -228,12 +228,12 @@ func main() {
 			}
 		}()
 	}
-	// collect and dump codeword degree distribution
-	if degreeF != nil {
+	// collect and dump ripple size distribution
+	if rippleF != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			collectDumpHistogram(degreeF, degreeCh)
+			collectDumpHistogram(rippleF, rippleCh)
 		}()
 	}
 	// collect and dump num of transactions unique to p1
@@ -265,8 +265,8 @@ func main() {
 	}
 
 	procwg.Wait()
-	if degreeCh != nil {
-		close(degreeCh)
+	if rippleCh != nil {
+		close(rippleCh)
 	}
 	wg.Wait()
 
@@ -302,7 +302,7 @@ func (e TransactionCountError) Error() string {
 	return fmt.Sprintf("transaction count limit reached at node %v", e.nid)
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, degree, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
+func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, ripple, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
 	if lookback == 0 {
 		lookback = math.MaxUint64
 	}
@@ -353,9 +353,6 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 		i += 1
 		c1 := p1.produceCodeword()
 		c2 := p2.produceCodeword()
-		if degree != nil {
-			degree <- c1.Counter
-		}
 		p2.InputCodeword(c1)
 		p2.TryDecode()
 		p1.InputCodeword(c2)
@@ -370,6 +367,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			if tcnt != 0 && tcnt <= decoded[1] {
 				return TransactionCountError{2}
 			}
+		}
+		if ripple != nil {
+			ripple <- p2.TransactionTrie.Counter-received[1]
 		}
 		for cnt := 0; cnt < p1.TransactionTrie.Counter-received[0]; cnt++ {
 			lastAct[0] = i
