@@ -6,6 +6,7 @@ set xlabel "ripple size"
 set ylabel "fraction"
 set notitle
 set key top right
+set logscale y
 
 files = system("ls -1 *-ripple-size-dist.dat")
 
