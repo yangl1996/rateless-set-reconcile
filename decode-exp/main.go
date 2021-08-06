@@ -452,16 +452,20 @@ func collectDumpHistogram(f *os.File, ch chan int) {
 	hist := make(map[int]int)
 	maxd := 0
 	tot := 0
+	totPrd := 0
 	for d := range ch {
 		hist[d] += 1
 		if maxd < d {
 			maxd = d
 		}
 		tot += 1
+		totPrd += d
 	}
+	cdf := 0
 	for i := 0; i <= maxd; i++ {
 		if val, there := hist[i]; there {
-			fmt.Fprintf(f, "%v         %v\n", i, float64(val)/float64(tot))
+			cdf += val * i
+			fmt.Fprintf(f, "%v         %v           %v\n", i, float64(val)/float64(tot), float64(cdf)/float64(totPrd))
 		}
 	}
 }
