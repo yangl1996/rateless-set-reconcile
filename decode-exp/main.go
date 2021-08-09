@@ -40,7 +40,7 @@ func main() {
 	if *readConfig != "" {
 		c, err := readConfigString(*readConfig)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		*srcSize = c.SrcSize
@@ -66,13 +66,13 @@ func main() {
 	// validate the syntax of the dist string
 	_, err := NewDistribution(nil, *degreeDistString, *differenceSize+*reverseDifferenceSize)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	// validate the pacer string
 	_, err = NewTransactionPacer(nil, *refillTransaction)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -98,14 +98,14 @@ func main() {
 		var err error
 		f, err = os.Create(*outputPrefix + "-mean-iter-to-decode.dat")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer f.Close()
 		// dump the experiment setup
 		jsonStr, err := json.Marshal(config)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
@@ -113,14 +113,14 @@ func main() {
 
 		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(rippleF, "# ripple size     count\n")
 
 		pressureF, err = os.Create(*outputPrefix + "-ntx-unique-to-p1.dat")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(pressureF, "# iteration     unique to P1\n")
@@ -128,7 +128,7 @@ func main() {
 
 		cwpoolF, err = os.Create(*outputPrefix + "-p2-codeword-pool.dat")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(cwpoolF, "# iteration     P2 unreleased cw\n")
@@ -138,13 +138,13 @@ func main() {
 	if *runtimetrace != "" {
 		f, err := os.Create(*runtimetrace)
 		if err != nil {
-			fmt.Println("unable to create trace file: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer f.Close()
 
 		if err := trace.Start(f); err != nil {
-			fmt.Println("unable to start trace: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer trace.Stop()
@@ -154,12 +154,12 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			fmt.Println("could not create CPU profile: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			fmt.Println("could not start CPU profile: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer pprof.StopCPUProfile()
@@ -204,7 +204,7 @@ func main() {
 			defer procwg.Done()
 			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, rippleCh, pressureCh, cwpoolCh, *degreeDistString, *lookbackTime, s)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 		}(sd)
 	}
@@ -273,13 +273,13 @@ func main() {
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)
 		if err != nil {
-			fmt.Println("could not create memory profile: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer f.Close() // error handling omitted for example
 		runtime.GC()    // get up-to-date statistics
 		if err := pprof.WriteHeapProfile(f); err != nil {
-			fmt.Println("could not write memory profile: ", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}
