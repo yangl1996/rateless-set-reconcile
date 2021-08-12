@@ -17,7 +17,9 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 	node := &node{}
 	node.rng = rng
 	var err error
-	node.TransactionPool, err = ldpc.NewTransactionPool(lookback)
+	// TODO: the tx/cw timeout of the pool should be set independently
+	// of the codeword lookback
+	node.TransactionPool, err = ldpc.NewTransactionPool(lookback*2)
 	if err != nil {
 		return node, nil, err
 	}
