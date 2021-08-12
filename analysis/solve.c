@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 
 	int iter = 0;
 	while (visit_deg()) {
-		printf("[iter %d] cw %.17Lg, tx %.17Lg\n", iter, D[0], Decoded);
+		printf("[iter %d] cw %.17Lg tx %.17Lg\n", iter, D[0], Decoded);
 		iter += 1;
 	}
 	printf("[final] decodable cw %.17Lg tx %.17Lg\n", D[0], Decoded);
