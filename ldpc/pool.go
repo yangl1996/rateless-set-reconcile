@@ -30,7 +30,7 @@ type TransactionPool struct {
 	Codewords         []PendingCodeword
 	ReleasedCodewords []ReleasedCodeword
 	Seq               uint64
-	Timeout           uint64 // transactions older than Seq-Timeout will be removed
+	Timeout           uint64 // transactions and codewords older than Seq-Timeout will be removed
 }
 
 // NewTransactionPool creates an empty transaction pool.
@@ -251,8 +251,14 @@ func (p *TransactionPool) TryDecode() {
 		// release codewords and update transaction availability estimation
 		cwIdx := 0 // idx of the cw we are currently working on
 		for cwIdx < len(p.Codewords) {
+			shouldRemove := false
 			if p.Codewords[cwIdx].IsPure() {
+				shouldRemove = true
 				p.MarkCodewordReleased(&p.Codewords[cwIdx])
+			} else if p.Seq > p.Codewords[cwIdx].Seq && p.Seq-p.Codewords[cwIdx].Seq > p.Timeout {
+				shouldRemove = true
+			}
+			if shouldRemove {
 				// remove this codeword by moving from the end of the list
 				// however, we want to preserve the slice (and the backing
 				// array) of the deleted item so that they can be reused
