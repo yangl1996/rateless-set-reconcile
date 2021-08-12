@@ -1,0 +1,3 @@
+ldpc: Go package for coded message broadcasting.
+decode-exp: Simulator using the ldpc library.
+analysis: C code that numerically computes the decoding performance.
