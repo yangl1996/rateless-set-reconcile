@@ -6,7 +6,7 @@ const bucketSize uint64 = 0x1 << (64 - numBucketBits)
 
 type trie struct {
 	buckets [MaxHashIdx][numBuckets]trieBucket
-	Counter int
+	counter int
 }
 
 type trieBucket struct {
@@ -24,5 +24,5 @@ func (t *trie) addTransaction(tx *timestampedTransaction) {
 		h := tx.uint(i)
 		t.buckets[i][h/bucketSize].addTransaction(tx)
 	}
-	t.Counter += 1
+	t.counter += 1
 }

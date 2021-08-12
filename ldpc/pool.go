@@ -26,12 +26,23 @@ func (t *timestampedTransaction) markSeenAt(s uint64) {
 
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
-	TransactionTrie    trie
-	Codewords          []pendingCodeword
+	transactionTrie    trie
+	codewords          []pendingCodeword
 	releasedCodewords  []releasedCodeword
 	Seq                uint64
 	TransactionTimeout uint64 // transactions older than Seq-Timeout will be removed
 	CodewordTimeout    uint64 // codewords older than this will be removed
+}
+
+// NumAddedTransactions returns the number of transactions added to the pool so far.
+func (p *TransactionPool) NumAddedTransactions() int {
+	return p.transactionTrie.counter
+}
+
+// NumPendingCodewords returns the number of codewords that have not been decoded and
+// have not been dropped.
+func (p *TransactionPool) NumPendingCodewords() int {
+	return len(p.codewords)
 }
 
 // Exists checks if a given transaction exists in the pool.
@@ -42,7 +53,7 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 	}
 	tp.Transaction.hashWithSaltInto(nil, &tp.hash)
 	h := tp.uint(0)
-	b := p.TransactionTrie.buckets[0][h/bucketSize]
+	b := p.transactionTrie.buckets[0][h/bucketSize]
 	for _, v := range b.items {
 		if v.Transaction == t {
 			return true
@@ -107,16 +118,16 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *timestampe
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing; or, if tx is determined to be seen before
 	// c.Seq, we can directly peel it off.
-	for cidx, _ := range p.Codewords {
-		if p.Codewords[cidx].covers(&tp.hashedTransaction) {
-			if p.Codewords[cidx].timestamp >= tp.firstAvailable {
-				p.Codewords[cidx].peelTransactionNotCandidate(tp)
-			} else if p.Codewords[cidx].timestamp > tp.lastMissing {
-				p.Codewords[cidx].addCandidate(tp)
+	for cidx, _ := range p.codewords {
+		if p.codewords[cidx].covers(&tp.hashedTransaction) {
+			if p.codewords[cidx].timestamp >= tp.firstAvailable {
+				p.codewords[cidx].peelTransactionNotCandidate(tp)
+			} else if p.codewords[cidx].timestamp > tp.lastMissing {
+				p.codewords[cidx].addCandidate(tp)
 			}
 		}
 	}
-	p.TransactionTrie.addTransaction(tp)
+	p.transactionTrie.addTransaction(tp)
 	return tp
 }
 
@@ -144,23 +155,23 @@ func (p *TransactionPool) markCodewordReleased(c *pendingCodeword) {
 // pending codeword the index to the stub.
 func (p *TransactionPool) InputCodeword(c Codeword) {
 	p.releasedCodewords = append(p.releasedCodewords, releasedCodeword{c.codewordFilter, c.timestamp, false})
-	cwIdx := len(p.Codewords)
-	if cwIdx < cap(p.Codewords) {
-		p.Codewords = p.Codewords[0 : cwIdx+1]
-		p.Codewords[cwIdx].Codeword = c
-		p.Codewords[cwIdx].candidates = p.Codewords[cwIdx].candidates[0:0]
-		p.Codewords[cwIdx].dirty = true
-		p.Codewords[cwIdx].releasedIdx = len(p.releasedCodewords) - 1
+	cwIdx := len(p.codewords)
+	if cwIdx < cap(p.codewords) {
+		p.codewords = p.codewords[0 : cwIdx+1]
+		p.codewords[cwIdx].Codeword = c
+		p.codewords[cwIdx].candidates = p.codewords[cwIdx].candidates[0:0]
+		p.codewords[cwIdx].dirty = true
+		p.codewords[cwIdx].releasedIdx = len(p.releasedCodewords) - 1
 
 	} else {
-		p.Codewords = append(p.Codewords, pendingCodeword{
+		p.codewords = append(p.codewords, pendingCodeword{
 			c,
 			make([]*timestampedTransaction, 0, c.counter),
 			true,
 			len(p.releasedCodewords) - 1,
 		})
 	}
-	cw := &p.Codewords[cwIdx]
+	cw := &p.codewords[cwIdx]
 	bs, be := cw.bucketIndexRange()
 	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
@@ -168,7 +179,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 			bi = bidx - numBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := &p.TransactionTrie.buckets[cw.hashIdx][bi]
+		bucket := &p.transactionTrie.buckets[cw.hashIdx][bi]
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
@@ -196,58 +207,58 @@ func (p *TransactionPool) TryDecode() {
 	for change {
 		change = false
 		// scan through the codewords to find ones with counter=1
-		for cidx, _ := range p.Codewords {
+		for cidx, _ := range p.codewords {
 			// clean up the candidates
-			p.Codewords[cidx].scanCandidates()
-			if p.Codewords[cidx].counter == 1 {
+			p.codewords[cidx].scanCandidates()
+			if p.codewords[cidx].counter == 1 {
 				tx := &Transaction{}
-				err := tx.UnmarshalBinary(p.Codewords[cidx].symbol[:])
+				err := tx.UnmarshalBinary(p.codewords[cidx].symbol[:])
 				if err == nil {
 					// it's possible the decoded transaction is already
 					// in the candidate set; in that case, we do not want
 					// add the tx into the pool again -- it's already in
 					// the pool
 					alreadyThere := false
-					for nidx, _ := range p.Codewords[cidx].candidates {
+					for nidx, _ := range p.codewords[cidx].candidates {
 						// compare the checksum first to save time
-						if p.Codewords[cidx].candidates[nidx].Transaction.checksum == tx.checksum && p.Codewords[cidx].candidates[nidx].Transaction == *tx {
+						if p.codewords[cidx].candidates[nidx].Transaction.checksum == tx.checksum && p.codewords[cidx].candidates[nidx].Transaction == *tx {
 							// it we found the decoded transaction is already in the candidates, we should remove it from the candidates set
 							alreadyThere = true
-							p.Codewords[cidx].peelTransactionNotCandidate(p.Codewords[cidx].candidates[nidx])
-							p.Codewords[cidx].candidates[nidx] = p.Codewords[cidx].candidates[len(p.Codewords[cidx].candidates)-1]
-							p.Codewords[cidx].candidates = p.Codewords[cidx].candidates[0 : len(p.Codewords[cidx].candidates)-1]
+							p.codewords[cidx].peelTransactionNotCandidate(p.codewords[cidx].candidates[nidx])
+							p.codewords[cidx].candidates[nidx] = p.codewords[cidx].candidates[len(p.codewords[cidx].candidates)-1]
+							p.codewords[cidx].candidates = p.codewords[cidx].candidates[0 : len(p.codewords[cidx].candidates)-1]
 							break
 						}
 					}
 					if !alreadyThere {
 						// store the transaction and peel the c/w, so the c/w is pure
-						p.AddTransaction(*tx, p.Codewords[cidx].timestamp)
+						p.AddTransaction(*tx, p.codewords[cidx].timestamp)
 						// we would need to peel off tp from cidx, but
 						// AddTransaction does it for us.
 					}
 				}
 			}
 		}
-		for cidx, _ := range p.Codewords {
+		for cidx, _ := range p.codewords {
 			// try to speculatively peel
-			if p.Codewords[cidx].shouldSpeculate() {
-				tx, ok := p.Codewords[cidx].speculatePeel()
+			if p.codewords[cidx].shouldSpeculate() {
+				tx, ok := p.codewords[cidx].speculatePeel()
 				if ok {
-					p.AddTransaction(tx, p.Codewords[cidx].timestamp)
+					p.AddTransaction(tx, p.codewords[cidx].timestamp)
 					// we would need to peel off tp from cidx, but
 					// AddTransaction does it for us.
 				}
 			}
-			p.Codewords[cidx].dirty = false
+			p.codewords[cidx].dirty = false
 		}
 		// release codewords and update transaction availability estimation
 		cwIdx := 0 // idx of the cw we are currently working on
-		for cwIdx < len(p.Codewords) {
+		for cwIdx < len(p.codewords) {
 			shouldRemove := false
-			if p.Codewords[cwIdx].isPure() {
+			if p.codewords[cwIdx].isPure() {
 				shouldRemove = true
-				p.markCodewordReleased(&p.Codewords[cwIdx])
-			} else if p.Seq > p.Codewords[cwIdx].timestamp && p.Seq-p.Codewords[cwIdx].timestamp > p.CodewordTimeout {
+				p.markCodewordReleased(&p.codewords[cwIdx])
+			} else if p.Seq > p.codewords[cwIdx].timestamp && p.Seq-p.codewords[cwIdx].timestamp > p.CodewordTimeout {
 				shouldRemove = true
 			}
 			if shouldRemove {
@@ -255,10 +266,10 @@ func (p *TransactionPool) TryDecode() {
 				// however, we want to preserve the slice (and the backing
 				// array) of the deleted item so that they can be reused
 				// later when we put a new codeword there.
-				origSlice := p.Codewords[cwIdx].candidates
-				p.Codewords[cwIdx] = p.Codewords[len(p.Codewords)-1]
-				p.Codewords[len(p.Codewords)-1].candidates = origSlice
-				p.Codewords = p.Codewords[0 : len(p.Codewords)-1]
+				origSlice := p.codewords[cwIdx].candidates
+				p.codewords[cwIdx] = p.codewords[len(p.codewords)-1]
+				p.codewords[len(p.codewords)-1].candidates = origSlice
+				p.codewords = p.codewords[0 : len(p.codewords)-1]
 				change = true
 			} else {
 				cwIdx += 1
@@ -292,7 +303,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 			bi = bidx - numBuckets
 		}
 		// lazily remove old transactions from the trie
-		bucket := &p.TransactionTrie.buckets[cw.hashIdx][bi]
+		bucket := &p.transactionTrie.buckets[cw.hashIdx][bi]
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
