@@ -6,25 +6,23 @@ import (
 	"testing"
 )
 
-func setupData(n int) (*TransactionPool, error) {
-	p, err := NewTransactionPool(MaxTimestamp)
-	if err != nil {
-		return nil, err
+func setupData(n int) *TransactionPool {
+	p := &TransactionPool{
+		TransactionTimeout: MaxTimestamp,
+		CodewordTimeout:    MaxTimestamp,
+		Seq:                1,
 	}
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}
 		rand.Read(d[:])
 		p.AddTransaction(NewTransaction(d, 1), MaxTimestamp)
 	}
-	return p, nil
+	return p
 }
 
 func BenchmarkProduceCodeword(b *testing.B) {
 	b.SetBytes(TxSize)
-	p, err := setupData(15000)
-	if err != nil {
-		b.Fatal(err)
-	}
+	p := setupData(15000)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/100, rand.Intn(MaxUintIdx), math.MaxUint64)
@@ -33,10 +31,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 
 // TestExists tests if the Exists method is correct.
 func TestExists(t *testing.T) {
-	p, err := setupData(3)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := setupData(3)
 	// pick one transaction from the pool
 	var there Transaction
 	for j := 0; j < NumBuckets; j++ {
@@ -58,10 +53,7 @@ func TestExists(t *testing.T) {
 // TestAddTransaction tests the AddTransaction function.
 func TestAddTransaction(t *testing.T) {
 	t.Skip("test broken with the new decoding technique")
-	p, err := setupData(1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := setupData(1)
 	// create a random transaction
 	d := [TxDataSize]byte{}
 	rand.Read(d[:])
@@ -108,10 +100,7 @@ func TestAddTransaction(t *testing.T) {
 // counter=0 after being received.
 func TestLoopback(t *testing.T) {
 	t.Skip("test broken with the new decoding technique")
-	p, err := setupData(1000)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := setupData(1000)
 	c := p.ProduceCodeword(0, math.MaxUint64/5, 0, math.MaxUint64)
 	p.InputCodeword(c)
 	if len(p.Codewords) != 1 {
@@ -129,14 +118,8 @@ func TestLoopback(t *testing.T) {
 // set, and then sends a codeword covering all elements in the first set to
 // the second set. It then verifies that the second set can decode the element.
 func TestOneoff(t *testing.T) {
-	s1, err := setupData(1000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s2, err := NewTransactionPool(MaxTimestamp)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s1 := setupData(1000)
+	s2 := setupData(0)
 	count := 0
 	var missing Transaction
 	for j := 0; j < NumBuckets; j++ {

@@ -13,15 +13,13 @@ type node struct {
 	lookback uint64
 }
 
-func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer, lookback uint64) (*node, []ldpc.Transaction, error) {
+func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer, lookback uint64) (*node, []ldpc.Transaction) {
 	node := &node{}
 	node.rng = rng
-	var err error
-	// TODO: the tx/cw timeout of the pool should be set independently
-	// of the codeword lookback
-	node.TransactionPool, err = ldpc.NewTransactionPool(lookback*2)
-	if err != nil {
-		return node, nil, err
+	node.TransactionPool = &ldpc.TransactionPool{
+		TransactionTimeout: lookback,
+		CodewordTimeout:    lookback * 5,
+		Seq:                1,
 	}
 	res := make([]ldpc.Transaction, 0, nCopy+nNew)
 
@@ -44,7 +42,7 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 	node.dist = dist
 	node.pacer = pacer
 	node.lookback = lookback
-	return node, res, nil
+	return node, res
 }
 
 func (n *node) getRandomTransaction() ldpc.Transaction {

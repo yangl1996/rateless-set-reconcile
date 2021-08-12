@@ -315,10 +315,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p1, txs, err := newNode(nil, 0, s, dist1, rng, pacer1, lookback)
-	if err != nil {
-		return err
-	}
+	p1, txs := newNode(nil, 0, s, dist1, rng, pacer1, lookback)
 	// TODO: d+r is not a good estimation anymore with refill and potentially empty starting sets
 	dist2, err := NewDistribution(rng, dist, d+r)
 	if err != nil {
@@ -328,10 +325,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	if err != nil {
 		return err
 	}
-	p2, _, err := newNode(txs, s-d, r, dist2, rng, pacer2, lookback)
-	if err != nil {
-		return err
-	}
+	p2, _ := newNode(txs, s-d, r, dist2, rng, pacer2, lookback)
 
 	if res != nil {
 		res <- 0 // at iteration 0, we have decoded 0 transactions
@@ -369,7 +363,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			}
 		}
 		if ripple != nil {
-			ripple <- p2.TransactionTrie.Counter-received[1]
+			ripple <- p2.TransactionTrie.Counter - received[1]
 		}
 		for cnt := 0; cnt < p1.TransactionTrie.Counter-received[0]; cnt++ {
 			lastAct[0] = i

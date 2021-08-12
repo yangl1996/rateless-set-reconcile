@@ -26,20 +26,12 @@ func (t *TimestampedTransaction) MarkSeenAt(s uint64) {
 
 // TransactionPool implements the rateless syncing algorithm.
 type TransactionPool struct {
-	TransactionTrie   Trie
-	Codewords         []PendingCodeword
-	ReleasedCodewords []ReleasedCodeword
-	Seq               uint64
-	Timeout           uint64 // transactions and codewords older than Seq-Timeout will be removed
-}
-
-// NewTransactionPool creates an empty transaction pool.
-func NewTransactionPool(timeout uint64) (*TransactionPool, error) {
-	p := &TransactionPool{}
-	p.TransactionTrie = Trie{}
-	p.Seq = 1
-	p.Timeout = timeout
-	return p, nil
+	TransactionTrie    Trie
+	Codewords          []PendingCodeword
+	ReleasedCodewords  []ReleasedCodeword
+	Seq                uint64
+	TransactionTimeout uint64 // transactions older than Seq-Timeout will be removed
+	CodewordTimeout    uint64 // codewords older than this will be removed
 }
 
 // Exists checks if a given transaction exists in the pool.
@@ -180,10 +172,10 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 		tidx := 0
 		for tidx < len(bucket.Items) {
 			v := bucket.Items[tidx]
-			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
-				newLen := len(bucket.Items)-1
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
+				newLen := len(bucket.Items) - 1
 				bucket.Items[tidx] = bucket.Items[newLen]
-				bucket.Items = bucket.Items[0 : newLen]
+				bucket.Items = bucket.Items[0:newLen]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) {
 				if v.FirstAvailable <= cw.Seq {
@@ -255,7 +247,7 @@ func (p *TransactionPool) TryDecode() {
 			if p.Codewords[cwIdx].IsPure() {
 				shouldRemove = true
 				p.MarkCodewordReleased(&p.Codewords[cwIdx])
-			} else if p.Seq > p.Codewords[cwIdx].Seq && p.Seq-p.Codewords[cwIdx].Seq > p.Timeout {
+			} else if p.Seq > p.Codewords[cwIdx].Seq && p.Seq-p.Codewords[cwIdx].Seq > p.CodewordTimeout {
 				shouldRemove = true
 			}
 			if shouldRemove {
@@ -304,10 +296,10 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 		tidx := 0
 		for tidx < len(bucket.Items) {
 			v := bucket.Items[tidx]
-			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.Timeout {
-				newLen := len(bucket.Items)-1
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
+				newLen := len(bucket.Items) - 1
 				bucket.Items[tidx] = bucket.Items[newLen]
-				bucket.Items = bucket.Items[0 : newLen]
+				bucket.Items = bucket.Items[0:newLen]
 				continue
 			} else if cw.Covers(&v.HashedTransaction) && v.Timestamp <= cw.Seq {
 				cw.ApplyTransaction(&v.Transaction, Into)
