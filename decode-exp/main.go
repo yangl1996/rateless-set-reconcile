@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"math"
 	"math/rand"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"runtime/trace"
 	"sync"
 	"time"
+
+	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 )
 
 func main() {

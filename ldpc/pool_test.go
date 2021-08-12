@@ -25,7 +25,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	p := setupData(15000)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/100, rand.Intn(MaxUintIdx), math.MaxUint64)
+		p.ProduceCodeword(rand.Uint64(), math.MaxUint64/100, rand.Intn(MaxHashIdx), math.MaxUint64)
 	}
 }
 
@@ -34,8 +34,8 @@ func TestExists(t *testing.T) {
 	p := setupData(3)
 	// pick one transaction from the pool
 	var there Transaction
-	for j := 0; j < NumBuckets; j++ {
-		for _, v := range p.TransactionTrie.Buckets[0][j].Items {
+	for j := 0; j < numBuckets; j++ {
+		for _, v := range p.TransactionTrie.buckets[0][j].items {
 			there = v.Transaction
 			break
 		}
@@ -68,15 +68,15 @@ func TestAddTransaction(t *testing.T) {
 	p.AddTransaction(tx, MaxTimestamp)
 
 	// now, cw0 should be untouched
-	if p.Codewords[0].Symbol != cw0.Symbol || p.Codewords[0].Counter != cw0.Counter {
+	if p.Codewords[0].symbol != cw0.symbol || p.Codewords[0].counter != cw0.counter {
 		t.Error("AddTransaction touch codewords that it should not change")
 	}
 	// cwm should be updated
 	var shouldbe [TxSize]byte
-	copy(shouldbe[:], cwm.Symbol[:])
-	shouldbeCounter := cwm.Counter
-	for j := 0; j < NumBuckets; j++ {
-		for _, v := range p.TransactionTrie.Buckets[0][j].Items {
+	copy(shouldbe[:], cwm.symbol[:])
+	shouldbeCounter := cwm.counter
+	for j := 0; j < numBuckets; j++ {
+		for _, v := range p.TransactionTrie.buckets[0][j].items {
 			shouldbeCounter -= 1
 			m, _ := v.Transaction.MarshalBinary()
 			for i := 0; i < TxSize; i++ {
@@ -84,10 +84,10 @@ func TestAddTransaction(t *testing.T) {
 			}
 		}
 	}
-	if p.Codewords[1].Symbol != shouldbe {
+	if p.Codewords[1].symbol != shouldbe {
 		t.Error("AddTransaction not updating symbol")
 	}
-	if p.Codewords[1].Counter != shouldbeCounter {
+	if p.Codewords[1].counter != shouldbeCounter {
 		t.Error("AddTransaction not updating counter")
 	}
 	// tx should be in the pool
@@ -106,10 +106,10 @@ func TestLoopback(t *testing.T) {
 	if len(p.Codewords) != 1 {
 		t.Error("pool contains", len(p.Codewords), "codewords, should be 1")
 	}
-	if p.Codewords[0].Counter != 0 {
-		t.Error("codeword contains", p.Codewords[0].Counter, "transactions, should be 0")
+	if p.Codewords[0].counter != 0 {
+		t.Error("codeword contains", p.Codewords[0].counter, "transactions, should be 0")
 	}
-	if p.Codewords[0].Symbol != emptySymbol {
+	if p.Codewords[0].symbol != emptySymbol {
 		t.Error("codeword has nonzero byte remaining")
 	}
 }
@@ -122,8 +122,8 @@ func TestOneoff(t *testing.T) {
 	s2 := setupData(0)
 	count := 0
 	var missing Transaction
-	for j := 0; j < NumBuckets; j++ {
-		for _, v := range s1.TransactionTrie.Buckets[0][j].Items {
+	for j := 0; j < numBuckets; j++ {
+		for _, v := range s1.TransactionTrie.buckets[0][j].items {
 			tx := v.Transaction
 			if count >= s1.TransactionTrie.Counter-1 {
 				missing = tx
@@ -135,8 +135,8 @@ func TestOneoff(t *testing.T) {
 		}
 	}
 	c := s1.ProduceCodeword(0, math.MaxUint64, 0, math.MaxUint64) // we want the codeword to cover all elements
-	if c.Counter != s1.TransactionTrie.Counter {
-		t.Fatal("codeword contains", c.Counter, "elements, not equal to", s1.TransactionTrie.Counter)
+	if c.counter != s1.TransactionTrie.Counter {
+		t.Fatal("codeword contains", c.counter, "elements, not equal to", s1.TransactionTrie.Counter)
 	}
 	s2.InputCodeword(c)
 	s2.TryDecode()

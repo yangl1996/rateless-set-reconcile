@@ -1,28 +1,28 @@
 package ldpc
 
-const NumBucketBits = 8
-const NumBuckets = 0x1 << NumBucketBits
-const BucketSize uint64 = 0x1 << (64 - NumBucketBits)
+const numBucketBits = 8
+const numBuckets = 0x1 << numBucketBits
+const bucketSize uint64 = 0x1 << (64 - numBucketBits)
 
-type Trie struct {
-	Buckets [MaxUintIdx][NumBuckets]TrieBucket
+type trie struct {
+	buckets [MaxHashIdx][numBuckets]trieBucket
 	Counter int
 }
 
-type TrieBucket struct {
-	Items   []*TimestampedTransaction
-	Counter int
+type trieBucket struct {
+	items   []*timestampedTransaction
+	counter int
 }
 
-func (b *TrieBucket) AddTransaction(tx *TimestampedTransaction) {
-	b.Counter += 1
-	b.Items = append(b.Items, tx)
+func (b *trieBucket) addTransaction(tx *timestampedTransaction) {
+	b.counter += 1
+	b.items = append(b.items, tx)
 }
 
-func (t *Trie) AddTransaction(tx *TimestampedTransaction) {
-	for i := 0; i < MaxUintIdx; i++ {
-		h := tx.Uint(i)
-		t.Buckets[i][h/BucketSize].AddTransaction(tx)
+func (t *trie) addTransaction(tx *timestampedTransaction) {
+	for i := 0; i < MaxHashIdx; i++ {
+		h := tx.uint(i)
+		t.buckets[i][h/bucketSize].addTransaction(tx)
 	}
 	t.Counter += 1
 }

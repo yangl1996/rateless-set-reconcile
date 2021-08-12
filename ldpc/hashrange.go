@@ -1,20 +1,21 @@
 package ldpc
 
 import (
-	"golang.org/x/crypto/blake2b"
 	"math"
+
+	"golang.org/x/crypto/blake2b"
 )
 
-const MaxUintIdx = blake2b.Size / 8
+const MaxHashIdx = blake2b.Size / 8
 
-type HashRange struct {
+type hashRange struct {
 	start, end uint64 // both bounds are inclusive
 	cyclic     bool
 }
 
-// NewHashRange creates a new HashRange start starts at "start" and covers
+// newHashRange creates a new HashRange start starts at "start" and covers
 // frac+1 hash values.
-func NewHashRange(start, frac uint64) HashRange {
+func newHashRange(start, frac uint64) hashRange {
 	// frac+1 is the number of hash values accepted to this range
 	cyclic := (math.MaxUint64 - start) < frac
 	var end uint64
@@ -27,12 +28,12 @@ func NewHashRange(start, frac uint64) HashRange {
 	} else {
 		end = start + frac
 	}
-	return HashRange{start, end, cyclic}
+	return hashRange{start, end, cyclic}
 
 }
 
-// Covers checks if the hash range covers the given hash value.
-func (r *HashRange) Covers(hash uint64) bool {
+// covers checks if the hash range covers the given hash value.
+func (r *hashRange) covers(hash uint64) bool {
 	if r.cyclic {
 		return hash >= r.start || hash <= r.end
 	} else {
@@ -40,17 +41,17 @@ func (r *HashRange) Covers(hash uint64) bool {
 	}
 }
 
-// BucketIndexRange returns the starting and ending indices of buckets.
+// bucketIndexRange returns the starting and ending indices of buckets.
 // Both indices are inclusive and the caller must take the remainder
 // against NumBuckets before using.
-func (r *HashRange) BucketIndexRange() (int, int) {
-	start := int(r.start / BucketSize)
-	end := int(r.end / BucketSize)
+func (r *hashRange) bucketIndexRange() (int, int) {
+	start := int(r.start / bucketSize)
+	end := int(r.end / bucketSize)
 	if r.cyclic {
 		if end == start {
-			return 0, NumBuckets - 1
+			return 0, numBuckets - 1
 		} else if end < start {
-			return start, end + NumBuckets
+			return start, end + numBuckets
 		} else {
 			panic("corrupted")
 		}

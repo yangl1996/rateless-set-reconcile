@@ -3,10 +3,11 @@ package ldpc
 import (
 	"bytes"
 	"encoding/binary"
-	"golang.org/x/crypto/blake2b"
 	"hash"
 	"math/rand"
 	"testing"
+
+	"golang.org/x/crypto/blake2b"
 )
 
 func randomData() [TxDataSize]byte {
@@ -59,18 +60,18 @@ func TestHashingAndUint(t *testing.T) {
 	s := []byte{}
 	bodyBytes, _ := tx.TransactionBody.MarshalBinary()
 	s = append(s, bodyBytes...)
-	csBytes := make([]byte, ChecksumSize)
+	csBytes := make([]byte, checksumSize)
 	binary.LittleEndian.PutUint64(csBytes[:], tx.checksum)
 	s = append(s, csBytes...)
 	s = append(s, 1, 2, 3) // salt
 	hash := blake2b.Sum512(s)
 	salt := []byte{1, 2, 3}
-	given := tx.HashWithSalt(salt)
+	given := tx.hashWithSalt(salt)
 	if bytes.Compare(hash[:], given[:]) != 0 {
 		t.Error("incorrect hash result")
 	}
 	itg := binary.LittleEndian.Uint64(hash[0:8])
-	gitg := tx.UintWithSalt(salt)
+	gitg := tx.uintWithSalt(salt)
 	if itg != gitg {
 		t.Error("incorrect uint64 result")
 	}

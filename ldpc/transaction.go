@@ -2,17 +2,18 @@ package ldpc
 
 import (
 	"encoding/binary"
-	"github.com/cespare/xxhash"
-	"golang.org/x/crypto/blake2b"
 	"hash"
 	"sync"
 	"unsafe"
+
+	"github.com/cespare/xxhash"
+	"golang.org/x/crypto/blake2b"
 )
 
-const ChecksumSize = 8
+const checksumSize = 8
 const TxSize = 512                           // the size of a transaction, including the checksum
-const TxDataSize = TxSize - ChecksumSize - 8 // transaction size minus the checksum size
-const TxBodySize = TxSize - ChecksumSize
+const TxDataSize = TxSize - checksumSize - 8 // transaction size minus the checksum size
+const txBodySize = TxSize - checksumSize
 
 var hasherPool = sync.Pool{
 	New: func() interface{} {
@@ -34,18 +35,18 @@ type TransactionBody struct {
 }
 
 func (t *TransactionBody) MarshalBinary() (data []byte, err error) {
-	b := [TxBodySize]byte{}
+	b := [txBodySize]byte{}
 	copy(b[0:TxDataSize], t.Data[:])
-	binary.LittleEndian.PutUint64(b[TxDataSize:TxBodySize], t.Timestamp)
+	binary.LittleEndian.PutUint64(b[TxDataSize:txBodySize], t.Timestamp)
 	return b[:], nil
 }
 
 func (t *TransactionBody) UnmarshalBinary(data []byte) error {
-	if len(data) != TxBodySize {
+	if len(data) != txBodySize {
 		return DataSizeError{len(data)}
 	}
 	copy(t.Data[:], data[0:TxDataSize])
-	t.Timestamp = binary.LittleEndian.Uint64(data[TxDataSize:TxBodySize])
+	t.Timestamp = binary.LittleEndian.Uint64(data[TxDataSize:txBodySize])
 	return nil
 }
 
@@ -85,9 +86,9 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(x ^ 0)
 }
 
-// HashWithSaltInto calculates the hash of the transaction suffixed by the salt
+// hashWithSaltInto calculates the hash of the transaction suffixed by the salt
 // and writes into dst.
-func (t *Transaction) HashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
+func (t *Transaction) hashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
 	h := hasherPool.Get().(hash.Hash)
 	defer hasherPool.Put(h)
 	h.Reset()
@@ -99,17 +100,17 @@ func (t *Transaction) HashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
 	return
 }
 
-// HashWithSalt calculates the hash of the transaction suffixed by the salt.
-func (t *Transaction) HashWithSalt(salt []byte) [blake2b.Size]byte {
+// hashWithSalt calculates the hash of the transaction suffixed by the salt.
+func (t *Transaction) hashWithSalt(salt []byte) [blake2b.Size]byte {
 	var res [blake2b.Size]byte
-	t.HashWithSaltInto(salt, &res)
+	t.hashWithSaltInto(salt, &res)
 	return res
 }
 
-// UintWithSalt calculates the Uint64 representation of the first 8 bytes of
+// uintWithSalt calculates the Uint64 representation of the first 8 bytes of
 // the hash.
-func (t *Transaction) UintWithSalt(salt []byte) uint64 {
-	h := t.HashWithSalt(salt)
+func (t *Transaction) uintWithSalt(salt []byte) uint64 {
+	h := t.hashWithSalt(salt)
 	return binary.LittleEndian.Uint64(h[0:8])
 }
 
@@ -135,8 +136,8 @@ func (e DataSizeError) Error() string {
 func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := make([]byte, TxSize)
 	copy(b[0:TxDataSize], t.Data[:])
-	copy(b[TxDataSize:TxBodySize], (*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
-	copy(b[TxBodySize:TxSize], (*[8]byte)(unsafe.Pointer(&t.checksum))[:])
+	copy(b[TxDataSize:txBodySize], (*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
+	copy(b[txBodySize:TxSize], (*[8]byte)(unsafe.Pointer(&t.checksum))[:])
 	return b, nil
 }
 
@@ -153,24 +154,24 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
-	h.Write(data[0:TxBodySize])
+	h.Write(data[0:txBodySize])
 	cs := h.Sum64()
-	if *(*uint64)(unsafe.Pointer(&data[TxBodySize])) != cs {
+	if *(*uint64)(unsafe.Pointer(&data[txBodySize])) != cs {
 		return ChecksumError{}
 	} else {
 		t.checksum = cs
-		return (&t.TransactionBody).UnmarshalBinary(data[0:TxBodySize])
+		return (&t.TransactionBody).UnmarshalBinary(data[0:txBodySize])
 	}
 }
 
-// HashedTransaction holds the transaction content and its blake2b hash.
-type HashedTransaction struct {
+// hashedTransaction holds the transaction content and its blake2b hash.
+type hashedTransaction struct {
 	Transaction
-	Hash [blake2b.Size]byte
+	hash [blake2b.Size]byte
 }
 
-// Uint converts the idx-th 8-byte value into an unsigned int and returns
+// uint converts the idx-th 8-byte value into an unsigned int and returns
 // the result.
-func (t *HashedTransaction) Uint(idx int) uint64 {
-	return *(*uint64)(unsafe.Pointer(&t.Hash[idx*8]))
+func (t *hashedTransaction) uint(idx int) uint64 {
+	return *(*uint64)(unsafe.Pointer(&t.hash[idx*8]))
 }

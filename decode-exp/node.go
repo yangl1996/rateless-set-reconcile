@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"math/rand"
+
+	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 )
 
 type node struct {
@@ -52,5 +53,5 @@ func (n *node) getRandomTransaction() ldpc.Transaction {
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
-	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxUintIdx), n.lookback)
+	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxHashIdx), n.lookback)
 }
