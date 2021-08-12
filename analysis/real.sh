@@ -5,7 +5,7 @@ do
 	do
 		l="0.$ld"
 		../decode-exp/decode-exp -f "c($l)" -tc 10000 -l $t -t 100000 -s 1000 -x 1000 &> /dev/null
-		first=`sed -n '1000,1000p' out-mean-iter-to-decode.dat`
+		first=`sed -n '1500,1500p' out-mean-iter-to-decode.dat`
 		last=`tail -n1 out-mean-iter-to-decode.dat`
 		echo "$l $t $first $last"
 	done
