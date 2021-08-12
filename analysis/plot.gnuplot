@@ -5,6 +5,7 @@ set output "p.pdf"
 set xlabel "tx arrival rate / cw sending rate"
 set ylabel "frac. decoded tx"
 set key bottom left
+set title "tx decodability under different codeword lookback windows"
 
 set yrange [0:1]
 
