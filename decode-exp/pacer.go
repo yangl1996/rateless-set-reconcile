@@ -9,6 +9,8 @@ import (
 )
 
 type pacer interface {
+	// tick takes the number of events that has happened so far, and returns the
+	// number of events that should happen within this tick.
 	tick(int) int
 }
 
