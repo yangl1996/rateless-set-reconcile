@@ -379,7 +379,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			return StuckError{2}
 		}
 		// add transactions to pools
-		nadd := p1.pacer.tick(unique[0])
+		nadd := p1.transactionPacer.tick(unique[0])
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p1.getRandomTransaction()
 			p1.AddTransaction(t, ldpc.MaxTimestamp)
@@ -389,7 +389,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				unique[0] += 1
 			}
 		}
-		nadd = p2.pacer.tick(unique[1])
+		nadd = p2.transactionPacer.tick(unique[1])
 		for cnt := 0; cnt < nadd; cnt++ {
 			t := p2.getRandomTransaction()
 			p2.AddTransaction(t, ldpc.MaxTimestamp)

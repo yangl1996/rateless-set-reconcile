@@ -8,13 +8,13 @@ import (
 
 type node struct {
 	*ldpc.TransactionPool
-	dist     thresholdPicker
-	rng      *rand.Rand
-	pacer    transactionPacer
-	lookback uint64
+	dist             thresholdPicker
+	rng              *rand.Rand
+	transactionPacer pacer
+	lookback         uint64
 }
 
-func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, pacer transactionPacer, lookback uint64) (*node, []ldpc.Transaction) {
+func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint64) (*node, []ldpc.Transaction) {
 	node := &node{}
 	node.rng = rng
 	node.TransactionPool = &ldpc.TransactionPool{
@@ -41,7 +41,7 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 		res = append(res, tx)
 	}
 	node.dist = dist
-	node.pacer = pacer
+	node.transactionPacer = txPacer
 	node.lookback = lookback
 	return node, res
 }

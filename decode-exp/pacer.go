@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type transactionPacer interface {
+type pacer interface {
 	tick(int) int
 }
 
@@ -79,7 +79,7 @@ func (s *countingPacer) tick(n int) int {
 	}
 }
 
-func NewTransactionPacer(rng *rand.Rand, s string) (transactionPacer, error) {
+func NewTransactionPacer(rng *rand.Rand, s string) (pacer, error) {
 	ds := strings.ReplaceAll(s, " ", "")
 	switch {
 	case strings.HasPrefix(ds, "c("):
