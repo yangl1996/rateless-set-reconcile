@@ -12,12 +12,20 @@ type pacer interface {
 	// tick takes the number of events that has happened so far, and returns the
 	// number of events that should happen within this tick.
 	tick(int) int
+	// reset sets the pacer to its initial state without changing the parameters
+	// or the RNG state.
+	reset()
 }
 
 type uniformPacer struct {
 	rate      float64
 	emitted   int
 	generated float64
+}
+
+func (u *uniformPacer) reset() {
+	u.emitted = 0
+	u.generated = 0
 }
 
 func (u *uniformPacer) tick(_ int) int {
@@ -36,6 +44,11 @@ type poissonPacer struct {
 	nextEmit float64
 	curTime  float64
 	rate     float64
+}
+
+func (s *poissonPacer) reset() {
+	s.curTime = 0
+	s.nextEmit = s.rng.ExpFloat64() / s.rate
 }
 
 func (s *poissonPacer) tick(_ int) int {
@@ -65,12 +78,20 @@ func NewPoissonPacer(rng *rand.Rand, rate float64) *poissonPacer {
 type slientPacer struct {
 }
 
+func (s *slientPacer) reset() {
+	return
+}
+
 func (s *slientPacer) tick(_ int) int {
 	return 0
 }
 
 type countingPacer struct {
 	cnt int
+}
+
+func (s *countingPacer) reset() {
+	return
 }
 
 func (s *countingPacer) tick(n int) int {
