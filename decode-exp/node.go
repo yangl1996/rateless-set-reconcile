@@ -7,7 +7,7 @@ import (
 )
 
 type node struct {
-	*ldpc.TransactionPool
+	*ldpc.PeerSyncState
 	dist             thresholdPicker
 	rng              *rand.Rand
 	transactionPacer pacer
@@ -17,7 +17,7 @@ type node struct {
 func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint64) (*node, []ldpc.Transaction) {
 	node := &node{}
 	node.rng = rng
-	node.TransactionPool = &ldpc.TransactionPool{
+	node.PeerSyncState = &ldpc.PeerSyncState{
 		TransactionTimeout: lookback,
 		CodewordTimeout:    lookback * 5,
 		Seq:                1,
@@ -30,14 +30,14 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 			if i >= nCopy {
 				break
 			}
-			node.TransactionPool.AddTransaction(tx, ldpc.MaxTimestamp)
+			node.PeerSyncState.AddTransaction(tx, ldpc.MaxTimestamp)
 			i += 1
 			res = append(res, tx)
 		}
 	}
 	for i := 0; i < nNew; i++ {
 		tx := node.getRandomTransaction()
-		node.TransactionPool.AddTransaction(tx, ldpc.MaxTimestamp)
+		node.PeerSyncState.AddTransaction(tx, ldpc.MaxTimestamp)
 		res = append(res, tx)
 	}
 	node.dist = dist
@@ -53,5 +53,5 @@ func (n *node) getRandomTransaction() ldpc.Transaction {
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
-	return n.TransactionPool.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxHashIdx), n.lookback)
+	return n.PeerSyncState.ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxHashIdx), n.lookback)
 }

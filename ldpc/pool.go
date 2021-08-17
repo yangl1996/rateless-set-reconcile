@@ -13,7 +13,7 @@ type peerStatus struct {
 }
 
 type timestampedTransaction struct {
-	hashedTransaction
+	*hashedTransaction
 	peerStatus
 }
 
@@ -24,8 +24,8 @@ func (t *timestampedTransaction) markSeenAt(s uint64) {
 	return
 }
 
-// TransactionPool implements the rateless syncing algorithm.
-type TransactionPool struct {
+// PeerSyncState implements the rateless syncing algorithm.
+type PeerSyncState struct {
 	transactionTrie    trie
 	codewords          []pendingCodeword
 	releasedCodewords  []releasedCodeword
@@ -35,19 +35,19 @@ type TransactionPool struct {
 }
 
 // NumAddedTransactions returns the number of transactions added to the pool so far.
-func (p *TransactionPool) NumAddedTransactions() int {
+func (p *PeerSyncState) NumAddedTransactions() int {
 	return p.transactionTrie.counter
 }
 
 // NumPendingCodewords returns the number of codewords that have not been decoded and
 // have not been dropped.
-func (p *TransactionPool) NumPendingCodewords() int {
+func (p *PeerSyncState) NumPendingCodewords() int {
 	return len(p.codewords)
 }
 
 // Exists checks if a given transaction exists in the pool.
 // This method is slow and should only be used in tests.
-func (p *TransactionPool) Exists(t Transaction) bool {
+func (p *PeerSyncState) Exists(t Transaction) bool {
 	tp := hashedTransaction{
 		Transaction: t,
 	}
@@ -66,10 +66,10 @@ func (p *TransactionPool) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *timestampedTransaction {
+func (p *PeerSyncState) AddTransaction(t Transaction, seen uint64) *timestampedTransaction {
 	// we ensured there's no duplicate calls to AddTransaction
 	tp := &timestampedTransaction{
-		hashedTransaction{
+		&hashedTransaction{
 			Transaction: t,
 		},
 		peerStatus{
@@ -103,7 +103,7 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *timestampe
 			break
 		}
 		// stop at the first released code
-		if p.releasedCodewords[i].released && p.releasedCodewords[i].covers(&tp.hashedTransaction) {
+		if p.releasedCodewords[i].released && p.releasedCodewords[i].covers(tp.hashedTransaction) {
 			// tx cannot be a member of any codeword in ReleasedCodewords
 			// otherwise, it is already added before the codeword is
 			// released. As a result, we do not bother checking if tx is
@@ -119,7 +119,7 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *timestampe
 	// to codewords after ps.LastMissing; or, if tx is determined to be seen before
 	// c.Seq, we can directly peel it off.
 	for cidx, _ := range p.codewords {
-		if p.codewords[cidx].covers(&tp.hashedTransaction) {
+		if p.codewords[cidx].covers(tp.hashedTransaction) {
 			if p.codewords[cidx].timestamp >= tp.firstAvailable {
 				p.codewords[cidx].peelTransactionNotCandidate(tp)
 			} else if p.codewords[cidx].timestamp > tp.lastMissing {
@@ -135,7 +135,7 @@ func (p *TransactionPool) AddTransaction(t Transaction, seen uint64) *timestampe
 // It updates all known transactions' last missing and first seen timestamps,
 // stores c as a ReleasedCodeword, and returns the list of transactions whose
 // availability estimation is updated.
-func (p *TransactionPool) markCodewordReleased(c *pendingCodeword) {
+func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 	// Go through candidates of c. There might very well be transactions in
 	// TransactionTrie that are covered by c and not members of c, but if
 	// they do not appear in c.Candidates, their LastMissing estimation will
@@ -153,7 +153,7 @@ func (p *TransactionPool) markCodewordReleased(c *pendingCodeword) {
 // InputCodeword takes a new codeword, peels transactions that we are sure is a member of
 // it, and stores it. It also creates a stub in p.ReleasedCodewords and stores in the
 // pending codeword the index to the stub.
-func (p *TransactionPool) InputCodeword(c Codeword) {
+func (p *PeerSyncState) InputCodeword(c Codeword) {
 	p.releasedCodewords = append(p.releasedCodewords, releasedCodeword{c.codewordFilter, c.timestamp, false})
 	cwIdx := len(p.codewords)
 	if cwIdx < cap(p.codewords) {
@@ -188,7 +188,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
 				continue
-			} else if cw.covers(&v.hashedTransaction) {
+			} else if cw.covers(v.hashedTransaction) {
 				if v.firstAvailable <= cw.timestamp {
 					cw.peelTransactionNotCandidate(v)
 				} else if v.lastMissing < cw.timestamp {
@@ -202,7 +202,7 @@ func (p *TransactionPool) InputCodeword(c Codeword) {
 
 // TryDecode recursively peels transactions that we know are members of some codewords,
 // and puts decoded transactions into the pool.
-func (p *TransactionPool) TryDecode() {
+func (p *PeerSyncState) TryDecode() {
 	change := true
 	for change {
 		change = false
@@ -282,7 +282,7 @@ func (p *TransactionPool) TryDecode() {
 // within HashRange specified by start and frac, and XORs the selected
 // transactions together. The smallest timestamp admissible to the codeword
 // will be the current sequence minus lookback, or 0.
-func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback uint64) Codeword {
+func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback uint64) Codeword {
 	rg := newHashRange(start, frac)
 	cw := Codeword{}
 	cw.hashRange = rg
@@ -312,7 +312,7 @@ func (p *TransactionPool) ProduceCodeword(start, frac uint64, idx int, lookback 
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
 				continue
-			} else if cw.covers(&v.hashedTransaction) && v.Timestamp <= cw.timestamp {
+			} else if cw.covers(v.hashedTransaction) && v.Timestamp <= cw.timestamp {
 				cw.applyTransaction(&v.Transaction, into)
 			}
 			tidx += 1

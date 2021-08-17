@@ -6,7 +6,7 @@ import (
 )
 
 func wrapTransaction(t Transaction) *timestampedTransaction {
-	tp := &timestampedTransaction{}
+	tp := &timestampedTransaction{hashedTransaction: &hashedTransaction{}}
 	tp.Transaction = t
 	tp.peerStatus = peerStatus{math.MaxInt64, t.Timestamp - 1}
 	tp.Transaction.hashWithSaltInto(nil, &tp.hash)

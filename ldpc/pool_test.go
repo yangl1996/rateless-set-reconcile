@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func setupData(n int) *TransactionPool {
-	p := &TransactionPool{
+func setupData(n int) *PeerSyncState {
+	p := &PeerSyncState{
 		TransactionTimeout: MaxTimestamp,
 		CodewordTimeout:    MaxTimestamp,
 		Seq:                1,
