@@ -14,6 +14,7 @@ type node struct {
 	lookback         uint64
 	peers []struct{*node; int}
 	decoded int
+	lastAct uint64
 }
 
 func newNode(dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint64) *node {
@@ -93,6 +94,9 @@ func (n *node) tryDecode() int {
 	n.TryDecode()
 	newNum := n.txPoolSize()
 	n.decoded += (newNum - lastNum)
+	if newNum != lastNum {
+		n.lastAct = n.Seq
+	}
 	return newNum - lastNum
 }
 

@@ -329,18 +329,14 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 	// start sending codewords from p1 to p2
 	// prepare the counters
 	totalTx := 0
-	i := 0                     // iteration counter
-	lastAct := make([]int, 2)  // last iteration where there's any progress
+	i := 0 // iteration counter
 	for {
 		i += 1
-		for nidx :=  range nodes {
+		for nidx := range nodes {
 			nodes[nidx].sendCodewords()
 		}
 		for nidx := range nodes {
 			updated := nodes[nidx].tryDecode()
-			if updated > 0 {
-				lastAct[nidx] = i
-			}
 			if nidx == 1 {
 				if res != nil {
 					for cnt := 0; cnt < updated; cnt++ {
@@ -351,7 +347,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 					ripple <- updated
 				}
 				if diff != nil {
-					diff <- totalTx-nodes[nidx].txPoolSize()
+					diff <- totalTx - nodes[nidx].txPoolSize()
 				}
 				if cwpool != nil {
 					sum := 0
@@ -362,7 +358,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				}
 			}
 			// stop if node is stuck
-			if i-lastAct[nidx] > tout {
+			if int(nodes[nidx].Seq-nodes[nidx].lastAct) > tout {
 				return StuckError{nidx}
 			}
 			if tcnt != 0 && tcnt <= nodes[nidx].decoded {
