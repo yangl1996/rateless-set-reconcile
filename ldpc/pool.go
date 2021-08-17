@@ -46,14 +46,7 @@ func (p *TransactionSync) NewPeer() {
 		srcBuckets := p.peerStates[0].transactionTrie.buckets[0]
 		for bidx := range srcBuckets {
 			for _, t := range srcBuckets[bidx].items {
-				tp := &timestampedTransaction{
-					t.hashedTransaction,
-					peerStatus{
-						MaxTimestamp,
-						t.Timestamp - 1,
-					},
-				}
-				np.transactionTrie.addTransaction(tp)
+				np.AddTransaction(t.hashedTransaction, MaxTimestamp)
 			}
 		}
 	}
