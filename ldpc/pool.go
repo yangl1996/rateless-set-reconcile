@@ -184,8 +184,13 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 			}
 		}
 	}
-	p.transactionTrie.addTransaction(tp)
-	return
+	// do not add to the trie if it is already timed out
+	if p.Seq > tp.Timestamp && p.Seq-tp.Timestamp > p.TransactionTimeout {
+		return
+	} else {
+		p.transactionTrie.addTransaction(tp)
+		return
+	}
 }
 
 // markCodewordReleased takes a codeword c that is going to be released.
