@@ -8,15 +8,15 @@ import (
 
 func setupData(n int) *PeerSyncState {
 	p := &PeerSyncState{
-		TransactionTimeout: MaxTimestamp,
-		CodewordTimeout:    MaxTimestamp,
-		Seq:                1,
+		transactionTimeout: MaxTimestamp,
+		codewordTimeout:    MaxTimestamp,
+		seq:                1,
 	}
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}
 		rand.Read(d[:])
 		ht := NewHashedTransaction(NewTransaction(d, 1))
-		p.AddTransaction(&ht, MaxTimestamp)
+		p.addTransaction(&ht, MaxTimestamp)
 	}
 	return p
 }
@@ -66,7 +66,7 @@ func TestAddTransaction(t *testing.T) {
 	p.InputCodeword(cw0)
 	p.InputCodeword(cwm)
 
-	p.AddTransaction(&tx, MaxTimestamp)
+	p.addTransaction(&tx, MaxTimestamp)
 
 	// now, cw0 should be untouched
 	if p.codewords[0].symbol != cw0.symbol || p.codewords[0].counter != cw0.counter {
@@ -131,7 +131,7 @@ func TestOneoff(t *testing.T) {
 				break
 			} else {
 				ht := NewHashedTransaction(tx)
-				s2.AddTransaction(&ht, MaxTimestamp)
+				s2.addTransaction(&ht, MaxTimestamp)
 				count += 1
 			}
 		}
@@ -141,7 +141,7 @@ func TestOneoff(t *testing.T) {
 		t.Fatal("codeword contains", c.counter, "elements, not equal to", s1.transactionTrie.counter)
 	}
 	s2.InputCodeword(c)
-	s2.TryDecode(nil)
+	s2.tryDecode(nil)
 	if s2.transactionTrie.counter != s1.transactionTrie.counter {
 		t.Error("pool 2 contains", s2.transactionTrie.counter, "transactions, less than pool 1")
 	}
