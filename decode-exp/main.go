@@ -27,7 +27,7 @@ func main() {
 	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 	runs := flag.Int("p", 1, "number of parallel runs")
 	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
-	refillTransaction := flag.String("f", "p(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, n(c) for keeping a constant number c of transactions, empty string to disable")
+	refillTransaction := flag.String("f", "p(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, empty string to disable")
 	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
 	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
@@ -306,104 +306,82 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 		lookback = math.MaxUint64
 	}
 	rng := rand.New(rand.NewSource(seed))
-	dist1, err := NewDistribution(rng, dist, d+r)
-	if err != nil {
-		return err
+	var nodes []*node
+	for nidx := 0; nidx < 2; nidx++ {
+		dt, err := NewDistribution(rng, dist, d+r)
+		if err != nil {
+			return err
+		}
+		pc, err := NewTransactionPacer(rng, refill)
+		if err != nil {
+			return err
+		}
+		p := newNode(dt, rng, pc, lookback)
+		nodes = append(nodes, p)
 	}
-	pacer1, err := NewTransactionPacer(rng, refill)
-	if err != nil {
-		return err
-	}
-	p1, txs := newNode(nil, 0, s, dist1, rng, pacer1, lookback)
-	// TODO: d+r is not a good estimation anymore with refill and potentially empty starting sets
-	dist2, err := NewDistribution(rng, dist, d+r)
-	if err != nil {
-		return err
-	}
-	pacer2, err := NewTransactionPacer(rng, refill)
-	if err != nil {
-		return err
-	}
-	p2, _ := newNode(txs, s-d, r, dist2, rng, pacer2, lookback)
+	nodes[0].connectTo(nodes[1])
+	p1tx := nodes[0].fillInitTransaction(nil, 0, s)
+	nodes[1].fillInitTransaction(p1tx, s-d, r)
 
 	if res != nil {
 		res <- 0 // at iteration 0, we have decoded 0 transactions
 	}
 	// start sending codewords from p1 to p2
 	// prepare the counters
+	totalTx := 0
 	i := 0                     // iteration counter
 	lastAct := make([]int, 2)  // last iteration where there's any progress
-	received := make([]int, 2) // transaction pool size as of the end of prev iter
-	received[0] = p1.PeerStates[0].NumAddedTransactions()
-	received[1] = p2.PeerStates[0].NumAddedTransactions()
-	decoded := make([]int, 2) // num transactions decoded
-	decoded[0] = 0
-	decoded[1] = 0
-	unique := make([]int, 2) // num transactions undecoded by the other end
-	unique[0] = d
-	unique[1] = r
 	for {
 		i += 1
-		c1 := p1.produceCodeword()
-		c2 := p2.produceCodeword()
-		p2.PeerStates[0].InputCodeword(c1)
-		p2.TryDecode()
-		p1.PeerStates[0].InputCodeword(c2)
-		p1.TryDecode()
-		for cnt := 0; cnt < p2.PeerStates[0].NumAddedTransactions()-received[1]; cnt++ {
-			if res != nil {
-				res <- i
+		for nidx :=  range nodes {
+			nodes[nidx].sendCodewords()
+		}
+		for nidx := range nodes {
+			updated := nodes[nidx].tryDecode()
+			if updated > 0 {
+				lastAct[nidx] = i
 			}
-			lastAct[1] = i
-			decoded[1] += 1
-			unique[0] -= 1
-			if tcnt != 0 && tcnt <= decoded[1] {
-				return TransactionCountError{2}
+			if tcnt != 0 && tcnt <= nodes[nidx].decoded {
+				return TransactionCountError{nidx}
 			}
-		}
-		if ripple != nil {
-			ripple <- p2.PeerStates[0].NumAddedTransactions() - received[1]
-		}
-		for cnt := 0; cnt < p1.PeerStates[0].NumAddedTransactions()-received[0]; cnt++ {
-			lastAct[0] = i
-			decoded[0] += 1
-			unique[1] -= 1
-		}
-		// stop if any node is stuck
-		if i-lastAct[0] > tout {
-			return StuckError{1}
-		}
-		if i-lastAct[1] > tout {
-			return StuckError{2}
-		}
-		// add transactions to pools
-		nadd := p1.transactionPacer.tick(unique[0])
-		for cnt := 0; cnt < nadd; cnt++ {
-			t := p1.getRandomTransaction()
-			p1.AddLocalTransaction(t)
-			if rng.Float64() < mirror {
-				p2.AddLocalTransaction(t)
-			} else {
-				unique[0] += 1
+			if nidx == 1 {
+				if res != nil {
+					for cnt := 0; cnt < updated; cnt++ {
+						res <- i
+					}
+				}
+				if ripple != nil {
+					ripple <- updated
+				}
+				if diff != nil {
+					diff <- totalTx-nodes[nidx].txPoolSize()
+				}
+				if cwpool != nil {
+					sum := 0
+					for _, peer := range nodes[nidx].PeerStates {
+						sum += peer.NumPendingCodewords()
+					}
+					cwpool <- sum
+				}
 			}
-		}
-		nadd = p2.transactionPacer.tick(unique[1])
-		for cnt := 0; cnt < nadd; cnt++ {
-			t := p2.getRandomTransaction()
-			p2.AddLocalTransaction(t)
-			if rng.Float64() < mirror {
-				p1.AddLocalTransaction(t)
-			} else {
-				unique[1] += 1
+			// stop if node is stuck
+			if i-lastAct[nidx] > tout {
+				return StuckError{nidx}
 			}
-		}
-		received[0] = p1.PeerStates[0].NumAddedTransactions()
-		received[1] = p2.PeerStates[0].NumAddedTransactions()
-		if diff != nil {
-			diff <- unique[0]
-		}
-		if cwpool != nil {
-			cwpool <- p2.PeerStates[0].NumPendingCodewords()
+			// add transactions to pools
+			nadd := nodes[nidx].transactionPacer.tick()
+			for cnt := 0; cnt < nadd; cnt++ {
+				t := nodes[nidx].getRandomTransaction()
+				nodes[nidx].AddLocalTransaction(t)
+				totalTx += 1
+				if rng.Float64() < mirror {
+					for n2idx := range nodes {
+						if n2idx != nidx {
+							nodes[n2idx].AddLocalTransaction(t)
+						}
+					}
+				}
+			}
 		}
 	}
 }
