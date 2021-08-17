@@ -67,7 +67,7 @@ func (p *TransactionSync) TryDecode() {
 	for {
 		updated := false
 		for pidx := range p.PeerStates {
-			p.newTransactionBuffer = p.newTransactionBuffer[0:0]
+			p.newTransactionBuffer = p.newTransactionBuffer[:0]
 			p.newTransactionBuffer = p.PeerStates[pidx].tryDecode(p.newTransactionBuffer)
 			if len(p.newTransactionBuffer) != 0 {
 				updated = true
@@ -184,13 +184,19 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 			}
 		}
 	}
+	// the following check is unnecessary - no duplicate tx will
+	// ever enter this fn call. it was necessary when the pool
+	// tx timeout equals the codeword lookback, but not the case
+	// anymore
+	/*
 	// do not add to the trie if it is already timed out
 	if p.Seq > tp.Timestamp && p.Seq-tp.Timestamp > p.TransactionTimeout {
+		panic(tp.Timestamp)
 		return
 	} else {
-		p.transactionTrie.addTransaction(tp)
-		return
-	}
+	*/
+	p.transactionTrie.addTransaction(tp)
+	return
 }
 
 // markCodewordReleased takes a codeword c that is going to be released.

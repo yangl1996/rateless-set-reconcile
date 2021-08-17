@@ -22,7 +22,7 @@ func newNode(dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint6
 	node.rng = rng
 	node.TransactionSync = &ldpc.TransactionSync{
 		SyncClock: ldpc.SyncClock{
-			TransactionTimeout: lookback,
+			TransactionTimeout: lookback + 10,
 			CodewordTimeout:    lookback * 5,
 			Seq:                1,
 		},
