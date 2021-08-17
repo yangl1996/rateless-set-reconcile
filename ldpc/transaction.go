@@ -175,3 +175,11 @@ type hashedTransaction struct {
 func (t *hashedTransaction) uint(idx int) uint64 {
 	return *(*uint64)(unsafe.Pointer(&t.hash[idx*8]))
 }
+
+func NewHashedTransaction(t Transaction) hashedTransaction {
+	ht := hashedTransaction{
+		Transaction: t,
+	}
+	ht.Transaction.hashWithSaltInto(nil, &ht.hash)
+	return ht
+}

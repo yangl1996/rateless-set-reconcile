@@ -435,7 +435,7 @@ func readConfigString(prefix string) (Config, error) {
 	scanner := bufio.NewScanner(ef)
 	scanner.Scan()
 	b64 := scanner.Text()
-	data, err := base64.StdEncoding.DecodeString(b64[2:len(b64)]) // strip the prefix "# "
+	data, err := base64.StdEncoding.DecodeString(b64[2:]) // strip the prefix "# "
 	if err != nil {
 		return config, err
 	}

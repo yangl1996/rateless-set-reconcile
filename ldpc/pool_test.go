@@ -15,7 +15,8 @@ func setupData(n int) *PeerSyncState {
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}
 		rand.Read(d[:])
-		p.AddTransaction(NewTransaction(d, 1), MaxTimestamp)
+		ht := NewHashedTransaction(NewTransaction(d, 1))
+		p.AddTransaction(&ht, MaxTimestamp)
 	}
 	return p
 }
@@ -57,7 +58,7 @@ func TestAddTransaction(t *testing.T) {
 	// create a random transaction
 	d := [TxDataSize]byte{}
 	rand.Read(d[:])
-	tx := NewTransaction(d, 1)
+	tx := NewHashedTransaction(NewTransaction(d, 1))
 
 	// send to ourself two codewords, one with threshold close to 0, one with threshold=maxuint
 	cw0 := p.ProduceCodeword(0, 0, 0, math.MaxUint64)
@@ -65,7 +66,7 @@ func TestAddTransaction(t *testing.T) {
 	p.InputCodeword(cw0)
 	p.InputCodeword(cwm)
 
-	p.AddTransaction(tx, MaxTimestamp)
+	p.AddTransaction(&tx, MaxTimestamp)
 
 	// now, cw0 should be untouched
 	if p.codewords[0].symbol != cw0.symbol || p.codewords[0].counter != cw0.counter {
@@ -91,7 +92,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Error("AddTransaction not updating counter")
 	}
 	// tx should be in the pool
-	if !p.Exists(tx) {
+	if !p.Exists(tx.Transaction) {
 		t.Error("AddTransaction did not add new transaction to the pool")
 	}
 }
@@ -129,7 +130,8 @@ func TestOneoff(t *testing.T) {
 				missing = tx
 				break
 			} else {
-				s2.AddTransaction(tx, MaxTimestamp)
+				ht := NewHashedTransaction(tx)
+				s2.AddTransaction(&ht, MaxTimestamp)
 				count += 1
 			}
 		}

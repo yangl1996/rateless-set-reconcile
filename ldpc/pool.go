@@ -24,6 +24,42 @@ func (t *timestampedTransaction) markSeenAt(s uint64) {
 	return
 }
 
+type TransactionSync struct {
+	peerStates           []PeerSyncState
+	newTransactionBuffer []*hashedTransaction
+	Seq                  uint64
+	TransactionTimeout   uint64
+	CodewordTimeout      uint64
+}
+
+func (p *TransactionSync) NewPeer() {
+	np := PeerSyncState{
+		Seq:                p.Seq,
+		TransactionTimeout: p.TransactionTimeout,
+		CodewordTimeout:    p.CodewordTimeout,
+	}
+	// if we already have transactions, then we should init the transaction trie with the
+	// transactions we already know; we can use any existing peer as the source
+	// because all existing peers should have the same number of txs in their transaction
+	// tries.
+	if len(p.peerStates) > 0 {
+		srcBuckets := p.peerStates[0].transactionTrie.buckets[0]
+		for bidx := range srcBuckets {
+			for _, t := range srcBuckets[bidx].items {
+				tp := &timestampedTransaction{
+					t.hashedTransaction,
+					peerStatus{
+						MaxTimestamp,
+						t.Timestamp - 1,
+					},
+				}
+				np.transactionTrie.addTransaction(tp)
+			}
+		}
+	}
+	p.peerStates = append(p.peerStates, np)
+}
+
 // PeerSyncState implements the rateless syncing algorithm.
 type PeerSyncState struct {
 	transactionTrie    trie
@@ -66,18 +102,15 @@ func (p *PeerSyncState) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *PeerSyncState) AddTransaction(t Transaction, seen uint64) *timestampedTransaction {
+func (p *PeerSyncState) AddTransaction(t *hashedTransaction, seen uint64) *timestampedTransaction {
 	// we ensured there's no duplicate calls to AddTransaction
 	tp := &timestampedTransaction{
-		&hashedTransaction{
-			Transaction: t,
-		},
+		t,
 		peerStatus{
 			seen,
 			t.Timestamp - 1,
 		},
 	}
-	tp.Transaction.hashWithSaltInto(nil, &tp.hash)
 	// get a better estimation on the LastMissing timestamp of the tx by
 	// looking at  there
 	// are two cases:
@@ -231,8 +264,9 @@ func (p *PeerSyncState) TryDecode() {
 						}
 					}
 					if !alreadyThere {
+						ht := NewHashedTransaction(*tx)
 						// store the transaction and peel the c/w, so the c/w is pure
-						p.AddTransaction(*tx, p.codewords[cidx].timestamp)
+						p.AddTransaction(&ht, p.codewords[cidx].timestamp)
 						// we would need to peel off tp from cidx, but
 						// AddTransaction does it for us.
 					}
@@ -244,7 +278,8 @@ func (p *PeerSyncState) TryDecode() {
 			if p.codewords[cidx].shouldSpeculate() {
 				tx, ok := p.codewords[cidx].speculatePeel()
 				if ok {
-					p.AddTransaction(tx, p.codewords[cidx].timestamp)
+					ht := NewHashedTransaction(tx)
+					p.AddTransaction(&ht, p.codewords[cidx].timestamp)
 					// we would need to peel off tp from cidx, but
 					// AddTransaction does it for us.
 				}
