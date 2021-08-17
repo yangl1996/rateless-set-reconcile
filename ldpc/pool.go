@@ -118,7 +118,7 @@ func (p *PeerSyncState) AddTransaction(t Transaction, seen uint64) *timestampedT
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing; or, if tx is determined to be seen before
 	// c.Seq, we can directly peel it off.
-	for cidx, _ := range p.codewords {
+	for cidx := range p.codewords {
 		if p.codewords[cidx].covers(tp.hashedTransaction) {
 			if p.codewords[cidx].timestamp >= tp.firstAvailable {
 				p.codewords[cidx].peelTransactionNotCandidate(tp)
@@ -207,7 +207,7 @@ func (p *PeerSyncState) TryDecode() {
 	for change {
 		change = false
 		// scan through the codewords to find ones with counter=1
-		for cidx, _ := range p.codewords {
+		for cidx := range p.codewords {
 			// clean up the candidates
 			p.codewords[cidx].scanCandidates()
 			if p.codewords[cidx].counter == 1 {
@@ -219,7 +219,7 @@ func (p *PeerSyncState) TryDecode() {
 					// add the tx into the pool again -- it's already in
 					// the pool
 					alreadyThere := false
-					for nidx, _ := range p.codewords[cidx].candidates {
+					for nidx := range p.codewords[cidx].candidates {
 						// compare the checksum first to save time
 						if p.codewords[cidx].candidates[nidx].Transaction.checksum == tx.checksum && p.codewords[cidx].candidates[nidx].Transaction == *tx {
 							// it we found the decoded transaction is already in the candidates, we should remove it from the candidates set
@@ -239,7 +239,7 @@ func (p *PeerSyncState) TryDecode() {
 				}
 			}
 		}
-		for cidx, _ := range p.codewords {
+		for cidx := range p.codewords {
 			// try to speculatively peel
 			if p.codewords[cidx].shouldSpeculate() {
 				tx, ok := p.codewords[cidx].speculatePeel()

@@ -301,7 +301,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 	c.dirty = false
 	// then, try to find the remaining transaction; we have removed
 	// the solutions from Candidates, so Candidates only contains non-members.
-	for cidx, _ := range c.candidates {
+	for cidx := range c.candidates {
 		if res.checksum == c.candidates[cidx].Transaction.checksum && res == c.candidates[cidx].Transaction {
 			// found it; peel it off (which marks FirstAvailable for us)
 			c.peelTransactionNotCandidate(c.candidates[cidx])
