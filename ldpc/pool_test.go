@@ -8,9 +8,11 @@ import (
 
 func setupData(n int) *PeerSyncState {
 	p := &PeerSyncState{
-		transactionTimeout: MaxTimestamp,
-		codewordTimeout:    MaxTimestamp,
-		seq:                1,
+		SyncClock: &SyncClock{
+			TransactionTimeout: MaxTimestamp,
+			CodewordTimeout:    MaxTimestamp,
+			Seq:                1,
+		},
 	}
 	for i := 0; i < n; i++ {
 		d := [TxDataSize]byte{}

@@ -18,9 +18,11 @@ func newNode(srcPool []ldpc.Transaction, nCopy, nNew int, dist thresholdPicker, 
 	node := &node{}
 	node.rng = rng
 	node.TransactionSync = &ldpc.TransactionSync{
-		TransactionTimeout: lookback,
-		CodewordTimeout:    lookback * 5,
-		Seq:                1,
+		SyncClock: ldpc.SyncClock{
+			TransactionTimeout: lookback,
+			CodewordTimeout:    lookback * 5,
+			Seq:                1,
+		},
 	}
 	res := make([]ldpc.Transaction, 0, nCopy+nNew)
 	node.TransactionSync.AddPeer()
@@ -54,6 +56,6 @@ func (n *node) getRandomTransaction() ldpc.Transaction {
 }
 
 func (n *node) produceCodeword() ldpc.Codeword {
-	n.TransactionSync.Seq += 1
+	n.Seq += 1
 	return n.TransactionSync.PeerStates[0].ProduceCodeword(n.rng.Uint64(), n.dist.generate(), n.rng.Intn(ldpc.MaxHashIdx), n.lookback)
 }

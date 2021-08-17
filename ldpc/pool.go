@@ -24,19 +24,21 @@ func (t *timestampedTransaction) markSeenAt(s uint64) {
 	return
 }
 
+type SyncClock struct {
+	Seq                uint64
+	TransactionTimeout uint64 // transactions older than Seq-Timeout will be removed
+	CodewordTimeout    uint64 // codewords older than this will be removed
+}
+
 type TransactionSync struct {
 	PeerStates           []PeerSyncState
 	newTransactionBuffer []*hashedTransaction
-	Seq                  uint64
-	TransactionTimeout   uint64
-	CodewordTimeout      uint64
+	SyncClock
 }
 
 func (p *TransactionSync) AddPeer() {
 	np := PeerSyncState{
-		seq:                p.Seq,
-		transactionTimeout: p.TransactionTimeout,
-		codewordTimeout:    p.CodewordTimeout,
+		SyncClock: &p.SyncClock,
 	}
 	// if we already have transactions, then we should init the transaction trie with the
 	// transactions we already know; we can use any existing peer as the source
@@ -86,12 +88,10 @@ func (p *TransactionSync) TryDecode() {
 
 // PeerSyncState implements the rateless syncing algorithm.
 type PeerSyncState struct {
-	transactionTrie    trie
-	codewords          []pendingCodeword
-	releasedCodewords  []releasedCodeword
-	seq                uint64
-	transactionTimeout uint64 // transactions older than Seq-Timeout will be removed
-	codewordTimeout    uint64 // codewords older than this will be removed
+	transactionTrie   trie
+	codewords         []pendingCodeword
+	releasedCodewords []releasedCodeword
+	*SyncClock
 }
 
 // NumAddedTransactions returns the number of transactions added to the pool so far.
@@ -240,7 +240,7 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.seq > v.Timestamp && p.seq-v.Timestamp > p.transactionTimeout {
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
@@ -322,7 +322,7 @@ func (p *PeerSyncState) tryDecode(t []*hashedTransaction) []*hashedTransaction {
 			if p.codewords[cwIdx].isPure() {
 				shouldRemove = true
 				p.markCodewordReleased(&p.codewords[cwIdx])
-			} else if p.seq > p.codewords[cwIdx].timestamp && p.seq-p.codewords[cwIdx].timestamp > p.codewordTimeout {
+			} else if p.Seq > p.codewords[cwIdx].timestamp && p.Seq-p.codewords[cwIdx].timestamp > p.CodewordTimeout {
 				shouldRemove = true
 			}
 			if shouldRemove {
@@ -352,13 +352,12 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 	cw := Codeword{}
 	cw.hashRange = rg
 	cw.hashIdx = idx
-	cw.timestamp = p.seq
+	cw.timestamp = p.Seq
 	if cw.timestamp >= lookback {
 		cw.minTimestamp = cw.timestamp - lookback
 	} else {
 		cw.minTimestamp = 0
 	}
-	p.seq += 1
 
 	// go through the buckets
 	bs, be := cw.bucketIndexRange()
@@ -372,7 +371,7 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.seq > v.Timestamp && p.seq-v.Timestamp > p.transactionTimeout {
+			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
