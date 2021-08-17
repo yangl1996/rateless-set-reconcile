@@ -341,9 +341,6 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			if updated > 0 {
 				lastAct[nidx] = i
 			}
-			if tcnt != 0 && tcnt <= nodes[nidx].decoded {
-				return TransactionCountError{nidx}
-			}
 			if nidx == 1 {
 				if res != nil {
 					for cnt := 0; cnt < updated; cnt++ {
@@ -367,6 +364,9 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			// stop if node is stuck
 			if i-lastAct[nidx] > tout {
 				return StuckError{nidx}
+			}
+			if tcnt != 0 && tcnt <= nodes[nidx].decoded {
+				return TransactionCountError{nidx}
 			}
 			// add transactions to pools
 			nadd := nodes[nidx].transactionPacer.tick()
