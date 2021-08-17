@@ -53,6 +53,14 @@ func (p *TransactionSync) NewPeer() {
 	p.peerStates = append(p.peerStates, np)
 }
 
+func (p *TransactionSync) AddLocalTransaction(t Transaction) {
+	ht := NewHashedTransaction(t)
+	htp := &ht
+	for pidx := range p.peerStates {
+		p.peerStates[pidx].AddTransaction(htp, MaxTimestamp)
+	}
+}
+
 // PeerSyncState implements the rateless syncing algorithm.
 type PeerSyncState struct {
 	transactionTrie    trie
@@ -95,7 +103,7 @@ func (p *PeerSyncState) Exists(t Transaction) bool {
 // released codewords to estimate the time that this transaction is last missing
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
-func (p *PeerSyncState) AddTransaction(t *hashedTransaction, seen uint64) *timestampedTransaction {
+func (p *PeerSyncState) AddTransaction(t *hashedTransaction, seen uint64) {
 	// we ensured there's no duplicate calls to AddTransaction
 	tp := &timestampedTransaction{
 		t,
@@ -154,7 +162,7 @@ func (p *PeerSyncState) AddTransaction(t *hashedTransaction, seen uint64) *times
 		}
 	}
 	p.transactionTrie.addTransaction(tp)
-	return tp
+	return
 }
 
 // markCodewordReleased takes a codeword c that is going to be released.
@@ -227,8 +235,9 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 }
 
 // TryDecode recursively peels transactions that we know are members of some codewords,
-// and puts decoded transactions into the pool.
-func (p *PeerSyncState) TryDecode() {
+// and puts decoded transactions into the pool. It appends the decoded transactions to
+// t and return the result.
+func (p *PeerSyncState) TryDecode(t []*hashedTransaction) []*hashedTransaction {
 	change := true
 	for change {
 		change = false
@@ -258,8 +267,10 @@ func (p *PeerSyncState) TryDecode() {
 					}
 					if !alreadyThere {
 						ht := NewHashedTransaction(*tx)
+						htp := &ht
 						// store the transaction and peel the c/w, so the c/w is pure
-						p.AddTransaction(&ht, p.codewords[cidx].timestamp)
+						p.AddTransaction(htp, p.codewords[cidx].timestamp)
+						t = append(t, htp)
 						// we would need to peel off tp from cidx, but
 						// AddTransaction does it for us.
 					}
@@ -272,7 +283,9 @@ func (p *PeerSyncState) TryDecode() {
 				tx, ok := p.codewords[cidx].speculatePeel()
 				if ok {
 					ht := NewHashedTransaction(tx)
-					p.AddTransaction(&ht, p.codewords[cidx].timestamp)
+					htp := &ht
+					p.AddTransaction(htp, p.codewords[cidx].timestamp)
+					t = append(t, htp)
 					// we would need to peel off tp from cidx, but
 					// AddTransaction does it for us.
 				}
@@ -304,6 +317,7 @@ func (p *PeerSyncState) TryDecode() {
 			}
 		}
 	}
+	return t
 }
 
 // ProduceCodeword selects transactions where the idx-th 8 byte of the hash

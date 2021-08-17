@@ -141,7 +141,7 @@ func TestOneoff(t *testing.T) {
 		t.Fatal("codeword contains", c.counter, "elements, not equal to", s1.transactionTrie.counter)
 	}
 	s2.InputCodeword(c)
-	s2.TryDecode()
+	s2.TryDecode(nil)
 	if s2.transactionTrie.counter != s1.transactionTrie.counter {
 		t.Error("pool 2 contains", s2.transactionTrie.counter, "transactions, less than pool 1")
 	}
