@@ -3,7 +3,7 @@
 set term pdf size 4.0,2.47 enhanced
 set output "fig-pressure-over-iter.pdf"
 set xlabel "iteration"
-set ylabel "#tx unique to p1"
+set ylabel "#tx undecoded node0"
 set notitle
 set key top left
 

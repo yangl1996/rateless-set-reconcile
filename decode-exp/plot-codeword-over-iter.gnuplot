@@ -3,7 +3,7 @@
 set term pdf size 4.0,2.47 enhanced
 set output "fig-codeword-over-iter.pdf"
 set xlabel "iteration"
-set ylabel "#unreleased cw p2"
+set ylabel "#unreleased cw node0"
 set notitle
 set key top left
 

@@ -281,7 +281,7 @@ func runExperiment(cfg ExperimentConfig, res, ripple, diff, cwpool chan int) err
 		}
 		for nidx := range nodes {
 			updated := nodes[nidx].tryDecode()
-			if nidx == 1 {
+			if nidx == 0 {
 				if res != nil {
 					for cnt := 0; cnt < updated; cnt++ {
 						res <- i
