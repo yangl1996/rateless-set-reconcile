@@ -1,4 +1,5 @@
 decode-exp
+*.cfg
 *.dat
 *.prof
 *.pprof
