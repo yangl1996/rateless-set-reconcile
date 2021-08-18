@@ -19,10 +19,37 @@ func BenchmarkExperiment(b *testing.B) {
 					name = strconv.Itoa(int(lb))
 				}
 				b.Run(name, func(b *testing.B) {
+					cfg := ExperimentConfig {
+						MirrorProb: 0,
+						Seed: 42,
+						TimeoutDuration: 1000,
+						TimeoutCounter: nt,
+						DegreeDist: "u(0.01)",
+						LookbackTime: lb,
+						ParallelRuns: 1,	// does not matter
+						Topology: Topology {
+							Servers: []Server {
+								Server {
+									Name: "node1",
+									InitialUniqueTx: 0,
+									TxArrivePattern: "p(0.7)",
+								},
+								Server {
+									Name: "node2",
+									InitialUniqueTx: 0,
+									TxArrivePattern: "p(0.7)",
+								},
+							},
+							InitialCommonTx: 0,
+							Connections: []Connection {
+								Connection {"node1", "node2"},
+							},
+						},
+					}
 					b.ReportAllocs()
 					b.SetBytes(int64(ldpc.TxSize * nt * 2))
 					for i := 0; i < b.N; i++ {
-						err := runExperiment(0, 0, 0, 1000, nt, "p(0.7)", 0, nil, nil, nil, nil, "u(0.01)", lb, 42)
+						err := runExperiment(cfg, nil, nil, nil, nil)
 						if _, is := err.(TransactionCountError); !is {
 							b.Fatal("decoding experiment failed")
 						}
