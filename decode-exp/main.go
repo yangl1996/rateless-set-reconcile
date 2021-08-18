@@ -284,7 +284,7 @@ func runExperiment(cfg ExperimentConfig, res, ripple, diff, cwpool chan int) err
 			if nidx == 0 {
 				if res != nil {
 					for cnt := 0; cnt < updated; cnt++ {
-						res <- i
+						res <- nodes[nidx].cwrcvd
 					}
 				}
 				if ripple != nil {

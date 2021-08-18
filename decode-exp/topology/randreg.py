@@ -2,7 +2,7 @@ import networkx
 import json
 
 
-n = networkx.random_regular_graph(4, 10)
+n = networkx.random_regular_graph(4, 11)
 c = {
         "MirrorProb": 0,
         "Seed": 0,

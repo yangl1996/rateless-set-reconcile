@@ -14,6 +14,7 @@ type node struct {
 	lookback         uint64
 	peers []struct{*node; int}
 	decoded int
+	cwrcvd int
 	lastAct uint64
 }
 
@@ -94,6 +95,7 @@ func (n *node) sendCodewords() {
 		)
 		ourIdx := n.peers[pidx].int
 		n.peers[pidx].node.PeerStates[ourIdx].InputCodeword(cw)
+		n.peers[pidx].node.cwrcvd += 1
 	}
 	n.Seq += 1
 }
