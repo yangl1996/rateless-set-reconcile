@@ -33,7 +33,7 @@ func main() {
 	var cwpoolF *os.File
 	if *outputPrefix != "" {
 		var err error
-		err = writeConfigFile(*outputPrefix + "-parameters.cfg", &cfg)
+		err = writeConfigFile(*outputPrefix + ".cfg", &cfg)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
