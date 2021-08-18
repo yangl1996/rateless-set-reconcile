@@ -66,7 +66,6 @@ func getConfig() (ExperimentConfig, error) {
 		flag.Visit(func (f *flag.Flag) {
 			updateConfig(&cfg, f)
 		})
-		return cfg, nil
 	} else {
 		cfg = ExperimentConfig {
 			MirrorProb: *mirrorProb,
@@ -95,8 +94,19 @@ func getConfig() (ExperimentConfig, error) {
 				},
 			},
 		}
-		return cfg, nil
 	}
+	// validate the dist and pacer strings
+	_, err = NewDistribution(nil, cfg.DegreeDist, 10000)
+        if err != nil {
+		return cfg, err
+        }
+	for _, s := range cfg.Topology.Servers {
+		_, err = NewTransactionPacer(nil, s.TxArrivePattern)
+		if err != nil {
+			return cfg, err
+		}
+	}
+	return cfg, nil
 }
 
 type ExperimentConfig struct {

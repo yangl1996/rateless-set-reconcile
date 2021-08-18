@@ -1,9 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
@@ -17,77 +14,18 @@ import (
 )
 
 func main() {
-	runtimetrace := flag.String("trace", "", "write trace to `file`")
-	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to `file`")
-	memprofile := flag.String("memprofile", "", "write memory profile to `file`")
-	srcSize := flag.Int("s", 0, "sender pool transation count")
-	differenceSize := flag.Int("x", 0, "number of transactions that appear in the sender but not in the receiver")
-	reverseDifferenceSize := flag.Int("r", 0, "number of transactions that appear in the receiver but not in the sender")
-	mirrorProb := flag.Float64("m", 0, "probability that a refill transaction appears at the other end")
-	seed := flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
-	runs := flag.Int("p", 1, "number of parallel runs")
-	outputPrefix := flag.String("out", "out", "output data path prefix, no output if empty")
-	refillTransaction := flag.String("f", "p(0.7)", "refill transactions at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, empty string to disable")
-	timeoutDuration := flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
-	timeoutCounter := flag.Int("tc", 0, "number of transactions to decode before stopping")
-	degreeDistString := flag.String("d", "u(0.01)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
-	lookbackTime := flag.Uint64("l", 0, "lookback timespan of codewords, 0 for infinity")
-	readConfig := flag.String("rerun", "", "read parameters from an existing output")
 	flag.Parse()
-
-	// we want to overwrite the defaults with the values from the past results
-	if *readConfig != "" {
-		c, err := readConfigString(*readConfig)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		*srcSize = c.SrcSize
-		*differenceSize = c.DifferenceSize
-		*reverseDifferenceSize = c.ReverseDifferenceSize
-		*mirrorProb = c.MirrorProb
-		*seed = c.Seed
-		*runs = c.Runs
-		*refillTransaction = c.RefillTransaction
-		*timeoutDuration = c.TimeoutDuration
-		*timeoutCounter = c.TimeoutCounter
-		*degreeDistString = c.DegreeDistString
-		*lookbackTime = c.LookbackTime
-		// we then parse the command line args again, so that only the ones explicitly given
-		// in the command line will be overwritten
-		flag.Parse()
-	}
-
-	if *seed == 0 {
-		*seed = time.Now().UTC().UnixNano()
-	}
-	rand.Seed(*seed)
-	// validate the syntax of the dist string
-	_, err := NewDistribution(nil, *degreeDistString, *differenceSize+*reverseDifferenceSize)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	// validate the pacer string
-	_, err = NewTransactionPacer(nil, *refillTransaction)
+	cfg, err := getConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	config := Config{
-		*srcSize,
-		*differenceSize,
-		*reverseDifferenceSize,
-		*mirrorProb,
-		*seed,
-		*runs,
-		*refillTransaction,
-		*timeoutDuration,
-		*timeoutCounter,
-		*degreeDistString,
-		*lookbackTime,
+	if cfg.Seed == 0 {
+		cfg.Seed = time.Now().UTC().UnixNano()
 	}
+	rand.Seed(cfg.Seed)
+
 	// create output files
 	var f *os.File
 	var rippleF *os.File
@@ -95,19 +33,18 @@ func main() {
 	var cwpoolF *os.File
 	if *outputPrefix != "" {
 		var err error
+		err = writeConfigFile(*outputPrefix + "-parameters.cfg", &cfg)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
 		f, err = os.Create(*outputPrefix + "-mean-iter-to-decode.dat")
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer f.Close()
-		// dump the experiment setup
-		jsonStr, err := json.Marshal(config)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Fprintf(f, "# %v\n", base64.StdEncoding.EncodeToString(jsonStr))
 		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
 
 		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
@@ -172,7 +109,7 @@ func main() {
 	var pressureChs []chan int // channel to collect num of undecoded transactions
 	var cwpoolChs []chan int   // channel to collect the number of unreleased codewords
 	procwg := &sync.WaitGroup{}
-	for i := 0; i < *runs; i++ {
+	for i := 0; i < cfg.ParallelRuns; i++ {
 		procwg.Add(1)
 		var ch chan int
 		if f != nil {
@@ -201,7 +138,7 @@ func main() {
 				defer close(cwpoolCh)
 			}
 			defer procwg.Done()
-			err := runExperiment(*srcSize, *differenceSize, *reverseDifferenceSize, *timeoutDuration, *timeoutCounter, *refillTransaction, *mirrorProb, ch, rippleCh, pressureCh, cwpoolCh, *degreeDistString, *lookbackTime, s)
+			err := runExperiment(cfg, ch, rippleCh, pressureCh, cwpoolCh)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -301,34 +238,41 @@ func (e TransactionCountError) Error() string {
 	return fmt.Sprintf("transaction count limit reached at node %v", e.nid)
 }
 
-func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, ripple, diff, cwpool chan int, dist string, lookback uint64, seed int64) error {
-	if lookback == 0 {
-		lookback = math.MaxUint64
+func runExperiment(cfg ExperimentConfig, res, ripple, diff, cwpool chan int) error {
+	if cfg.LookbackTime == 0 {
+		cfg.LookbackTime = math.MaxUint64
 	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(cfg.Seed))
 	var nodes []*node
-	for nidx := 0; nidx < 2; nidx++ {
-		dt, err := NewDistribution(rng, dist, d+r)
+	nodeName := make(map[string]*node)
+	for nidx := range cfg.Topology.Servers {
+		dt, err := NewDistribution(rng, cfg.DegreeDist, 10000)
 		if err != nil {
 			return err
 		}
-		pc, err := NewTransactionPacer(rng, refill)
+		pc, err := NewTransactionPacer(rng, cfg.Topology.Servers[nidx].TxArrivePattern)
 		if err != nil {
 			return err
 		}
-		p := newNode(dt, rng, pc, lookback)
+		p := newNode(dt, rng, pc, cfg.LookbackTime)
+		nodeName[cfg.Topology.Servers[nidx].Name] = p
 		nodes = append(nodes, p)
 	}
-	nodes[0].connectTo(nodes[1])
-	p1tx := nodes[0].fillInitTransaction(nil, 0, s)
-	nodes[1].fillInitTransaction(p1tx, s-d, r)
+	for _, cn := range cfg.Topology.Connections {
+		nodeName[cn.Car].connectTo(nodeName[cn.Cdr])
+	}
+
+	p1tx := nodes[0].fillInitTransaction(nil, 0, cfg.Topology.InitialCommonTx + cfg.Topology.Servers[0].InitialUniqueTx)
+	for nidx := 1; nidx < len(cfg.Topology.Servers); nidx++ {
+		nodes[nidx].fillInitTransaction(p1tx, cfg.Topology.InitialCommonTx, cfg.Topology.Servers[nidx].InitialUniqueTx)
+	}
 
 	if res != nil {
 		res <- 0 // at iteration 0, we have decoded 0 transactions
 	}
-	// start sending codewords from p1 to p2
+	// start sending codewords
 	// prepare the counters
-	totalTx := 0
+	totalTx := 0	// all txs generated by all nodes
 	i := 0 // iteration counter
 	for {
 		i += 1
@@ -358,10 +302,10 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				}
 			}
 			// stop if node is stuck
-			if int(nodes[nidx].Seq-nodes[nidx].lastAct) > tout {
+			if int(nodes[nidx].Seq-nodes[nidx].lastAct) > cfg.TimeoutDuration {
 				return StuckError{nidx}
 			}
-			if tcnt != 0 && tcnt <= nodes[nidx].decoded {
+			if cfg.TimeoutCounter != 0 && cfg.TimeoutCounter <= nodes[nidx].decoded {
 				return TransactionCountError{nidx}
 			}
 			// add transactions to pools
@@ -370,7 +314,7 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 				t := nodes[nidx].getRandomTransaction()
 				nodes[nidx].AddLocalTransaction(t)
 				totalTx += 1
-				if rng.Float64() < mirror {
+				if rng.Float64() < cfg.MirrorProb {
 					for n2idx := range nodes {
 						if n2idx != nidx {
 							nodes[n2idx].AddLocalTransaction(t)
@@ -380,39 +324,6 @@ func runExperiment(s, d, r, tout, tcnt int, refill string, mirror float64, res, 
 			}
 		}
 	}
-}
-
-type Config struct {
-	SrcSize               int
-	DifferenceSize        int
-	ReverseDifferenceSize int
-	MirrorProb            float64
-	Seed                  int64
-	Runs                  int
-	RefillTransaction     string
-	TimeoutDuration       int
-	TimeoutCounter        int
-	DegreeDistString      string
-	LookbackTime          uint64
-}
-
-func readConfigString(prefix string) (Config, error) {
-	config := Config{}
-	// read the first line and strip "# " to get the base64 encoded json
-	ef, err := os.Open(prefix + "-mean-iter-to-decode.dat")
-	if err != nil {
-		return config, err
-	}
-	defer ef.Close()
-	scanner := bufio.NewScanner(ef)
-	scanner.Scan()
-	b64 := scanner.Text()
-	data, err := base64.StdEncoding.DecodeString(b64[2:]) // strip the prefix "# "
-	if err != nil {
-		return config, err
-	}
-	err = json.Unmarshal(data, &config)
-	return config, err
 }
 
 func collectDumpHistogram(f *os.File, ch chan int) {
