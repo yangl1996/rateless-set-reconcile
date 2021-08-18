@@ -18,12 +18,21 @@ type node struct {
 }
 
 func newNode(dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint64) *node {
+	// calculate lookback window, mind overflows
+	txLookback := lookback + 10
+	if txLookback < lookback {
+		txLookback = ldpc.MaxTimestamp
+	}
+	cwLookback := lookback * 5
+	if cwLookback < lookback {
+		cwLookback = ldpc.MaxTimestamp
+	}
 	node := &node{}
 	node.rng = rng
 	node.TransactionSync = &ldpc.TransactionSync{
 		SyncClock: ldpc.SyncClock{
-			TransactionTimeout: lookback + 10,
-			CodewordTimeout:    lookback * 5,
+			TransactionTimeout: txLookback,
+			CodewordTimeout:    cwLookback,
 			Seq:                1,
 		},
 	}
