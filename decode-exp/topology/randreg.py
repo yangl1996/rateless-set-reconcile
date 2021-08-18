@@ -20,7 +20,7 @@ for node in n.nodes():
     c["Servers"].append({
         "Name": str(node),
         "InitialUniqueTx": 0,
-        "TxArrivePattern": "p(0.07)"
+        "TxArrivePattern": "p(0.28)"
         })
 
 for edge in n.edges():
