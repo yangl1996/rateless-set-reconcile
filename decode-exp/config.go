@@ -59,7 +59,7 @@ func getConfig() (ExperimentConfig, error) {
 	var cfg ExperimentConfig
 	// first see if we need to read from config file
 	if *readConfig != "" {
-		cfg, err = readConfigFile(*readConfig)
+		cfg, err = readConfigFile(*readConfig+"-parameters.cfg")
 		if err != nil {
 			return cfg, err
 		}
