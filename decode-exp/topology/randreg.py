@@ -2,7 +2,7 @@ import networkx
 import json
 
 
-n = networkx.random_regular_graph(4, 11)
+n = networkx.random_regular_graph(10, 101)
 c = {
         "MirrorProb": 0,
         "Seed": 0,
@@ -20,7 +20,7 @@ for node in n.nodes():
     c["Servers"].append({
         "Name": str(node),
         "InitialUniqueTx": 0,
-        "TxArrivePattern": "p(0.28)"
+        "TxArrivePattern": "p(0.07)"
         })
 
 for edge in n.edges():
