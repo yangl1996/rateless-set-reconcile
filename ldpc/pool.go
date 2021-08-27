@@ -6,9 +6,29 @@ import (
 
 const MaxTimestamp = math.MaxUint64
 
+// Problem: what if the peer never includes a transaction? If so, the receiver will
+// always treat the transaction as potentially in incoming codewords, increasing the
+// decoding cost for all future codewords. We did not have this problem before because
+// timeouts were based on absolute timestamps.
+// 
+// Solution 1: time out the transactions locally. After T since we receive a transaction,
+// stop testing it against incoming codewords even if it has never appeared in incoming
+// codewords. If we time out too soon, affected codewords can never be decoded. The
+// worst case is when one peer is too lagged behind such that it always include all
+// transactions late. An improvement is to time out relative to when we first send out
+// the transaction in our outgoing codewords. We assume that after T since we include
+// a transaction in our codewords, the peer must have decoded and obtained it (worst
+// case from us). Then, we only need to wait for T after we send the transaction.
+//
+// Solution 2: 
+
 // peerStatus represents the status of a transaction at a peer.
 type peerStatus struct {
+	// time when the peer first includes the transaction in a codeword
 	firstAvailable uint64
+	// if we know the firstAvailable timestamp is tight
+	firstAvailableTight bool
+	// 
 	lastMissing    uint64
 }
 
