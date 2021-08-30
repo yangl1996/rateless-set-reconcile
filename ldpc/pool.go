@@ -158,6 +158,8 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 		peerStatus{
 			seen,
 			t.Timestamp - 1,
+			false,
+			MaxTimestamp,
 		},
 	}
 	// get a better estimation on the LastMissing timestamp of the tx by
@@ -414,6 +416,9 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 				continue
 			} else if cw.covers(v.hashedTransaction) && v.Timestamp <= cw.timestamp {
 				cw.applyTransaction(&v.Transaction, into)
+				if v.firstSend == MaxTimestamp {
+					v.firstSend = p.Seq
+				}
 			}
 			tidx += 1
 		}
