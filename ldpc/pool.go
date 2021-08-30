@@ -20,16 +20,21 @@ const MaxTimestamp = math.MaxUint64
 // a transaction in our codewords, the peer must have decoded and obtained it (worst
 // case from us). Then, we only need to wait for T after we send the transaction.
 //
-// Solution 2: 
+// Compared to the previous scheme based on absolute timestamps, we have one and exactly
+// one more problem to solve: we no longer know whether a peer will ever include a
+// transaction. Previously, we can locally tell by looking at the timestamps. However,
+// we now can only infer.
 
 // peerStatus represents the status of a transaction at a peer.
 type peerStatus struct {
 	// time when the peer first includes the transaction in a codeword
 	firstAvailable uint64
+	// time when the peer last omits the transaction from a codeword
+	lastMissing    uint64
 	// if we know the firstAvailable timestamp is tight
 	firstAvailableTight bool
-	// 
-	lastMissing    uint64
+	// time when we first include the transaction in a codeword
+	firstSend uint64
 }
 
 type timestampedTransaction struct {
