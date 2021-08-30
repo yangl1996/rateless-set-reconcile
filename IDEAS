@@ -1,0 +1,36 @@
+Do not send a codeword if I know nothing has changed in this range.
+That is, we prefer covering the ranges where there have been new
+transactions.
+
+Or, can I eliminate the need for hash ranges at all? Just specify
+transactions by the timestamps. That is, we only send the last N
+transactions received.
+
+Or, can I specify transactions by their hashes? We may use very
+short IDs. Here is a scheme:
+
+Transaction rate = 100,000 per second.
+
+Choosing degree: based on "noval information". Let P be the probability
+that the receiving node has one transaction that is missing at the
+sender. Want to minimize probability that every transaction in the
+codeword is not novel to the receiver. But, we also want to minimize
+the degree to save on bytes for hashes.
+
+Choosing transactions: always pick from the most recently decoded
+ones. The reason is obvious. Or, we can use a distribution f where
+f(g) says the probability of a transaction of age g being picked.
+
+The key question is: what is the metadata cost? Also, is the metadata
+cost independent of the number of edges? The latter seems quite
+important. I can probably afford 10 hashes, but no more.
+
+Side benefits:
+1. Codeword senders may choose transactions that have equal or
+similar lengths when producing codewords. There is full liberty
+here.
+
+Potential improvements:
+1. Not just use hash, but use hash + length. There might be a
+lot of transactions, but the ones of specific lengths are much
+fewer. So we can use fewer bytes for hash.
