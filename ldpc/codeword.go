@@ -21,15 +21,23 @@ type Codeword struct {
 	members bloom
 }
 
-type codewordFilter struct {
+type hashRangeFilter struct {
 	hashRange
 	hashIdx      int
+}
+
+func (c *hashRangeFilter) covers(t *hashedTransaction) bool {
+	return c.hashRange.covers(t.uint(c.hashIdx))
+}
+
+type codewordFilter struct {
+	hashRangeFilter
 	minTimestamp uint64 // the lowest timestamp for a transaction to be included
 }
 
 // covers returns if the hash range of the codeword filter covers the given transaction.
 func (c *codewordFilter) covers(t *hashedTransaction) bool {
-	return t.Timestamp >= c.minTimestamp && c.hashRange.covers(t.uint(c.hashIdx))
+	return t.Timestamp >= c.minTimestamp && c.hashRangeFilter.covers(t)
 }
 
 // applyTransaction adds or removes a transaction into/from the codeword,
