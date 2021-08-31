@@ -1,36 +1,38 @@
-Do not send a codeword if I know nothing has changed in this range.
-That is, we prefer covering the ranges where there have been new
-transactions.
+.ce
+New Transaction Coding
 
-Or, can I eliminate the need for hash ranges at all? Just specify
-transactions by the timestamps. That is, we only send the last N
-transactions received.
+.nf
+Choosing degree
+.fi
+We want to balance low-degree codewords that are easy to decode,
+and high-degree codewords that cover more transactions.
+The former ensures that decoding will not get stuck, but may convey
+no new transaction to the receiver. The latter is hard to decode,
+but covers more transactions and is more likely to yield new transactions
+to the receiver.
+I claim that the degree distribution is independent of transaction rate.
 
-Or, can I specify transactions by their hashes? We may use very
-short IDs. Here is a scheme:
 
-Transaction rate = 100,000 per second.
+.nf
+Choosing transactions
+.fi
+Always pick from the most recently decoded ones.
+We may keep a buffer of the last N decoded transactions and randomly pick from them.
+Or, we may use a distribution to decide how likely a transaction of a certain age
+will be picked.
 
-Choosing degree: based on "noval information". Let P be the probability
-that the receiving node has one transaction that is missing at the
-sender. Want to minimize probability that every transaction in the
-codeword is not novel to the receiver. But, we also want to minimize
-the degree to save on bytes for hashes.
+Potential improvement: sender may choose transactions that have similar lengths.
 
-Choosing transactions: always pick from the most recently decoded
-ones. The reason is obvious. Or, we can use a distribution f where
-f(g) says the probability of a transaction of age g being picked.
+.nf
+Specifying transactions
+.fi
+We may use short hashes to specify transactions. 4 bytes per transaction
+is probably enough. Note that the metadata cost is independent of transaction rate
+if the hash size is fixed and the codeword degree is independent of transaction rate.
+(See the claim in Choosing degree.) In reality, the hash size may not be fixed, but
+it grows at worst logarithmicaly to the transaction rate.
 
-The key question is: what is the metadata cost? Also, is the metadata
-cost independent of the number of edges? The latter seems quite
-important. I can probably afford 10 hashes, but no more.
+Potential improvement: use hash and transaction length to specify transactions.
+A codeword should contain transactions on similar lengths (see Choosing transactions),
+so the length only needs to be specified once. The hashes may now be shorter.
 
-Side benefits:
-1. Codeword senders may choose transactions that have equal or
-similar lengths when producing codewords. There is full liberty
-here.
-
-Potential improvements:
-1. Not just use hash, but use hash + length. There might be a
-lot of transactions, but the ones of specific lengths are much
-fewer. So we can use fewer bytes for hash.
