@@ -168,6 +168,7 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 type hashedTransaction struct {
 	Transaction
 	hash [blake2b.Size]byte
+	bloom
 }
 
 // uint converts the idx-th 8-byte value into an unsigned int and returns
@@ -176,10 +177,38 @@ func (t *hashedTransaction) uint(idx int) uint64 {
 	return *(*uint64)(unsafe.Pointer(&t.hash[idx*8]))
 }
 
+const numHashFns = 5
+
 func NewHashedTransaction(t Transaction) hashedTransaction {
 	ht := hashedTransaction{
 		Transaction: t,
 	}
 	ht.Transaction.hashWithSaltInto(nil, &ht.hash)
+	for i := 0; i < numHashFns; i++ {
+		idx := ht.uint(i)
+		bidx := idx & 63 // how many bits to shift from the right
+		sidx := (idx >> 6) & 3	// which storage unit
+		ht.bloom.bitmap[sidx] |= (1 << bidx)
+	}
 	return ht
+}
+
+type bloom struct {
+	bitmap [4]uint64
+}
+
+func (b *bloom) add(b2 *bloom) {
+	b.bitmap[0] |= b2.bitmap[0]
+	b.bitmap[1] |= b2.bitmap[1]
+	b.bitmap[2] |= b2.bitmap[2]
+	b.bitmap[3] |= b2.bitmap[3]
+}
+
+func (b *bloom) mayContain(b2 *bloom) bool {
+	var temp [4]uint64
+	temp[0] = b.bitmap[0] & b2.bitmap[0]
+	temp[1] = b.bitmap[1] & b2.bitmap[1]
+	temp[2] = b.bitmap[2] & b2.bitmap[2]
+	temp[3] = b.bitmap[3] & b2.bitmap[3]
+	return temp == b2.bitmap
 }

@@ -18,6 +18,7 @@ type Codeword struct {
 	counter int
 	codewordFilter
 	timestamp uint64
+	members bloom
 }
 
 type codewordFilter struct {

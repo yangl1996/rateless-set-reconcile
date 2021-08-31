@@ -207,7 +207,11 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 			if p.codewords[cidx].timestamp >= tp.firstAvailable {
 				p.codewords[cidx].peelTransactionNotCandidate(tp)
 			} else if p.codewords[cidx].timestamp > tp.lastMissing {
-				p.codewords[cidx].addCandidate(tp)
+				if p.codewords[cidx].members.mayContain(&tp.bloom) {
+					p.codewords[cidx].addCandidate(tp)
+				} else {
+					tp.lastMissing = p.codewords[cidx].timestamp
+				}
 			}
 		}
 	}
@@ -287,7 +291,11 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 				if v.firstAvailable <= cw.timestamp {
 					cw.peelTransactionNotCandidate(v)
 				} else if v.lastMissing < cw.timestamp {
-					cw.addCandidate(v)
+					if cw.members.mayContain(&v.bloom) {
+						cw.addCandidate(v)
+					} else {
+						v.lastMissing = cw.timestamp
+					}
 				}
 			}
 			tidx += 1
@@ -419,6 +427,7 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 				if v.firstSend == MaxTimestamp {
 					v.firstSend = p.Seq
 				}
+				cw.members.add(&v.bloom)
 			}
 			tidx += 1
 		}
