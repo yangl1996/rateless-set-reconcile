@@ -36,6 +36,9 @@ Potential improvement: use hash and transaction length to specify transactions.
 A codeword should contain transactions on similar lengths (see Choosing transactions),
 so the length only needs to be specified once. The hashes may now be shorter.
 
+Another idea is to use bloom filters. Bloom filters could be faster, and may save
+space.
+
 .nf
 Deciding parameters
 .fi
