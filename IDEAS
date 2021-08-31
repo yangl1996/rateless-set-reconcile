@@ -36,3 +36,11 @@ Potential improvement: use hash and transaction length to specify transactions.
 A codeword should contain transactions on similar lengths (see Choosing transactions),
 so the length only needs to be specified once. The hashes may now be shorter.
 
+.nf
+Deciding parameters
+.fi
+The key parameters to decide are the degree distribution and the selection probability
+for transactions of a specific age. We may then do a cutoff on the tail of the selection
+probability distribution, so that we drop transactions from the buffer when they are
+too old to be selected with any significant probability.
+
