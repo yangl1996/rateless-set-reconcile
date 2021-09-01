@@ -45,7 +45,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "# num decoded     symbols rcvd\n")
+		fmt.Fprintf(f, "# num decoded     symbols rcvd     unix timestamp in millis\n")
 
 		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
 		if err != nil {
@@ -152,12 +152,18 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			start := time.Now().UnixMilli()
 			dch := make(chan int, 1000)
 			idx := 0
 			go collectAverage(chs, dch)
 			for d := range dch {
 				if f != nil {
-					fmt.Fprintf(f, "%v        %v\n", idx, d)
+					if idx % 1000 == 0 && idx != 0 {
+						fmt.Fprintf(f, "%v        %v        %v\n", idx, d, time.Now().UnixMilli()-start)
+						start = time.Now().UnixMilli()
+					} else {
+						fmt.Fprintf(f, "%v        %v\n", idx, d)
+					}
 				}
 				fmt.Printf("Iteration=%v, transactions=%v\n", d, idx)
 				idx += 1

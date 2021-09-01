@@ -16,3 +16,6 @@ optimal(x) = x
 
 plot for [file in files] file using 1:2 with lines title getTitle(file) lw 2, \
      optimal(x) with lines title "Optimal" lw 2 dt 2 lc 0
+
+set ylabel "decode ktps for last 1k txs"
+plot for [file in files] file using 1:(1000.0/$3) with lines title getTitle(file) lw 2
