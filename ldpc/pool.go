@@ -36,12 +36,7 @@ type peerStatus struct {
 	timeAdded uint64
 }
 
-type timestampedTransaction struct {
-	*hashedTransaction
-	peerStatus
-}
-
-func (t *timestampedTransaction) markSeenAt(s uint64) {
+func (t *peerStatus) markSeenAt(s uint64) {
 	if t.firstAvailable > s {
 		t.firstAvailable = s
 	}
@@ -49,6 +44,24 @@ func (t *timestampedTransaction) markSeenAt(s uint64) {
 		t.lastInclude = s
 	}
 	return
+}
+
+func (t *peerStatus) markMissingAt(s uint64) {
+	// -----|------------------------|-------------------------|-------------------------|------------------------
+	//      | lastMissing            | firstAvailable          | lastInclude             | firstDrop
+	// We need to determine if the omission happens before the peer decodes the transaction, or after the peer times
+	// out the transaction. The former can be tested by s < t.lastInclude and the latter can be tested by
+	// s > t.firstAvailable.
+	if s < t.lastInclude && s > t.lastMissing {
+		t.lastMissing = s
+	} else if s > t.firstAvailable && s < t.firstDrop {
+		t.firstDrop = s
+	}
+}
+
+type timestampedTransaction struct {
+	*hashedTransaction
+	peerStatus
 }
 
 type SyncClock struct {
@@ -75,7 +88,7 @@ func (p *TransactionSync) AddPeer() {
 		srcBuckets := p.PeerStates[0].transactionTrie.buckets[0]
 		for bidx := range srcBuckets {
 			for _, t := range srcBuckets[bidx].items {
-				np.addTransaction(t.hashedTransaction, MaxTimestamp)
+				np.addUnseenTransaction(t.hashedTransaction)
 			}
 		}
 	}
@@ -86,7 +99,7 @@ func (p *TransactionSync) AddLocalTransaction(t Transaction) {
 	ht := NewHashedTransaction(t)
 	htp := &ht
 	for pidx := range p.PeerStates {
-		p.PeerStates[pidx].addTransaction(htp, MaxTimestamp)
+		p.PeerStates[pidx].addUnseenTransaction(htp)
 	}
 }
 
@@ -102,7 +115,7 @@ func (p *TransactionSync) TryDecode() {
 			for p2idx := range p.PeerStates {
 				if pidx != p2idx {
 					for _, htp := range p.newTransactionBuffer {
-						p.PeerStates[p2idx].addTransaction(htp, MaxTimestamp)
+						p.PeerStates[p2idx].addUnseenTransaction(htp)
 					}
 				}
 			}
@@ -149,22 +162,41 @@ func (p *PeerSyncState) Exists(t Transaction) bool {
 	return false
 }
 
-// addTransaction adds the transaction into the pool, and searches through all
-// released codewords to estimate the time that this transaction is last missing
-// from the peer. It assumes that the transaction is never seen at the peer.
-// It does nothing if the transaction is already in the pool.
-func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
-	// we ensured there's no duplicate calls to AddTransaction
+func (p *PeerSyncState) addSeenTransaction(t *hashedTransaction, seen uint64) {
 	tp := &timestampedTransaction{
 		t,
 		peerStatus{
 			lastMissing: 0,
-			firstAvailable: seen,
+			firstAvailable: MaxTimestamp,
 			lastInclude: 0,
 			firstDrop: MaxTimestamp,
 			timeAdded: p.Seq,
 		},
 	}
+	tp.markSeenAt(seen)
+	p.addTransaction(tp)
+}
+
+func (p *PeerSyncState) addUnseenTransaction(t *hashedTransaction) {
+	tp := &timestampedTransaction{
+		t,
+		peerStatus{
+			lastMissing: 0,
+			firstAvailable: MaxTimestamp,
+			lastInclude: 0,
+			firstDrop: MaxTimestamp,
+			timeAdded: p.Seq,
+		},
+	}
+	p.addTransaction(tp)
+}
+
+// addTransaction adds the transaction into the pool, and searches through all
+// released codewords to estimate the time that this transaction is last missing
+// from the peer. It assumes that the transaction is never seen at the peer.
+// It does nothing if the transaction is already in the pool.
+func (p *PeerSyncState) addTransaction(tp *timestampedTransaction) {
+	// we ensured there's no duplicate calls to AddTransaction
 	/*
 	// get a better estimation on the LastMissing timestamp of the tx by
 	// looking at  there
@@ -233,13 +265,7 @@ func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 	// not be updated by the release of c. As a result, we only need to search
 	// in c.Candidates, not in the whole TransactionTrie.
 	for _, txv := range c.candidates {
-		if txv.firstAvailable != MaxTimestamp {
-			if c.timestamp < txv.firstAvailable && c.timestamp > txv.lastMissing {
-				txv.lastMissing = c.timestamp
-			} else if c.timestamp > txv.lastInclude && c.timestamp < txv.firstDrop {
-				txv.firstDrop = c.timestamp
-			}
-		}
+		txv.markMissingAt(c.timestamp)
 	}
 	p.releasedCodewords[c.releasedIdx].released = true
 	return
@@ -290,13 +316,7 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 					if cw.members.mayContain(&v.bloom) {
 						cw.addCandidate(v)
 					} else {
-						if v.firstAvailable != MaxTimestamp {
-							if cw.timestamp < v.firstAvailable && cw.timestamp > v.lastMissing {
-								v.lastMissing = cw.timestamp
-							} else if cw.timestamp > v.lastInclude && cw.timestamp < v.firstDrop {
-								v.firstDrop = cw.timestamp
-							}
-						}
+						v.markMissingAt(cw.timestamp)
 					}
 				}
 			}
@@ -340,7 +360,7 @@ func (p *PeerSyncState) tryDecode(t []*hashedTransaction) []*hashedTransaction {
 						ht := NewHashedTransaction(*tx)
 						htp := &ht
 						// store the transaction and peel the c/w, so the c/w is pure
-						p.addTransaction(htp, p.codewords[cidx].timestamp)
+						p.addSeenTransaction(htp, p.codewords[cidx].timestamp)
 						t = append(t, htp)
 						// we would need to peel off tp from cidx, but
 						// AddTransaction does it for us.
@@ -355,7 +375,7 @@ func (p *PeerSyncState) tryDecode(t []*hashedTransaction) []*hashedTransaction {
 				if ok {
 					ht := NewHashedTransaction(tx)
 					htp := &ht
-					p.addTransaction(htp, p.codewords[cidx].timestamp)
+					p.addSeenTransaction(htp, p.codewords[cidx].timestamp)
 					t = append(t, htp)
 					// we would need to peel off tp from cidx, but
 					// AddTransaction does it for us.
