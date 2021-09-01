@@ -421,12 +421,6 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 	cw.hashRange = rg
 	cw.hashIdx = idx
 	cw.timestamp = p.Seq
-	var minTimestamp uint64
-	if cw.timestamp >= lookback {
-		minTimestamp = cw.timestamp - lookback
-	} else {
-		minTimestamp = 0
-	}
 
 	// go through the buckets
 	bs, be := cw.bucketIndexRange()
@@ -445,7 +439,7 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
 				continue
-			} else if v.timeAdded >= minTimestamp && cw.covers(v.hashedTransaction) {
+			} else if v.timeAdded + lookback >= cw.timestamp && cw.covers(v.hashedTransaction) && v.firstAvailable == MaxTimestamp {
 				cw.applyTransaction(&v.Transaction, into)
 				cw.members.add(&v.bloom)
 			}
