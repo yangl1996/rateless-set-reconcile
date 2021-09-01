@@ -51,4 +51,17 @@ for transactions of a specific age. We may then do a cutoff on the tail of the s
 probability distribution, so that we drop transactions from the buffer when they are
 too old to be selected with any significant probability.
 
+.nf
+Discussion
+.fi
+We now have two options:
+(1) focus on random selection. Use arrival pattern (timestamp) only as a way to help us
+identify transactions in a codeword.
+(2) focus on arrival pattern. List transactions specifically (using longer hashes), and
+only add most recent (say, 100) transactions into codewords.
+
+The two converges as we tune the lookback window. Also, we can precisely control the
+codeword degrees. When generating codewords, we only randomly select a uint index and
+a starting point for the range. Then, we iterate through the bucket until gathering
+enough transactions, and then write an end hash range.
 
