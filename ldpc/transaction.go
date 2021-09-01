@@ -12,8 +12,8 @@ import (
 
 const checksumSize = 8
 const TxSize = 512                           // the size of a transaction, including the checksum
-const TxDataSize = TxSize - checksumSize - 8 // transaction size minus the checksum size
-const txBodySize = TxSize - checksumSize
+const TxDataSize = TxSize - checksumSize // transaction size minus the checksum size
+const txBodySize = TxDataSize
 
 var hasherPool = sync.Pool{
 	New: func() interface{} {
@@ -31,13 +31,11 @@ var checksumPool = sync.Pool{
 
 type TransactionBody struct {
 	Data      [TxDataSize]byte
-	Timestamp uint64
 }
 
 func (t *TransactionBody) MarshalBinary() (data []byte, err error) {
 	b := [txBodySize]byte{}
 	copy(b[0:TxDataSize], t.Data[:])
-	binary.LittleEndian.PutUint64(b[TxDataSize:txBodySize], t.Timestamp)
 	return b[:], nil
 }
 
@@ -46,7 +44,6 @@ func (t *TransactionBody) UnmarshalBinary(data []byte) error {
 		return DataSizeError{len(data)}
 	}
 	copy(t.Data[:], data[0:TxDataSize])
-	t.Timestamp = binary.LittleEndian.Uint64(data[TxDataSize:txBodySize])
 	return nil
 }
 
@@ -60,18 +57,16 @@ type Transaction struct {
 // NewTransaction creates a transaction from the given data by calculating
 // and storing the MD5 checksum. (We use MD5 because this is a simulation
 // and security does not matter.)
-func NewTransaction(d [TxDataSize]byte, ts uint64) Transaction {
+func NewTransaction(d [TxDataSize]byte) Transaction {
 	t := Transaction{
 		TransactionBody: TransactionBody{
 			Data:      d,
-			Timestamp: ts,
 		},
 	}
 	h := checksumPool.Get().(hash.Hash64)
 	defer checksumPool.Put(h)
 	h.Reset()
 	h.Write(((*[TxDataSize]byte)(noescape(unsafe.Pointer(&t.Data[0]))))[:])
-	h.Write(((*[8]byte)(noescape(unsafe.Pointer(&t.Timestamp))))[:])
 	t.checksum = h.Sum64()
 	return t
 }
@@ -93,7 +88,6 @@ func (t *Transaction) hashWithSaltInto(salt []byte, dst *[blake2b.Size]byte) {
 	defer hasherPool.Put(h)
 	h.Reset()
 	h.Write(t.Data[:])
-	h.Write((*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
 	h.Write((*[8]byte)(unsafe.Pointer(&t.checksum))[:])
 	h.Write(salt)
 	h.Sum(dst[0:0])
@@ -136,7 +130,6 @@ func (e DataSizeError) Error() string {
 func (t *Transaction) MarshalBinary() (data []byte, err error) {
 	b := make([]byte, TxSize)
 	copy(b[0:TxDataSize], t.Data[:])
-	copy(b[TxDataSize:txBodySize], (*[8]byte)(unsafe.Pointer(&t.Timestamp))[:])
 	copy(b[txBodySize:TxSize], (*[8]byte)(unsafe.Pointer(&t.checksum))[:])
 	return b, nil
 }

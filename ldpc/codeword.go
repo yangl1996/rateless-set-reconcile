@@ -16,7 +16,7 @@ const (
 type Codeword struct {
 	symbol  [TxSize]byte
 	counter int
-	codewordFilter
+	hashRangeFilter
 	timestamp uint64
 	members bloom
 }
@@ -30,16 +30,6 @@ func (c *hashRangeFilter) covers(t *hashedTransaction) bool {
 	return c.hashRange.covers(t.uint(c.hashIdx))
 }
 
-type codewordFilter struct {
-	hashRangeFilter
-	minTimestamp uint64 // the lowest timestamp for a transaction to be included
-}
-
-// covers returns if the hash range of the codeword filter covers the given transaction.
-func (c *codewordFilter) covers(t *hashedTransaction) bool {
-	return t.Timestamp >= c.minTimestamp && c.hashRangeFilter.covers(t)
-}
-
 // applyTransaction adds or removes a transaction into/from the codeword,
 // and increments/decrements the counter.
 // d must have length TxSize, and dir must be Into or From.
@@ -47,7 +37,6 @@ func (c *Codeword) applyTransaction(t *Transaction, dir int) {
 	for i := 0; i < TxDataSize/8; i++ {
 		*(*uint64)(unsafe.Pointer(&c.symbol[i*8])) ^= *(*uint64)(unsafe.Pointer(&t.Data[i*8]))
 	}
-	*(*uint64)(unsafe.Pointer(&c.symbol[TxDataSize])) ^= t.Timestamp
 	*(*uint64)(unsafe.Pointer(&c.symbol[txBodySize])) ^= t.checksum
 	c.counter += dir
 }
@@ -148,13 +137,13 @@ func (c *pendingCodeword) scanCandidates() {
 		// As a result, we do not need the check.
 		txv := c.candidates[cIdx]
 		removed := false
-		if c.timestamp >= txv.firstAvailable {
+		if c.timestamp >= txv.firstAvailable && c.timestamp <= txv.lastInclude {
 			// call PeelTransactionNotCandidate to peel it off and update the
 			// FirstAvailable estimation. We will need to remove txv from
 			// candidates manually
 			c.peelTransactionNotCandidate(txv)
 			removed = true
-		} else if c.timestamp <= txv.lastMissing {
+		} else if c.timestamp <= txv.lastMissing || c.timestamp >= txv.firstDrop {
 			removed = true
 		}
 		// remove txv from candidates by swapping the last candidate here
@@ -326,7 +315,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 }
 
 type releasedCodeword struct {
-	codewordFilter
+	hashRangeFilter
 	timestamp uint64
 	released  bool
 }

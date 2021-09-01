@@ -27,14 +27,13 @@ const MaxTimestamp = math.MaxUint64
 
 // peerStatus represents the status of a transaction at a peer.
 type peerStatus struct {
-	// time when the peer first includes the transaction in a codeword
-	firstAvailable uint64
 	// time when the peer last omits the transaction from a codeword
 	lastMissing    uint64
-	// if we know the firstAvailable timestamp is tight
-	firstAvailableTight bool
-	// time when we first include the transaction in a codeword
-	firstSend uint64
+	// time when the peer first includes the transaction in a codeword
+	firstAvailable uint64
+	lastInclude uint64
+	firstDrop uint64
+	timeAdded uint64
 }
 
 type timestampedTransaction struct {
@@ -45,6 +44,9 @@ type timestampedTransaction struct {
 func (t *timestampedTransaction) markSeenAt(s uint64) {
 	if t.firstAvailable > s {
 		t.firstAvailable = s
+	}
+	if t.lastInclude < s {
+		t.lastInclude = s
 	}
 	return
 }
@@ -156,12 +158,14 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 	tp := &timestampedTransaction{
 		t,
 		peerStatus{
-			seen,
-			t.Timestamp - 1,
-			false,
-			MaxTimestamp,
+			lastMissing: 0,
+			firstAvailable: seen,
+			lastInclude: 0,
+			firstDrop: MaxTimestamp,
+			timeAdded: p.Seq,
 		},
 	}
+	/*
 	// get a better estimation on the LastMissing timestamp of the tx by
 	// looking at  there
 	// are two cases:
@@ -199,33 +203,21 @@ func (p *PeerSyncState) addTransaction(t *hashedTransaction, seen uint64) {
 			break
 		}
 	}
+	*/
 	// now that we get a better bound on ps.LastMissing, add the tx as candidate
 	// to codewords after ps.LastMissing; or, if tx is determined to be seen before
 	// c.Seq, we can directly peel it off.
 	for cidx := range p.codewords {
 		if p.codewords[cidx].covers(tp.hashedTransaction) {
-			if p.codewords[cidx].timestamp >= tp.firstAvailable {
+			if p.codewords[cidx].timestamp >= tp.firstAvailable && p.codewords[cidx].timestamp <= tp.lastInclude {
 				p.codewords[cidx].peelTransactionNotCandidate(tp)
-			} else if p.codewords[cidx].timestamp > tp.lastMissing {
+			} else if p.codewords[cidx].timestamp > tp.lastMissing && p.codewords[cidx].timestamp < tp.firstDrop {
 				if p.codewords[cidx].members.mayContain(&tp.bloom) {
 					p.codewords[cidx].addCandidate(tp)
-				} else {
-					tp.lastMissing = p.codewords[cidx].timestamp
 				}
 			}
 		}
 	}
-	// the following check is unnecessary - no duplicate tx will
-	// ever enter this fn call. it was necessary when the pool
-	// tx timeout equals the codeword lookback, but not the case
-	// anymore
-	/*
-	// do not add to the trie if it is already timed out
-	if p.Seq > tp.Timestamp && p.Seq-tp.Timestamp > p.TransactionTimeout {
-		panic(tp.Timestamp)
-		return
-	} else {
-	*/
 	p.transactionTrie.addTransaction(tp)
 	return
 }
@@ -241,8 +233,12 @@ func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 	// not be updated by the release of c. As a result, we only need to search
 	// in c.Candidates, not in the whole TransactionTrie.
 	for _, txv := range c.candidates {
-		if c.timestamp > txv.lastMissing {
-			txv.lastMissing = c.timestamp
+		if txv.firstAvailable != MaxTimestamp {
+			if c.timestamp < txv.firstAvailable && c.timestamp > txv.lastMissing {
+				txv.lastMissing = c.timestamp
+			} else if c.timestamp > txv.lastInclude && c.timestamp < txv.firstDrop {
+				txv.firstDrop = c.timestamp
+			}
 		}
 	}
 	p.releasedCodewords[c.releasedIdx].released = true
@@ -253,7 +249,7 @@ func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 // it, and stores it. It also creates a stub in p.ReleasedCodewords and stores in the
 // pending codeword the index to the stub.
 func (p *PeerSyncState) InputCodeword(c Codeword) {
-	p.releasedCodewords = append(p.releasedCodewords, releasedCodeword{c.codewordFilter, c.timestamp, false})
+	p.releasedCodewords = append(p.releasedCodewords, releasedCodeword{c.hashRangeFilter, c.timestamp, false})
 	cwIdx := len(p.codewords)
 	if cwIdx < cap(p.codewords) {
 		p.codewords = p.codewords[0 : cwIdx+1]
@@ -282,19 +278,25 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
+			if p.Seq > v.firstDrop {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
 				continue
 			} else if cw.covers(v.hashedTransaction) {
-				if v.firstAvailable <= cw.timestamp {
+				if v.firstAvailable <= cw.timestamp && v.lastInclude >= cw.timestamp {
 					cw.peelTransactionNotCandidate(v)
-				} else if v.lastMissing < cw.timestamp {
+				} else if v.lastMissing < cw.timestamp && v.firstDrop > cw.timestamp {
 					if cw.members.mayContain(&v.bloom) {
 						cw.addCandidate(v)
 					} else {
-						v.lastMissing = cw.timestamp
+						if v.firstAvailable != MaxTimestamp {
+							if cw.timestamp < v.firstAvailable && cw.timestamp > v.lastMissing {
+								v.lastMissing = cw.timestamp
+							} else if cw.timestamp > v.lastInclude && cw.timestamp < v.firstDrop {
+								v.firstDrop = cw.timestamp
+							}
+						}
 					}
 				}
 			}
@@ -399,10 +401,11 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 	cw.hashRange = rg
 	cw.hashIdx = idx
 	cw.timestamp = p.Seq
+	var minTimestamp uint64
 	if cw.timestamp >= lookback {
-		cw.minTimestamp = cw.timestamp - lookback
+		minTimestamp = cw.timestamp - lookback
 	} else {
-		cw.minTimestamp = 0
+		minTimestamp = 0
 	}
 
 	// go through the buckets
@@ -417,16 +420,13 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.Seq > v.Timestamp && p.Seq-v.Timestamp > p.TransactionTimeout {
+			if p.Seq > v.firstDrop {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
 				bucket.items = bucket.items[0:newLen]
 				continue
-			} else if cw.covers(v.hashedTransaction) && v.Timestamp <= cw.timestamp {
+			} else if v.timeAdded >= minTimestamp && cw.covers(v.hashedTransaction) {
 				cw.applyTransaction(&v.Transaction, into)
-				if v.firstSend == MaxTimestamp {
-					v.firstSend = p.Seq
-				}
 				cw.members.add(&v.bloom)
 			}
 			tidx += 1

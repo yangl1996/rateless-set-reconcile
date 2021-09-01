@@ -81,7 +81,7 @@ func (n *node) fillInitTransaction(src []ldpc.Transaction, nCopy, nNew int) []ld
 func (n *node) getRandomTransaction() ldpc.Transaction {
 	d := [ldpc.TxDataSize]byte{}
 	n.rng.Read(d[:])
-	return ldpc.NewTransaction(d, n.Seq)
+	return ldpc.NewTransaction(d)
 }
 
 func (n *node) sendCodewords() {
