@@ -55,7 +55,6 @@ type pendingCodeword struct {
 	Codeword
 	candidates  []*timestampedTransaction
 	dirty       bool // if we should speculate this cw again because the candidates changed
-	releasedIdx int  // index to the released codeword stub of this codeword
 }
 
 // peelTransactionNotCandidate peels off a transaction t that is determined to be
@@ -314,8 +313,3 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 	return res, true
 }
 
-type releasedCodeword struct {
-	hashRangeFilter
-	timestamp uint64
-	released  bool
-}

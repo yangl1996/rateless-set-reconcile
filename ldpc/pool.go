@@ -130,7 +130,6 @@ func (p *TransactionSync) TryDecode() {
 type PeerSyncState struct {
 	transactionTrie   trie
 	codewords         []pendingCodeword
-	releasedCodewords []releasedCodeword
 	*SyncClock
 }
 
@@ -267,7 +266,6 @@ func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 	for _, txv := range c.candidates {
 		txv.markMissingAt(c.timestamp)
 	}
-	p.releasedCodewords[c.releasedIdx].released = true
 	return
 }
 
@@ -275,21 +273,18 @@ func (p *PeerSyncState) markCodewordReleased(c *pendingCodeword) {
 // it, and stores it. It also creates a stub in p.ReleasedCodewords and stores in the
 // pending codeword the index to the stub.
 func (p *PeerSyncState) InputCodeword(c Codeword) {
-	p.releasedCodewords = append(p.releasedCodewords, releasedCodeword{c.hashRangeFilter, c.timestamp, false})
 	cwIdx := len(p.codewords)
 	if cwIdx < cap(p.codewords) {
 		p.codewords = p.codewords[0 : cwIdx+1]
 		p.codewords[cwIdx].Codeword = c
 		p.codewords[cwIdx].candidates = p.codewords[cwIdx].candidates[0:0]
 		p.codewords[cwIdx].dirty = true
-		p.codewords[cwIdx].releasedIdx = len(p.releasedCodewords) - 1
 
 	} else {
 		p.codewords = append(p.codewords, pendingCodeword{
 			c,
 			make([]*timestampedTransaction, 0, c.counter),
 			true,
-			len(p.releasedCodewords) - 1,
 		})
 	}
 	cw := &p.codewords[cwIdx]
