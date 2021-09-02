@@ -45,7 +45,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "# num decoded     symbols rcvd     unix timestamp in millis\n")
+		fmt.Fprintf(f, "# num decoded     symbols rcvd     ms for last 1k txs\n")
 
 		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
 		if err != nil {
