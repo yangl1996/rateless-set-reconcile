@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	_ "net/http/pprof"
+	"net/http"
 	"runtime/pprof"
 	"runtime/trace"
 	"sync"
@@ -14,6 +16,7 @@ import (
 )
 
 func main() {
+	go http.ListenAndServe("localhost:6060", nil)
 	flag.Parse()
 	cfg, err := getConfig()
 	if err != nil {
