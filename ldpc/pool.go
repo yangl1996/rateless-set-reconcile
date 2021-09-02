@@ -304,9 +304,10 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.Seq > v.firstDrop {
+			if p.Seq > v.firstDrop || p.Seq >= v.timeAdded + p.TransactionTimeout {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
+				bucket.items[newLen] = nil
 				bucket.items = bucket.items[0:newLen]
 				continue
 			} else if cw.covers(v.hashedTransaction) {
@@ -434,9 +435,10 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 		tidx := 0
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
-			if p.Seq > v.firstDrop {
+			if p.Seq > v.firstDrop || p.Seq >= v.timeAdded + p.TransactionTimeout {
 				newLen := len(bucket.items) - 1
 				bucket.items[tidx] = bucket.items[newLen]
+				bucket.items[newLen] = nil
 				bucket.items = bucket.items[0:newLen]
 				continue
 			} else if v.timeAdded + lookback >= cw.timestamp && cw.covers(v.hashedTransaction) && v.firstAvailable == MaxTimestamp {

@@ -20,7 +20,7 @@ type node struct {
 
 func newNode(dist thresholdPicker, rng *rand.Rand, txPacer pacer, lookback uint64) *node {
 	// calculate lookback window, mind overflows
-	txLookback := lookback + 10
+	txLookback := lookback * 5
 	if txLookback < lookback {
 		txLookback = ldpc.MaxTimestamp
 	}
