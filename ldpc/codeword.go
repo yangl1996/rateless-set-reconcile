@@ -57,6 +57,22 @@ type pendingCodeword struct {
 	dirty       bool // if we should speculate this cw again because the candidates changed
 }
 
+func (c *pendingCodeword) removeCandidateAt(idx int) {
+	newLen := len(c.candidates) - 1
+	c.candidates[idx].rc -= 1
+	if c.candidates[idx].rc == 0 {
+		c.candidates[idx].hashedTransaction.rc -= 1
+		if c.candidates[idx].hashedTransaction.rc == 0 {
+			hashedTransactionPool.Put(c.candidates[idx].hashedTransaction)
+			c.candidates[idx].hashedTransaction = nil
+		}
+		timestampPool.Put(c.candidates[idx])
+	}
+	c.candidates[idx] = c.candidates[newLen]
+	c.candidates[newLen] = nil
+	c.candidates = c.candidates[0:newLen]
+}
+
 // peelTransactionNotCandidate peels off a transaction t that is determined to be
 // a member of c from c, assuming it is NOT already a candidate of c, and updates
 // the FirstAvailable estimation for t.
@@ -75,6 +91,7 @@ func (c *pendingCodeword) addCandidate(t *timestampedTransaction) {
 	// will be added twice.
 	c.candidates = append(c.candidates, t)
 	c.dirty = true
+	t.rc += 1
 	return
 }
 
@@ -147,8 +164,7 @@ func (c *pendingCodeword) scanCandidates() {
 		}
 		// remove txv from candidates by swapping the last candidate here
 		if removed {
-			c.candidates[cIdx] = c.candidates[len(c.candidates)-1]
-			c.candidates = c.candidates[0 : len(c.candidates)-1]
+			c.removeCandidateAt(cIdx)
 			c.dirty = true
 		} else {
 			cIdx += 1
@@ -255,8 +271,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 			// this problem.
 			for sidx := len(solutions) - 1; sidx >= 0; sidx-- {
 				c.candidates[solutions[sidx]].markSeenAt(c.timestamp)
-				c.candidates[solutions[sidx]] = c.candidates[len(c.candidates)-1]
-				c.candidates = c.candidates[0 : len(c.candidates)-1]
+				c.removeCandidateAt(solutions[sidx])
 			}
 		} else {
 			return res, false
@@ -282,8 +297,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 			for cidx := len(c.candidates) - 1; cidx >= 0; cidx-- {
 				if sidx < 0 || cidx > solutions[sidx] {
 					c.candidates[cidx].markSeenAt(c.timestamp)
-					c.candidates[cidx] = c.candidates[len(c.candidates)-1]
-					c.candidates = c.candidates[0 : len(c.candidates)-1]
+					c.removeCandidateAt(cidx)
 				} else if cidx == solutions[sidx] {
 					sidx -= 1
 				}
@@ -302,9 +316,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 		if res.checksum == c.candidates[cidx].Transaction.checksum && res == c.candidates[cidx].Transaction {
 			// found it; peel it off (which marks FirstAvailable for us)
 			c.peelTransactionNotCandidate(c.candidates[cidx])
-			// remove the candidate
-			c.candidates[cidx] = c.candidates[len(c.candidates)-1]
-			c.candidates = c.candidates[0 : len(c.candidates)-1]
+			c.removeCandidateAt(cidx)
 			// no more member to look for; we can return
 			return res, false
 		}

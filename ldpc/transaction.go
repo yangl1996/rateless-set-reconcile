@@ -162,6 +162,7 @@ type hashedTransaction struct {
 	Transaction
 	hash [blake2b.Size]byte
 	bloom
+	rc int
 }
 
 // uint converts the idx-th 8-byte value into an unsigned int and returns
@@ -172,11 +173,19 @@ func (t *hashedTransaction) uint(idx int) uint64 {
 
 const numHashFns = 5
 
-func NewHashedTransaction(t Transaction) hashedTransaction {
-	ht := hashedTransaction{
-		Transaction: t,
-	}
+
+var hashedTransactionPool = sync.Pool{
+	New: func() interface{} {
+		return new(hashedTransaction)
+	},
+}
+
+func NewHashedTransaction(t Transaction) *hashedTransaction {
+	ht := hashedTransactionPool.Get().(*hashedTransaction)
+	ht.rc = 0
+	ht.Transaction = t
 	ht.Transaction.hashWithSaltInto(nil, &ht.hash)
+	ht.bloom = bloom{}
 	for i := 0; i < numHashFns; i++ {
 		idx := ht.uint(i)
 		bidx := idx & 63 // how many bits to shift from the right
