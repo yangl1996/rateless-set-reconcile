@@ -35,6 +35,7 @@ type peerStatus struct {
 	lastInclude uint64
 	firstDrop uint64
 	timeAdded uint64
+	sent bool
 }
 
 func (t *peerStatus) markSeenAt(s uint64) {
@@ -177,6 +178,7 @@ func (p *PeerSyncState) addSeenTransaction(t *hashedTransaction, seen uint64) {
 	tp.lastInclude = 0
 	tp.firstDrop = MaxTimestamp
 	tp.timeAdded = p.Seq
+	tp.sent = false
 	tp.rc = 0
 	tp.markSeenAt(seen)
 	p.addTransaction(tp)
@@ -191,6 +193,7 @@ func (p *PeerSyncState) addUnseenTransaction(t *hashedTransaction) {
 	tp.lastInclude = 0
 	tp.firstDrop = MaxTimestamp
 	tp.timeAdded = p.Seq
+	tp.sent = false
 	tp.rc = 0
 	p.addTransaction(tp)
 }
@@ -399,9 +402,10 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 			if p.Seq > v.firstDrop || p.Seq >= v.timeAdded + p.TransactionTimeout {
 				bucket.removeItemAt(tidx)
 				continue
-			} else if v.timeAdded + lookback >= cw.timestamp && cw.covers(v.hashedTransaction) && v.firstAvailable == MaxTimestamp {
+			} else if v.timeAdded + lookback >= cw.timestamp && cw.covers(v.hashedTransaction) && (v.firstAvailable == MaxTimestamp || !v.sent) {
 				cw.applyTransaction(&v.Transaction, into)
 				cw.members.add(&v.bloom)
+				v.sent = true
 			}
 			tidx += 1
 		}
