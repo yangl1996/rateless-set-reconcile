@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"runtime"
@@ -31,7 +30,6 @@ func main() {
 
 	// create output files
 	var f *os.File
-	var rippleF *os.File
 	var pressureF *os.File
 	var cwpoolF *os.File
 	if *outputPrefix != "" {
@@ -49,13 +47,6 @@ func main() {
 		}
 		defer f.Close()
 		fmt.Fprintf(f, "# num decoded     symbols rcvd     ms for last 1k txs\n")
-
-		rippleF, err = os.Create(*outputPrefix + "-ripple-size-dist.dat")
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Fprintf(rippleF, "# ripple size     count\n")
 
 		pressureF, err = os.Create(*outputPrefix + "-ntx-unique-to-p1.dat")
 		if err != nil {
@@ -105,10 +96,6 @@ func main() {
 	}
 
 	var chs []chan int    // channels for the interation-#decoded result
-	var rippleCh chan int // channel to collect the ripple sizes
-	if rippleF != nil {
-		rippleCh = make(chan int, 1000)
-	}
 	var pressureChs []chan int // channel to collect num of undecoded transactions
 	var cwpoolChs []chan int   // channel to collect the number of unreleased codewords
 	procwg := &sync.WaitGroup{}
@@ -141,7 +128,7 @@ func main() {
 				defer close(cwpoolCh)
 			}
 			defer procwg.Done()
-			err := runExperiment(cfg, ch, rippleCh, pressureCh, cwpoolCh)
+			err := runExperiment(cfg, ch, pressureCh, cwpoolCh)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -173,14 +160,6 @@ func main() {
 			}
 		}()
 	}
-	// collect and dump ripple size distribution
-	if rippleF != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			collectDumpHistogram(rippleF, rippleCh)
-		}()
-	}
 	// collect and dump num of transactions unique to p1
 	if pressureF != nil {
 		wg.Add(1)
@@ -210,9 +189,6 @@ func main() {
 	}
 
 	procwg.Wait()
-	if rippleCh != nil {
-		close(rippleCh)
-	}
 	wg.Wait()
 
 	if *memprofile != "" {
@@ -247,15 +223,12 @@ func (e TransactionCountError) Error() string {
 	return fmt.Sprintf("transaction count limit reached at node %v", e.nid)
 }
 
-func runExperiment(cfg ExperimentConfig, res, ripple, diff, cwpool chan int) error {
-	if cfg.LookbackTime == 0 {
-		cfg.LookbackTime = math.MaxUint64
-	}
+func runExperiment(cfg ExperimentConfig, res, diff, cwpool chan int) error {
 	rng := rand.New(rand.NewSource(cfg.Seed))
 	var nodes []*node
 	nodeName := make(map[string]*node)
 	for nidx := range cfg.Topology.Servers {
-		dt, err := NewDistribution(rng, cfg.DegreeDist, 10000)
+		dt, err := NewDistribution(rng, cfg.DegreeDist)
 		if err != nil {
 			return err
 		}
@@ -296,9 +269,6 @@ func runExperiment(cfg ExperimentConfig, res, ripple, diff, cwpool chan int) err
 					for cnt := 0; cnt < updated; cnt++ {
 						res <- nodes[nidx].cwrcvd
 					}
-				}
-				if ripple != nil {
-					ripple <- updated
 				}
 				if diff != nil {
 					diff <- totalTx - nodes[nidx].txPoolSize()

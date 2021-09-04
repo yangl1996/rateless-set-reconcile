@@ -49,7 +49,7 @@ func BenchmarkExperiment(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(ldpc.TxSize * nt * 2))
 					for i := 0; i < b.N; i++ {
-						err := runExperiment(cfg, nil, nil, nil, nil)
+						err := runExperiment(cfg, nil, nil, nil)
 						if _, is := err.(TransactionCountError); !is {
 							b.Fatal("decoding experiment failed")
 						}

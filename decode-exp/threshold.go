@@ -69,7 +69,7 @@ func (s *SolitonThreshold) generate() uint64 {
 	return fracToThreshold(float64(s.dist.Uint64()) / float64(s.estDiff))
 }
 
-func NewDistribution(rng *rand.Rand, s string, estDiff int) (thresholdPicker, error) {
+func NewDistribution(rng *rand.Rand, s string) (thresholdPicker, error) {
 	ds := strings.ReplaceAll(s, " ", "")
 	switch {
 	case strings.HasPrefix(ds, "u("):
@@ -84,7 +84,7 @@ func NewDistribution(rng *rand.Rand, s string, estDiff int) (thresholdPicker, er
 		return NewConstantThreshold(frac), nil
 	case strings.HasPrefix(ds, "rs("):
 		params := strings.Split(strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "rs("), ",")
-		if len(params) != 3 {
+		if len(params) != 4 {
 			return nil, errors.New("incorrect number of parameters for robust soliton")
 		}
 		k, err := strconv.Atoi(params[0])
@@ -99,20 +99,34 @@ func NewDistribution(rng *rand.Rand, s string, estDiff int) (thresholdPicker, er
 		if err != nil {
 			return nil, err
 		}
-		if k <= 0 || c <= 0 || delta <= 0 || delta >= 1 {
+		dif, err := strconv.Atoi(params[3])
+		if err != nil {
+			return nil, err
+		}
+		if k <= 0 || c <= 0 || delta <= 0 || delta >= 1 || dif <= 0 {
 			return nil, errors.New("parameter out of range for robust soliton")
 		}
-		return NewRobustSolitonThreshold(rng, k, c, delta, estDiff), nil
+		return NewRobustSolitonThreshold(rng, k, c, delta, dif), nil
 	case strings.HasPrefix(ds, "s("):
-		param := strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "s(")
-		k, err := strconv.Atoi(param)
+		params := strings.Split(strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "s("), ",")
+		if len(params) != 2 {
+			return nil, errors.New("incorrect number of parameters for soliton")
+		}
+		k, err := strconv.Atoi(params[0])
 		if err != nil {
 			return nil, err
 		}
 		if k <= 0 {
 			return nil, errors.New("soliton distribution k not greater than 0")
 		}
-		return NewSolitonThreshold(rng, k, estDiff), nil
+		dif, err := strconv.Atoi(params[1])
+		if err != nil {
+			return nil, err
+		}
+		if dif <= 0 {
+			return nil, errors.New("soliton distribution diff not greater than 0")
+		}
+		return NewSolitonThreshold(rng, k, dif), nil
 	case strings.HasPrefix(ds, "b("):
 		params := strings.Split(strings.TrimPrefix(strings.TrimSuffix(ds, ")"), "b("), ",")
 		if len(params) != 3 {

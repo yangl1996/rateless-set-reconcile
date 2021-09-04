@@ -21,8 +21,8 @@ var seed = flag.Int64("seed", 0, "seed to use for the RNG, 0 to seed with time")
 var refillTransaction = flag.String("f", "p(0.7)", "transaction arrival pattern at each node: c(r) for uniform arrival at rate r per codeword, p(r) for poisson arrival at rate r, empty string to disable")
 var timeoutDuration = flag.Int("t", 500, "stop the experiment if no new transaction is decoded after this amount of codewords")
 var timeoutCounter = flag.Int("tc", 0, "number of transactions to decode before stopping, 0 for unlimited")
-var degreeDistString = flag.String("d", "u(0.01)", "distribution of parity check degrees: rs(k,c,delta) for robust soliton with parameters k, c, and delta, s(k) for soliton with parameter k where k is usually the length of the encoded data, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
-var lookbackTime = flag.Uint64("l", 0, "lookback timespan of codewords, 0 for infinity")
+var degreeDistString = flag.String("d", "u(0.01)", "distribution of parity check degrees: rs(k,c,delta,diff) for robust soliton with parameters k, c, delta, and estimated diff, s(k,diff) for soliton with parameter k and estimated diff, u(f) for uniform with fraction=f, b(f1, f2, p1) for bimodal with fraction=f1 with probability p1, and fraction=f2 with probability=1-p1")
+var lookbackTime = flag.Uint64("l", 500, "lookback timespan of codewords")
 var readConfig = flag.String("c", "", "read config from `file`; the config will be overwritten by parameters passed through command line")
 
 func updateConfig(cfg *ExperimentConfig, f *flag.Flag) {
@@ -96,7 +96,7 @@ func getConfig() (ExperimentConfig, error) {
 		}
 	}
 	// validate the dist and pacer strings
-	_, err = NewDistribution(nil, cfg.DegreeDist, 10000)
+	_, err = NewDistribution(nil, cfg.DegreeDist)
         if err != nil {
 		return cfg, err
         }
