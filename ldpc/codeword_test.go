@@ -1,45 +1,38 @@
 package ldpc
 
 import (
-	"math"
 	"testing"
 )
 
-func wrapTransaction(t Transaction) *timestampedTransaction {
-	tp := &timestampedTransaction{hashedTransaction: &hashedTransaction{}}
-	tp.Transaction = t
-	tp.peerStatus = peerStatus{math.MaxInt64, t.Timestamp - 1}
-	tp.Transaction.hashWithSaltInto(nil, &tp.hash)
-	return tp
-}
-
 // prepareCodeword returns a codeword with degree deg and the specified numbers of correct
-// and total candidates. If correct+1=deg, it also returns the expected transaction after
-// peeing. Otherwise, it returns an empty transaction.
+// and total candidates. If correct+1=deg, the second return value is the expected
+// transaction after peeling. Otherwise, the second return value is nil.
 func prepareCodeword(deg, correct, total int) (pendingCodeword, *timestampedTransaction) {
 	if correct >= deg {
 		panic("correct >= deg")
 	}
-	c := Codeword{}
-	c.timestamp = 10
-	var members []*timestampedTransaction
+	cw := pendingCodeword{Codeword{}, nil, true}
+	var lastMember *timestampedTransaction
 	for i := 0; i < deg; i++ {
 		d := randomData()
-		tx := wrapTransaction(NewTransaction(d, 1))
-		members = append(members, tx)
-		c.applyTransaction(&tx.Transaction, into)
+		tx := NewHashedTransaction(NewTransaction(d))
+		ps := peerStatus{}
+		tt := &timestampedTransaction{tx, ps, 0}
+		cw.applyTransaction(&tt.Transaction, into)
+		lastMember = tt
+		if i < correct {
+			cw.addCandidate(tt)
+		}
 	}
-	cw := pendingCodeword{c, nil, true, 0}
 	for i := 0; i < (total - correct); i++ {
 		d := randomData()
-		tx := wrapTransaction(NewTransaction(d, 1))
-		cw.addCandidate(tx)
-	}
-	for i := 0; i < correct; i++ {
-		cw.addCandidate(members[i])
+		tx := NewHashedTransaction(NewTransaction(d))
+		ps := peerStatus{}
+		tt := &timestampedTransaction{tx, ps, 0}
+		cw.addCandidate(tt)
 	}
 	if correct+1 == deg {
-		return cw, members[len(members)-1]
+		return cw, lastMember
 	} else {
 		return cw, nil
 	}
@@ -51,7 +44,7 @@ func BenchmarkApplyTransaction(b *testing.B) {
 	b.SetBytes(TxSize)
 	c := Codeword{}
 	d := randomData()
-	tx := NewTransaction(d, 1)
+	tx := NewTransaction(d)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.applyTransaction(&tx, into)
