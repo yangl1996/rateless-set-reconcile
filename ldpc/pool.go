@@ -36,9 +36,15 @@ type peerStatus struct {
 	firstDrop uint64
 	timeAdded uint64
 	sent bool
+	numSurplusOfPool *int
+	surplusCounterRemoved bool
 }
 
 func (t *peerStatus) markSeenAt(s uint64) {
+	if !t.surplusCounterRemoved {
+		*t.numSurplusOfPool -= 1
+		t.surplusCounterRemoved = true
+	}
 	if t.firstAvailable > s {
 		t.firstAvailable = s
 	}
@@ -133,6 +139,21 @@ type PeerSyncState struct {
 	transactionTrie   trie
 	codewords         []pendingCodeword
 	*SyncClock
+	// The number of transactions that we have but are not sure that the
+	// other end has. Note that if a transaction is a candidate of a codeword,
+	// we do NOT consider the other end has the transaction, even though it
+	// is very likely so (due to the low false positive rate of bloom filter).
+	numSurplus int
+	// The number of transactions that we know we miss.
+	// This can be estimated as the total remaining degree of all
+	// undecoded codewords. To refine the estimation, we may also assume that
+	// all candidates are real, and thus discount the number of candidates
+	// from this counter. Note that this is not the TOTAL txs we miss, because
+	// we get the info only from the codewords. We may get the TOTAL number
+	// of tx by dividing this number with the number of codewords to get the
+	// average missing txs per codeword, and then divide the codeword fraction
+	// to get the expected missing txs for the whole range.
+	numDeficit int
 }
 
 // NumAddedTransactions returns the number of transactions added to the pool so far.
@@ -169,6 +190,10 @@ var timestampPool = sync.Pool {
 	},
 }
 
+func (p *PeerSyncState) MissingAtReceiver() int {
+	return p.numSurplus
+}
+
 func (p *PeerSyncState) addSeenTransaction(t *hashedTransaction, seen uint64) {
 	tp := timestampPool.Get().(*timestampedTransaction)
 	tp.hashedTransaction = t
@@ -180,6 +205,8 @@ func (p *PeerSyncState) addSeenTransaction(t *hashedTransaction, seen uint64) {
 	tp.timeAdded = p.Seq
 	tp.sent = false
 	tp.rc = 0
+	tp.numSurplusOfPool = &p.numSurplus
+	tp.surplusCounterRemoved = false
 	tp.markSeenAt(seen)
 	p.addTransaction(tp)
 }
@@ -195,6 +222,8 @@ func (p *PeerSyncState) addUnseenTransaction(t *hashedTransaction) {
 	tp.timeAdded = p.Seq
 	tp.sent = false
 	tp.rc = 0
+	tp.numSurplusOfPool = &p.numSurplus
+	tp.surplusCounterRemoved = false
 	p.addTransaction(tp)
 }
 
@@ -203,6 +232,7 @@ func (p *PeerSyncState) addUnseenTransaction(t *hashedTransaction) {
 // from the peer. It assumes that the transaction is never seen at the peer.
 // It does nothing if the transaction is already in the pool.
 func (p *PeerSyncState) addTransaction(tp *timestampedTransaction) {
+
 	// we ensured there's no duplicate calls to AddTransaction
 	// we used to keep record of decoded codewords, and try to get a better
 	// estimation on lastMissing and firstDrop. However, since we can only
@@ -225,6 +255,7 @@ func (p *PeerSyncState) addTransaction(tp *timestampedTransaction) {
 		}
 	}
 	p.transactionTrie.addTransaction(tp)
+	p.numSurplus += 1
 	return
 }
 
@@ -275,6 +306,10 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
 			if p.Seq > v.firstDrop || p.Seq >= v.timeAdded + p.TransactionTimeout {
+				if !v.surplusCounterRemoved {
+					v.surplusCounterRemoved = true
+					p.numSurplus -= 1
+				}
 				bucket.removeItemAt(tidx)
 				continue
 			} else if cw.covers(v.hashedTransaction) {
@@ -400,6 +435,10 @@ func (p *PeerSyncState) ProduceCodeword(start, frac uint64, idx int, lookback ui
 		for tidx < len(bucket.items) {
 			v := bucket.items[tidx]
 			if p.Seq > v.firstDrop || p.Seq >= v.timeAdded + p.TransactionTimeout {
+				if !v.surplusCounterRemoved {
+					v.surplusCounterRemoved = true
+					p.numSurplus-= 1
+				}
 				bucket.removeItemAt(tidx)
 				continue
 			} else if v.timeAdded + lookback >= cw.timestamp && cw.covers(v.hashedTransaction) && (v.firstAvailable == MaxTimestamp || !v.sent) {
