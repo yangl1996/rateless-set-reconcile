@@ -144,15 +144,13 @@ type PeerSyncState struct {
 	// we do NOT consider the other end has the transaction, even though it
 	// is very likely so (due to the low false positive rate of bloom filter).
 	numSurplus int
-	// The number of transactions that we know we miss.
-	// This can be estimated as the total remaining degree of all
-	// undecoded codewords. To refine the estimation, we may also assume that
-	// all candidates are real, and thus discount the number of candidates
-	// from this counter. Note that this is not the TOTAL txs we miss, because
-	// we get the info only from the codewords. We may get the TOTAL number
-	// of tx by dividing this number with the number of codewords to get the
-	// average missing txs per codeword, and then divide the codeword fraction
-	// to get the expected missing txs for the whole range.
+	// The total remaining degree of undecoded codewords. Note that candidates
+	// do NOT decrease the degree of an undecoded codeword, even though it is
+	// very likely to be the correct thing to do (due to the low false positive
+	// rate of bloom filters). This number can be used to estimate the number of
+	// transactions that we do not have the other end has, using the following
+	// equation:
+	//     numMissing = numDeficit / (numPendingCodeword * codewordFraction)
 	numDeficit int
 }
 
@@ -286,14 +284,17 @@ func (p *PeerSyncState) InputCodeword(c Codeword) {
 		p.codewords[cwIdx].Codeword = c
 		p.codewords[cwIdx].candidates = p.codewords[cwIdx].candidates[0:0]
 		p.codewords[cwIdx].dirty = true
+		p.codewords[cwIdx].numDeficitOfPool = &p.numDeficit
 	} else {
 		p.codewords = append(p.codewords, pendingCodeword{
 			c,
 			make([]*timestampedTransaction, 0, c.counter),
 			true,
+			&p.numDeficit,
 		})
 	}
 	cw := &p.codewords[cwIdx]
+	p.numDeficit += cw.counter
 	bs, be := cw.bucketIndexRange()
 	for bidx := bs; bidx <= be; bidx++ {
 		bi := bidx
@@ -392,6 +393,7 @@ func (p *PeerSyncState) tryDecode(t []*hashedTransaction) []*hashedTransaction {
 				p.markCodewordReleased(&p.codewords[cwIdx])
 			} else if p.Seq > p.codewords[cwIdx].timestamp && p.Seq-p.codewords[cwIdx].timestamp > p.CodewordTimeout {
 				shouldRemove = true
+				p.numDeficit -= p.codewords[cwIdx].counter
 			}
 			if shouldRemove {
 				// remove this codeword by moving from the end of the list

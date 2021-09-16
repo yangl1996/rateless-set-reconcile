@@ -55,6 +55,7 @@ type pendingCodeword struct {
 	Codeword
 	candidates  []*timestampedTransaction
 	dirty       bool // if we should speculate this cw again because the candidates changed
+	numDeficitOfPool *int
 }
 
 func (c *pendingCodeword) removeCandidateAt(idx int) {
@@ -77,6 +78,7 @@ func (c *pendingCodeword) removeCandidateAt(idx int) {
 // a member of c from c, assuming it is NOT already a candidate of c, and updates
 // the FirstAvailable estimation for t.
 func (c *pendingCodeword) peelTransactionNotCandidate(t *timestampedTransaction) {
+	*c.numDeficitOfPool -= 1
 	c.Codeword.applyTransaction(&t.Transaction, from)
 	t.markSeenAt(c.timestamp)
 	c.dirty = true
@@ -254,6 +256,7 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 	var res Transaction
 	var succ bool
 
+	startCnt := c.counter
 	totDepth := c.counter - 1 // number of transactions to peel; we want to leave one
 	if totDepth < len(c.candidates)/2 {
 		// iterate subsets to peel
@@ -310,6 +313,10 @@ func (c *pendingCodeword) speculatePeel() (Transaction, bool) {
 		}
 	}
 	c.dirty = false
+	endCnt := c.counter
+	if startCnt != endCnt {
+		*c.numDeficitOfPool -= (startCnt - endCnt)
+	}
 	// then, try to find the remaining transaction; we have removed
 	// the solutions from Candidates, so Candidates only contains non-members.
 	for cidx := range c.candidates {
