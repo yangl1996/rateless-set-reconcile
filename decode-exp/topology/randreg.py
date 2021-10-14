@@ -4,23 +4,25 @@ import json
 
 n = networkx.random_regular_graph(10, 101)
 c = {
-        "MirrorProb": 0,
         "Seed": 0,
-        "TimeoutDuration": 500,
-        "TimeoutCounter": 0,
-        "DegreeDist": "u(0.01)",
-        "LookbackTime": 0,
-        "ParallelRuns": 1,
         "Servers": [],
-        "InitialCommonTx": 0,
-        "Connections": []
+        "Connections": [],
+        "Sources": [],
 }
 
 for node in n.nodes():
     c["Servers"].append({
         "Name": str(node),
-        "InitialUniqueTx": 0,
-        "TxArrivePattern": "p(0.07)"
+        "TimeoutDuration": 500,
+        "TimeoutCounter": 0,
+        "DegreeDist": "u(0.01)",
+        "LookbackTime": 300
+        })
+    c["Sources"].append({
+        "Name": str(node),
+        "ArrivePattern": "p(0.07)",
+        "InitialTx": 0,
+        "Targets": [str(node)]
         })
 
 for edge in n.edges():
