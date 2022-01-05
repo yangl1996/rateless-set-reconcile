@@ -1,0 +1,26 @@
+Transaction Decoding with Guessing
+
+Parameters
+
+l: the length of a hash identifier in codewords
+H: hash function to l bits
+Valid: validity check of a transaction (signature + application-specific)
+
+Data Structures
+
+M: from 0 to 2^l-1 to lists of transactions, each ordered by decreasing recency of decoding
+Codeword: (list representation of set {H(t) | t in T}, XOR of transaction set {T})
+
+Algorithm
+
+Upon receiving a codeword of degree 1 with form ({h}, t)
+    If Valid(t) and H(t)=h, write t to M.
+    Otherwise, disconnect from the peer who sends the codeword.
+
+Upon receiving a codeword of degree d>1 with form (I, c) where I={h1, h2, ..., hd}
+    Record the current local clock s.
+    Look up transactions M[h1], ..., M[hd]. Try peeling all but one (selected with increasing recency of decoding). If H(the remaining symbol) equals the hash corresponding to the unpeeled transaction, then let t=the remaining symbol. If Valid(t), then write t to M. Otherwise, stash this codeword.
+
+Upon new transaction t written into M
+    Append t to the encoding window.
+    Call the decoding routing (see above) for all undecoded codewords that contains identifier H(t).
