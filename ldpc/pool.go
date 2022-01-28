@@ -5,6 +5,8 @@ import (
 	"hash"
 )
 
+const SaltSize = 16
+
 type pendingTransaction struct {
 	saltedHash uint32
 	blocking []*pendingCodeword
@@ -55,11 +57,11 @@ type peerState struct {
 	hasher hash.Hash64
 }
 
-func newPeer(salt []byte) *peerState {
+func newPeer(salt [SaltSize]byte) *peerState {
 	p := &peerState{
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions: make(map[uint32]*pendingTransaction),
-		hasher: siphash.New(salt),
+		hasher: siphash.New(salt[:]),
 	}
 	return p
 }
