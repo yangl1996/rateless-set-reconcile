@@ -1,7 +1,6 @@
 package ldpc
 
 import (
-	"encoding/binary"
 	"hash"
 	"sync"
 	"unsafe"
@@ -29,7 +28,6 @@ var hasherPool = sync.Pool{
 type Transaction struct {
 	serialized TransactionData
 	hash [blake2b.Size]byte
-	shortHash uint64
 }
 
 func (t *Transaction) UnmarshalBinary(data []byte) error {
@@ -47,17 +45,7 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	h.Reset()
 	h.Write(t.serialized[:])
 	h.Sum(t.hash[0:0])	// Sum appends to the given slice
-	t.shortHash = binary.BigEndian.Uint64(t.hash[0:8])
 	return nil
-}
-
-// uint converts the first l bytes of the transaction hash into an unsigned int and returns
-// the result.
-func (t *Transaction) Uint64(l int) uint64 {
-	if l > 8 {
-		panic("hash size exceeds 8 bytes")
-	}
-	return t.shortHash & ((0x01 << (l << 3)) - 1)
 }
 
 type DataSizeError struct {
