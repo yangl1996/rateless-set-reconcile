@@ -86,6 +86,91 @@ func TestMarkDecoded(t *testing.T) {
 }
 
 func TestDecodeCodewords(t *testing.T) {
-	//p := newPeer(testSalt)
-	// create 
+	p := newPeer(testSalt)
+	// create the following codewords:
+	// cw0 = tx0 + tx1
+	// cw1 = tx1 + tx2 + tx3
+	// cw2 = tx1 + tx3
+	// cw3 = tx0
+	// cw4 = tx0 + tx4 + tx5
+	txs := make([]*Transaction, 6)
+	txstubs := make([]*pendingTransaction, 6)
+	for i := range txs {
+		txs[i], txstubs[i] = randomTransaction()
+		p.pendingTransactions[txstubs[i].saltedHash] = txstubs[i]
+	}
+	cws := make([]*pendingCodeword, 5)
+	for i := range cws {
+		cws[i] = &pendingCodeword{}
+	}
+	cws[0].addTransaction(txs[0], txstubs[0])
+	cws[0].addTransaction(txs[1], txstubs[1])
+	cws[1].addTransaction(txs[1], txstubs[1])
+	cws[1].addTransaction(txs[2], txstubs[2])
+	cws[1].addTransaction(txs[3], txstubs[3])
+	cws[2].addTransaction(txs[1], txstubs[1])
+	cws[2].addTransaction(txs[3], txstubs[3])
+	cws[3].addTransaction(txs[0], txstubs[0])
+	cws[4].addTransaction(txs[0], txstubs[0])
+	cws[4].addTransaction(txs[4], txstubs[4])
+	cws[4].addTransaction(txs[5], txstubs[5])
+
+	// now, mark cws[3] as decodable
+	newtx := p.decodeCodewords([]*pendingCodeword{cws[3]})
+	// we should be able to decode txs 0-3, leaving 5 undecoded
+	for i := 0; i < 4; i++ {
+		if len(cws[i].members) != 0 {
+			t.Error("nonempty member set of decoded codeword")
+		}
+		if cws[i].symbol != zeroTx {
+			t.Error("nonzero symbol of decoded codeword")
+		}
+	}
+	if len(cws[4].members) != 2 {
+		t.Error("incorrect number of pending transactions")
+	}
+	crr := TransactionData{}
+	crr.XOR(&txs[4].serialized)
+	crr.XOR(&txs[5].serialized)
+	if cws[4].symbol != crr {
+		t.Error("incorrect symbol for pending codeword")
+	}
+
+	if len(p.receivedTransactions) != 4 || len(newtx) != 4 {
+		t.Error("incorrect number of decoded transactions")
+	}
+	for i := 0; i < 4; i++ {
+		dec, there := p.receivedTransactions[txstubs[i].saltedHash]
+		if !there {
+			t.Error("missing decoded transaction")
+		}
+		if dec.serialized != txs[i].serialized {
+			t.Error("incorrect decoded transaction data")
+		}
+		found := false
+		for _, ptr := range newtx {
+			if ptr == dec {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("missing decoded transaction in returned array")
+		}
+	}
+	if len(p.pendingTransactions) != 2 {
+		t.Error("incorrect number of pending transactions")
+	}
+	for i := 4; i < 6; i++ {
+		ped, there := p.pendingTransactions[txstubs[i].saltedHash]
+		if !there {
+			t.Error("missing pending transaction")
+		}
+		if ped != txstubs[i] {
+			t.Error("mismatching pointers")
+		}
+		if len(ped.blocking) != 1 || ped.blocking[0] != cws[4] {
+			t.Error("incorrect blocking set")
+		}
+	}
 }
