@@ -7,32 +7,33 @@ import (
 	"testing"
 )
 
-var hasher hash.Hash64 = siphash.New([]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f})
+var testSalt = [SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+var hasher hash.Hash64 = siphash.New(testSalt[:])
 var zeroTx TransactionData = TransactionData{}
 
-func degreeTwoCodeword() (*Transaction, *pendingTransaction, *Transaction, *pendingTransaction, *pendingCodeword) {
+func randomTransaction() (*Transaction, *pendingTransaction) {
     t1 := randomBytes()
 	tx1 := &Transaction{}
 	tx1.UnmarshalBinary(t1[:])
-
-	t2 := randomBytes()
-	tx2 := &Transaction{}
-	tx2.UnmarshalBinary(t2[:])
-
-    c := TransactionData{}
-    c.XOR(&t1)
-    c.XOR(&t2)
-
-	cw := &pendingCodeword{
-		symbol: c,
-	}
 	hasher.Reset()
 	hasher.Write(t1[:])
-	tx1stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*pendingCodeword{cw}}
-	hasher.Reset()
-	hasher.Write(t2[:])
-	tx2stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*pendingCodeword{cw}}
-	cw.members = []*pendingTransaction{tx2stub, tx1stub}
+	tx1stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*pendingCodeword{}}
+	return tx1, tx1stub
+}
+
+func (c *pendingCodeword) addTransaction(t *Transaction, stub *pendingTransaction) {
+	c.symbol.XOR(&t.serialized)
+	c.members = append(c.members, stub)
+	stub.blocking = append(stub.blocking, c)
+}
+
+func degreeTwoCodeword() (*Transaction, *pendingTransaction, *Transaction, *pendingTransaction, *pendingCodeword) {
+	tx1, tx1stub := randomTransaction()
+	tx2, tx2stub := randomTransaction()
+
+	cw := &pendingCodeword{}
+	cw.addTransaction(tx1, tx1stub)
+	cw.addTransaction(tx2, tx2stub)
 	return tx1, tx1stub, tx2, tx2stub, cw
 }
 
@@ -83,5 +84,9 @@ func TestMarkDecoded(t *testing.T) {
 	if !cw1.queued || !cw2.queued {
 		t.Error("codewords not queued")
 	}
+}
 
+func TestDecodeCodewords(t *testing.T) {
+	//p := newPeer(testSalt)
+	// create 
 }
