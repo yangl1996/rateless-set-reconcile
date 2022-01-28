@@ -4,11 +4,20 @@ import (
 	"encoding/binary"
 	"hash"
 	"sync"
+	"unsafe"
 
 	"golang.org/x/crypto/blake2b"
 )
 
 const TxSize = 512	// size of a serialized transaction in bytes
+
+type TransactionData [TxSize]byte
+
+func (t *TransactionData) XOR(t2 *TransactionData) {
+    for i := 0; i < TxSize/8; i++ {
+        *(*uint64)(unsafe.Pointer(&t[i*8])) ^= *(*uint64)(unsafe.Pointer(&t2[i*8]))
+    }
+}
 
 var hasherPool = sync.Pool{
 	New: func() interface{} {
@@ -18,7 +27,7 @@ var hasherPool = sync.Pool{
 }
 
 type Transaction struct {
-	serialized [TxSize]byte
+	serialized TransactionData
 	hash [blake2b.Size]byte
 	shortHash uint64
 }
