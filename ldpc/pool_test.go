@@ -27,19 +27,14 @@ func (c *pendingCodeword) addTransaction(t *Transaction, stub *pendingTransactio
 	stub.blocking = append(stub.blocking, c)
 }
 
-func degreeTwoCodeword() (*Transaction, *pendingTransaction, *Transaction, *pendingTransaction, *pendingCodeword) {
+// TestPeelTransaction tests peeling off a transaction from a pending codeword.
+func TestPeelTransaction(t *testing.T) {
 	tx1, tx1stub := randomTransaction()
 	tx2, tx2stub := randomTransaction()
 
 	cw := &pendingCodeword{}
 	cw.addTransaction(tx1, tx1stub)
 	cw.addTransaction(tx2, tx2stub)
-	return tx1, tx1stub, tx2, tx2stub, cw
-}
-
-// TestPeelTransaction tests peeling off a transaction from a pending codeword.
-func TestPeelTransaction(t *testing.T) {
-	tx1, tx1stub, tx2, tx2stub, cw := degreeTwoCodeword()
 
 	cw.peelTransaction(tx1stub, tx1)
 	if cw.symbol != tx2.serialized {
@@ -59,11 +54,15 @@ func TestPeelTransaction(t *testing.T) {
 }
 
 func TestMarkDecoded(t *testing.T) {
-	tx1, tx1stub, tx2, tx2stub, cw1 := degreeTwoCodeword()
+	tx1, tx1stub := randomTransaction()
+	tx2, tx2stub := randomTransaction()
+
+	cw1 := &pendingCodeword{}
+	cw1.addTransaction(tx1, tx1stub)
+	cw1.addTransaction(tx2, tx2stub)
+
 	cw2 := &pendingCodeword{}
-	cw2.symbol.XOR(&tx1.serialized)
-	cw2.members = []*pendingTransaction{tx1stub}
-	tx1stub.blocking = append(tx1stub.blocking, cw2)
+	cw2.addTransaction(tx1, tx1stub)
 
 	decodable := tx1stub.markDecoded(tx1, nil)
 	if len(decodable) != 2 || decodable[0] != cw1 || decodable[1] != cw2 {
