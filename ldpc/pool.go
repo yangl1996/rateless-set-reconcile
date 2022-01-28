@@ -10,10 +10,43 @@ type pendingTransaction struct {
 	blocking []*pendingCodeword
 }
 
+func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []*pendingCodeword) []*pendingCodeword {
+	// peel all codewords containing this transaction
+	for _, peelable := range tx.blocking {
+		peelable.peelTransaction(tx, preimage)
+		// if it is now decodable, queue it for decoding
+		if len(peelable.members) <= 1 && !peelable.queued {
+			peelable.queued = true
+			decodableCws = append(decodableCws, peelable)
+		}
+	}
+	// we do not need to set each item in tx.blocking to nil
+	// because the whole slice (and the backing array) is going out
+	// of scope with tx
+	return decodableCws
+}
+
 type pendingCodeword struct {
 	symbol TransactionData
 	members []*pendingTransaction
 	queued bool
+}
+
+func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
+	for idx, ptr := range peelable.members {
+		if ptr == stub {
+			l := len(peelable.members)
+			// pop the ptr by swapping with the last item
+			// we need to set the deleted ptr to nil to
+			// free the pointed value
+			peelable.members[idx] = peelable.members[l-1]
+			peelable.members[l-1] = nil
+			peelable.members = peelable.members[:l-1]
+			peelable.symbol.XOR(&preimage.serialized)
+			return
+		}
+	}
+	panic("unable to peel decoded transaction from codeword pointing to it")
 }
 
 type peerState struct {
@@ -31,19 +64,35 @@ func newPeer(salt []byte) *peerState {
 	return p
 }
 
-func (p *peerState) addTransaction(t *Transaction) {
+func (p *peerState) addTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
-	//hash := p.hasher.Sum64()
+	hash := (uint32)(p.hasher.Sum64())
+	if _, there := p.receivedTransactions[hash]; !there {
+		p.receivedTransactions[hash] = t
+		if pending, there := p.pendingTransactions[hash]; there {
+			// quick sanity check
+			if pending.saltedHash != hash {
+				panic("salted hash of retrieved transaction stub does not match the hash computed from the full transaction")
+			}
+			// peel the transaction and try decoding
+			delete(p.pendingTransactions, hash)
+			queue := pending.markDecoded(t, nil)
+			return p.decodeCodewords(queue)
+		} else {
+			return nil
+		}
+	} else {
+		panic("adding transaction already decoded")
+	}
 }
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *peerState) decodeCodewords(cws []*pendingCodeword) []*Transaction {
-	queue := cws
+func (p *peerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 	newTx := []*Transaction{}
 
-	for _, c := range cws {
+	for _, c := range queue {
 		// we do not want to add the same codeword to the queue twice, so we mark
 		// it as queued
 		c.queued = true
@@ -71,36 +120,7 @@ func (p *peerState) decodeCodewords(cws []*pendingCodeword) []*Transaction {
 					newTx = append(newTx, decodedTx);
 					delete(p.pendingTransactions, tx.saltedHash)
 					p.receivedTransactions[tx.saltedHash] = decodedTx
-
-					// peel all codewords containing this transaction
-					for _, peelable := range tx.blocking {
-						peeled := false
-						for idx, ptr := range peelable.members {
-							if ptr == tx {
-								l := len(peelable.members)
-								// pop the ptr by swapping with the last item
-								// we need to set the deleted ptr to nil to
-								// free the pointed value
-								peelable.members[idx] = peelable.members[l-1]
-								peelable.members[l-1] = nil
-								peelable.members = peelable.members[:l-1]
-								peelable.symbol.XOR(&decodedTx.serialized)
-								peeled = true
-								break
-							}
-						}
-						if !peeled {
-							panic("unable to peel decoded transaction from codeword pointing to it")
-						}
-						// if it is now decodable, queue it for decoding
-						if len(peelable.members) <= 1 && !peelable.queued {
-							peelable.queued = true
-							queue = append(queue, peelable)
-						}
-					}
-					// we do not need to set each item in tx.blocking to nil
-					// because the whole slice (and the backing array) is going out
-					// of scope with tx
+					queue = tx.markDecoded(decodedTx, queue)
 				} else {
 					panic("unpeeled transaction is not pending")
 				}
