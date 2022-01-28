@@ -64,6 +64,42 @@ func newPeer(salt []byte) *peerState {
 	return p
 }
 
+func (p *peerState) addCodeword(rawCodeword *Codeword) []*Transaction {
+	cw := &pendingCodeword{
+		symbol: rawCodeword.symbol,
+	}
+	for _, member := range rawCodeword.members {
+		pending, pendingExists := p.pendingTransactions[member]
+		received, receivedExists := p.receivedTransactions[member]
+		if !receivedExists {
+			if !pendingExists {
+				// we have never heard of it
+				pending = &pendingTransaction{
+					saltedHash: member,
+				}
+				p.pendingTransactions[member] = pending
+			}
+			// link to the pending transaction
+			pending.blocking = append(pending.blocking, cw)
+			cw.members = append(cw.members, pending)
+		} else {
+			// sanity check
+			if !pendingExists {
+				// peel the transaction
+				cw.symbol.XOR(&received.serialized)
+			} else {
+				panic("transaction is marked both received and pending")
+			}
+		}
+	}
+	if len(cw.members) <= 1 {
+		cw.queued = true
+		queue := []*pendingCodeword{cw}
+		return p.decodeCodewords(queue)
+	}
+	return nil
+}
+
 func (p *peerState) addTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
