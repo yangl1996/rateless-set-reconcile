@@ -48,7 +48,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	ncw := 0
 	for len(dec.receivedTransactions) < 50 {
 		c := e.ProduceCodeword()
-		dec.addCodeword(c)
+		dec.AddCodeword(c)
 		ncw += 1
 	}
 	for _, tx := range e.window {
@@ -88,7 +88,7 @@ func BenchmarkDecode(b *testing.B) {
 	b.SetBytes(TxSize)
 	b.ResetTimer()
 	for _, cw := range codewords {
-		dec.addCodeword(cw)
+		dec.AddCodeword(cw)
 	}
 	b.StopTimer()
 	ndec := len(dec.receivedTransactions)

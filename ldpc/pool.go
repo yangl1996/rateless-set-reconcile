@@ -51,14 +51,14 @@ func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preim
 	panic("unable to peel decoded transaction from codeword pointing to it")
 }
 
-type peerState struct {
+type PeerState struct {
 	receivedTransactions map[uint32]*Transaction
 	pendingTransactions  map[uint32]*pendingTransaction
 	hasher               hash.Hash64
 }
 
-func newPeer(salt [SaltSize]byte) *peerState {
-	p := &peerState{
+func newPeer(salt [SaltSize]byte) *PeerState {
+	p := &PeerState{
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions:  make(map[uint32]*pendingTransaction),
 		hasher:               siphash.New(salt[:]),
@@ -66,7 +66,7 @@ func newPeer(salt [SaltSize]byte) *peerState {
 	return p
 }
 
-func (p *peerState) addCodeword(rawCodeword *Codeword) []*Transaction {
+func (p *PeerState) AddCodeword(rawCodeword *Codeword) []*Transaction {
 	cw := &pendingCodeword{
 		symbol: rawCodeword.symbol,
 	}
@@ -102,7 +102,7 @@ func (p *peerState) addCodeword(rawCodeword *Codeword) []*Transaction {
 	return nil
 }
 
-func (p *peerState) addTransaction(t *Transaction) []*Transaction {
+func (p *PeerState) AddTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
@@ -127,7 +127,7 @@ func (p *peerState) addTransaction(t *Transaction) []*Transaction {
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *peerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
+func (p *PeerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 	newTx := []*Transaction{}
 
 	for _, c := range queue {
