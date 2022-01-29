@@ -20,7 +20,7 @@ type Encoder struct {
 	windowSize int
 }
 
-func newEncoder(salt [SaltSize]byte, dist *soliton.Soliton, ws int) *Encoder {
+func NewEncoder(salt [SaltSize]byte, dist *soliton.Soliton, ws int) *Encoder {
     p := &Encoder{
         hasher: siphash.New(salt[:]),
 		degreeDist: dist,
@@ -39,6 +39,11 @@ func (e *Encoder) AddTransaction(t *Transaction) {
 		diff := len(e.window) - e.windowSize
 		e.window = e.window[diff:]
 	}
+}
+
+func(e *Encoder)ProduceCodeword() *Codeword {
+	deg := int(e.degreeDist.Uint64())
+	return e.produceCodeword(deg)
 }
 
 func (e *Encoder) produceCodeword(deg int) *Codeword {
