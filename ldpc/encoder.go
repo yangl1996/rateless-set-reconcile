@@ -14,19 +14,19 @@ type saltedTransaction struct {
 }
 
 type Encoder struct {
-	window []saltedTransaction
-    hasher hash.Hash64
+	window     []saltedTransaction
+	hasher     hash.Hash64
 	degreeDist *soliton.Soliton
 	windowSize int
 }
 
 func NewEncoder(salt [SaltSize]byte, dist *soliton.Soliton, ws int) *Encoder {
-    p := &Encoder{
-        hasher: siphash.New(salt[:]),
+	p := &Encoder{
+		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
 		windowSize: ws,
-    }
-    return p
+	}
+	return p
 }
 
 func (e *Encoder) AddTransaction(t *Transaction) {
@@ -41,7 +41,7 @@ func (e *Encoder) AddTransaction(t *Transaction) {
 	}
 }
 
-func(e *Encoder)ProduceCodeword() *Codeword {
+func (e *Encoder) ProduceCodeword() *Codeword {
 	deg := int(e.degreeDist.Uint64())
 	return e.produceCodeword(deg)
 }
@@ -65,10 +65,10 @@ func (e *Encoder) produceCodeword(deg int) *Codeword {
 	W = math.Exp(math.Log(rand.Float64()) / d)
 	midx := deg
 	for midx < len(e.window) {
-		midx += (int)(math.Floor(math.Log(rand.Float64())/math.Log(1.0-W)))+1
+		midx += (int)(math.Floor(math.Log(rand.Float64())/math.Log(1.0-W))) + 1
 		if midx < len(e.window) {
 			selected[rand.Intn(deg)] = e.window[midx]
-			W = W * math.Exp(math.Log(rand.Float64()) / d)
+			W = W * math.Exp(math.Log(rand.Float64())/d)
 		}
 	}
 	for idx, item := range selected {

@@ -8,14 +8,14 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-const TxSize = 512	// size of a serialized transaction in bytes
+const TxSize = 128 // size of a serialized transaction in bytes
 
 type TransactionData [TxSize]byte
 
 func (t *TransactionData) XOR(t2 *TransactionData) {
-    for i := 0; i < TxSize/8; i++ {
-        *(*uint64)(unsafe.Pointer(&t[i*8])) ^= *(*uint64)(unsafe.Pointer(&t2[i*8]))
-    }
+	for i := 0; i < TxSize/8; i++ {
+		*(*uint64)(unsafe.Pointer(&t[i*8])) ^= *(*uint64)(unsafe.Pointer(&t2[i*8]))
+	}
 }
 
 var hasherPool = sync.Pool{
@@ -27,7 +27,7 @@ var hasherPool = sync.Pool{
 
 type Transaction struct {
 	serialized TransactionData
-	hash [blake2b.Size]byte
+	hash       [blake2b.Size]byte
 }
 
 func (t *Transaction) UnmarshalBinary(data []byte) error {
@@ -44,7 +44,7 @@ func (t *Transaction) UnmarshalBinary(data []byte) error {
 	defer hasherPool.Put(h)
 	h.Reset()
 	h.Write(t.serialized[:])
-	h.Sum(t.hash[0:0])	// Sum appends to the given slice
+	h.Sum(t.hash[0:0]) // Sum appends to the given slice
 	return nil
 }
 

@@ -9,7 +9,7 @@ const SaltSize = 16
 
 type pendingTransaction struct {
 	saltedHash uint32
-	blocking []*pendingCodeword
+	blocking   []*pendingCodeword
 }
 
 func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []*pendingCodeword) []*pendingCodeword {
@@ -29,9 +29,9 @@ func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []
 }
 
 type pendingCodeword struct {
-	symbol TransactionData
+	symbol  TransactionData
 	members []*pendingTransaction
-	queued bool
+	queued  bool
 }
 
 func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
@@ -52,16 +52,16 @@ func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preim
 }
 
 type peerState struct {
-	receivedTransactions  map[uint32]*Transaction
-	pendingTransactions map[uint32]*pendingTransaction
-	hasher hash.Hash64
+	receivedTransactions map[uint32]*Transaction
+	pendingTransactions  map[uint32]*pendingTransaction
+	hasher               hash.Hash64
 }
 
 func newPeer(salt [SaltSize]byte) *peerState {
 	p := &peerState{
 		receivedTransactions: make(map[uint32]*Transaction),
-		pendingTransactions: make(map[uint32]*pendingTransaction),
-		hasher: siphash.New(salt[:]),
+		pendingTransactions:  make(map[uint32]*pendingTransaction),
+		hasher:               siphash.New(salt[:]),
 	}
 	return p
 }
@@ -155,7 +155,7 @@ func (p *peerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 					if err != nil {
 						panic("error unmarshalling degree-1 codeword into transaction")
 					}
-					newTx = append(newTx, decodedTx);
+					newTx = append(newTx, decodedTx)
 					delete(p.pendingTransactions, tx.saltedHash)
 					p.receivedTransactions[tx.saltedHash] = decodedTx
 					queue = tx.markDecoded(decodedTx, queue)

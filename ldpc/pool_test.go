@@ -2,7 +2,7 @@ package ldpc
 
 import (
 	"github.com/dchest/siphash"
-//	"math/rand"
+	//	"math/rand"
 	"hash"
 	"testing"
 )
@@ -12,7 +12,7 @@ var hasher hash.Hash64 = siphash.New(testSalt[:])
 var zeroTx TransactionData = TransactionData{}
 
 func randomTransaction() (*Transaction, *pendingTransaction) {
-    t1 := randomBytes()
+	t1 := randomBytes()
 	tx1 := &Transaction{}
 	tx1.UnmarshalBinary(t1[:])
 	hasher.Reset()

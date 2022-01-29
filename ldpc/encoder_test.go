@@ -2,8 +2,8 @@ package ldpc
 
 import (
 	"github.com/yangl1996/soliton"
-	"testing"
 	"math/rand"
+	"testing"
 )
 
 func BenchmarkProduceCodeword(b *testing.B) {
@@ -13,12 +13,12 @@ func BenchmarkProduceCodeword(b *testing.B) {
 		tx, _ := randomTransaction()
 		e.AddTransaction(tx)
 	}
-    b.ReportAllocs()
-    b.SetBytes(TxSize)
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
+	b.ReportAllocs()
+	b.SetBytes(TxSize)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		e.ProduceCodeword()
-    }
+	}
 }
 
 func BenchmarkAddTransaction(b *testing.B) {
@@ -29,12 +29,12 @@ func BenchmarkAddTransaction(b *testing.B) {
 		e.AddTransaction(tx)
 	}
 	tx, _ := randomTransaction()
-    b.ReportAllocs()
-    b.SetBytes(TxSize)
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
+	b.ReportAllocs()
+	b.SetBytes(TxSize)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		e.AddTransaction(tx)
-    }
+	}
 }
 
 func TestEncodeAndDecode(t *testing.T) {
@@ -49,7 +49,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	for len(dec.receivedTransactions) < 50 {
 		c := e.ProduceCodeword()
 		dec.addCodeword(c)
-		ncw+=1
+		ncw += 1
 	}
 	for _, tx := range e.window {
 		_, there := dec.receivedTransactions[tx.saltedHash]
@@ -70,7 +70,7 @@ func BenchmarkDecode(b *testing.B) {
 		e.AddTransaction(tx)
 	}
 	// pre-generate 1.35N codewords for N transactions arrival in uniform pattern
-	codewords := make([]*Codeword, 0, b.N + b.N / 3)
+	codewords := make([]*Codeword, 0, b.N+b.N/3)
 	credit := 0.0
 	for i := 0; i < b.N; i++ {
 		tx, stub := randomTransaction()
@@ -84,9 +84,9 @@ func BenchmarkDecode(b *testing.B) {
 		}
 	}
 	dec := newPeer(testSalt)
-    b.ReportAllocs()
-    b.SetBytes(TxSize)
-    b.ResetTimer()
+	b.ReportAllocs()
+	b.SetBytes(TxSize)
+	b.ResetTimer()
 	for _, cw := range codewords {
 		dec.addCodeword(cw)
 	}
@@ -98,5 +98,5 @@ func BenchmarkDecode(b *testing.B) {
 			b.Error("decoded transaction", k, "that we did not generate")
 		}
 	}
-	b.Logf("decoded %d out of %d (%.2f%%)", ndec, b.N, float64(ndec) / float64(b.N) * 100.0)
+	b.Logf("decoded %d out of %d (%.2f%%)", ndec, b.N, float64(ndec)/float64(b.N)*100.0)
 }
