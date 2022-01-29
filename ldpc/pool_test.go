@@ -16,7 +16,7 @@ func randomTransaction() (*Transaction, *pendingTransaction) {
 	tx1 := &Transaction{}
 	tx1.UnmarshalBinary(t1[:])
 	hasher.Reset()
-	hasher.Write(t1[:])
+	hasher.Write(tx1.hash[:])
 	tx1stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*pendingCodeword{}}
 	return tx1, tx1stub
 }
