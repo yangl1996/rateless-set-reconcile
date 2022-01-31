@@ -81,7 +81,7 @@ def calculate_delivery_rate(K, Alpha, Beta):
             break
     return (rate, d_fin, tx_dec_frac)   # honest codeword rate, PMF of degree dist after decoding, frac of all transactions decoded
 
-r, d, t = calculate_delivery_rate(50, 0.000001, 0.02)
+r, d, t = calculate_delivery_rate(10, 0.000001, 0.02)
 
 print("Honest codeword rate:", r)
 print("Total tx delivery frac:", t)
