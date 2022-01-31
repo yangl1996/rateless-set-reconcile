@@ -81,10 +81,7 @@ def calculate_delivery_rate(K, Alpha, Beta):
             break
     return (rate, d_fin, tx_dec_frac)   # honest codeword rate, PMF of degree dist after decoding, frac of all transactions decoded
 
-r, d, t = calculate_delivery_rate(10, 0.000001, 0.02)
-
-print("Honest codeword rate:", r)
-print("Total tx delivery frac:", t)
-# given that Alpha-frac are received, and tx_dec_frac are received
-# censored fraction is (tx_dec_frac-Alpha) / (1.0-Alpha)
+for k in [10, 20, 50, 70, 100]:
+    r, d, t = calculate_delivery_rate(k, 0.000001, 0.02)
+    print(k, t, r)
 
