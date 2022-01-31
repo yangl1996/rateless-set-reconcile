@@ -42,7 +42,7 @@ def iterative_peel(D, decoded_tx_frac, cw_tx_ratio):
     return (D, decoded_tx_frac)
 
 
-# This file calculates the censorship probability
+# This fn calculates the censorship probability
 
 # There are two senders: alice, and bob. Alice is adversarial. She manages
 # to know Alpha fraction of transactions the moment they show up, and pushes
@@ -54,40 +54,37 @@ def iterative_peel(D, decoded_tx_frac, cw_tx_ratio):
 # Calculate where the honest codeword rate should stabilize at
 # K is the max degree
 
-K=50
-Alpha = 0.5
-pdf_remaining_degree = [0.0 for i in range(K+1)]
-Beta = 0.02
-
+def calculate_delivery_rate(K, Alpha, Beta):
+    pdf_remaining_degree = [0.0 for i in range(K+1)]
 # calculate the remaining degree distribution after peeling the transactions obtained
 # by the adversary
-for deg in range(1, K+1):
-    if deg == 1:
-        prob = 1.0 / K
-    else:
-        prob = 1.0 / float(deg) / float(deg-1)
-    for remaining in range(0, deg+1):
-        to_peel = deg - remaining
-        # calculate bernoully probability with to_peel successes and succ prob Alpha
-        pdf_remaining_degree[remaining] += prob * bp(deg, Alpha, to_peel)
-
-
+    for deg in range(1, K+1):
+        if deg == 1:
+            prob = 1.0 / K
+        else:
+            prob = 1.0 / float(deg) / float(deg-1)
+        for remaining in range(0, deg+1):
+            to_peel = deg - remaining
+            # calculate bernoully probability with to_peel successes and succ prob Alpha
+            pdf_remaining_degree[remaining] += prob * bp(deg, Alpha, to_peel)
 # find the smallest codeword rate that sustains the 2% loss given the distribution after
 # peeling
-rate = 0.0
-while True:
-    rate += 0.01
-    r = rate
-    print("trying", r)
-    d = [pdf_remaining_degree[i] for i in range(K+1)]
-    (d2, tx_dec) = iterative_peel(d, Alpha, r)
-    if d2[0] > 1.0-Beta:
-        print(r)
-        print(d2)
-        print(tx_dec)
-        break
+    rate = 0.0
+    d_fin = None
+    tx_dec_frac = 0.0
+    while True:
+        rate += 0.01
+        #print("trying", rate)
+        d = [pdf_remaining_degree[i] for i in range(K+1)]
+        (d_fin, tx_dec_frac) = iterative_peel(d, Alpha, rate)
+        if d_fin[0] > 1.0-Beta:
+            break
+    return (rate, d_fin, tx_dec_frac)   # honest codeword rate, PMF of degree dist after decoding, frac of all transactions decoded
 
-# assume the worst case that we lose transactions with the largest degree
-# calculate CDF degree K until we reach Beta fraction
+r, d, t = calculate_delivery_rate(50, 0.000001, 0.02)
 
+print("Honest codeword rate:", r)
+print("Total tx delivery frac:", t)
+# given that Alpha-frac are received, and tx_dec_frac are received
+# censored fraction is (tx_dec_frac-Alpha) / (1.0-Alpha)
 
