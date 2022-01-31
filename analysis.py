@@ -1,20 +1,4 @@
 import math
-# This file calculates the censorship probability
-
-# There are two senders: alice, and bob. Alice is adversarial. She manages
-# to know Alpha fraction of transactions the moment they show up, and pushes
-# these transactions to us immediately, to mess up with the controller.
-
-# Bob represents the honest party. They targets a Beta fraction of codeword
-# loss rate.
-
-# Calculate where the honest codeword rate should stabilize at
-# K is the max degree
-
-K=50
-Alpha = 0.5
-pdf_remaining_degree = [0.0 for i in range(K+1)]
-Beta = 0.02
 
 # binomial probability with n trials, success prob p, and succ successes
 def bp(n, p, succ):
@@ -29,10 +13,14 @@ def bp(n, p, succ):
 def frac_nonempty_bins_inf(frac):
     return 1.0 - math.exp(-1.0/frac)
 
-def iterative_peel(D, decoded_tx_frac, tx_cw_ratio):
+# D: degree dist PMF
+# decoded_tx_frac: fraction of transactions that have already been decoded
+# cw_tx_ratio: ratio of number of codewords over transactions (1+overhead)
+def iterative_peel(D, decoded_tx_frac, cw_tx_ratio):
+    tx_cw_ratio = 1.0 / cw_tx_ratio
     newly_decoded_tx = 0.0
     newly_decoded_cw = 0.0
-    maxDeg = len(degree_dist)-1
+    maxDeg = len(D)-1
     while True:
         # decode all degree-1 codewords
         newly_decoded_cw = D[1]
@@ -54,6 +42,24 @@ def iterative_peel(D, decoded_tx_frac, tx_cw_ratio):
     return (D, decoded_tx_frac)
 
 
+# This file calculates the censorship probability
+
+# There are two senders: alice, and bob. Alice is adversarial. She manages
+# to know Alpha fraction of transactions the moment they show up, and pushes
+# these transactions to us immediately, to mess up with the controller.
+
+# Bob represents the honest party. They targets a Beta fraction of codeword
+# loss rate.
+
+# Calculate where the honest codeword rate should stabilize at
+# K is the max degree
+
+K=50
+#Alpha = 0.5
+Alpha = 0.00001
+pdf_remaining_degree = [0.0 for i in range(K+1)]
+Beta = 0.02
+
 # calculate the remaining degree distribution after peeling the transactions obtained
 # by the adversary
 for deg in range(1, K+1):
@@ -68,6 +74,19 @@ for deg in range(1, K+1):
 
 # find the smallest codeword rate that sustains the 2% loss given the distribution after
 # peeling
+overhead = -0.1
+while True:
+    overhead += 0.01
+    r = overhead + 1.0
+    print("trying", r)
+    d = [pdf_remaining_degree[i] for i in range(K+1)]
+    (d2, tx_dec) = iterative_peel(d, Alpha, r)
+    if d2[0] > 1.0-Beta:
+        print(r)
+        print(d2)
+        print(tx_dec)
+        break
+
 
 
 # assume the worst case that we lose transactions with the largest degree
