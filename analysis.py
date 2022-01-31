@@ -1,5 +1,37 @@
 import math
 
+def ripple(c, delta, k):
+    return c * math.log(float(k)/delta) * math.sqrt(float(k))
+
+def tau(c, delta, k, i):
+    r = ripple(c, delta, k)
+    th = int(round(float(k)/r))
+    if i < th:
+        return float(r) / float(i*k)
+    elif i == th:
+        log = math.log(r) - math.log(delta)
+        r1 = r * log
+        return r1 / float(k)
+    else:
+        return 0
+
+def rho(k, i):
+    if i == 1:
+        return 1.0 / k
+    else:
+        return 1.0 / float(i*(i-1))
+
+def robust_soliton(k, c, delta):
+    pdf = [0.0 for i in range(k+1)]
+    tot = 0.0
+    for i in range(1, k+1):
+        prob = rho(k, i) + tau(c, delta, k, i)
+        pdf[i] = prob
+        tot += prob
+    for i in range(1, k+1):
+        pdf[i] /= tot
+    return pdf
+
 # binomial probability with n trials, success prob p, and succ successes
 def bp(n, p, succ):
     # algorithm copy pasted from https://www.johndcook.com/blog/2008/04/24/how-to-calculate-binomial-probabilities/
@@ -55,14 +87,12 @@ def iterative_peel(D, decoded_tx_frac, cw_tx_ratio):
 # K is the max degree
 
 def calculate_delivery_rate(K, Alpha, Beta):
-    pdf_remaining_degree = [0.0 for i in range(K+1)]
+    pdf_remaining_degree = robust_soliton(K, 0.03, 0.5)
 # calculate the remaining degree distribution after peeling the transactions obtained
 # by the adversary
     for deg in range(1, K+1):
-        if deg == 1:
-            prob = 1.0 / K
-        else:
-            prob = 1.0 / float(deg) / float(deg-1)
+        prob = pdf_remaining_degree[deg]
+        pdf_remaining_degree[deg] = 0.0
         for remaining in range(0, deg+1):
             to_peel = deg - remaining
             # calculate bernoully probability with to_peel successes and succ prob Alpha
