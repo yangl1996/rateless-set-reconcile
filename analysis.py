@@ -55,8 +55,7 @@ def iterative_peel(D, decoded_tx_frac, cw_tx_ratio):
 # K is the max degree
 
 K=50
-#Alpha = 0.5
-Alpha = 0.00001
+Alpha = 0.5
 pdf_remaining_degree = [0.0 for i in range(K+1)]
 Beta = 0.02
 
@@ -72,12 +71,13 @@ for deg in range(1, K+1):
         # calculate bernoully probability with to_peel successes and succ prob Alpha
         pdf_remaining_degree[remaining] += prob * bp(deg, Alpha, to_peel)
 
+
 # find the smallest codeword rate that sustains the 2% loss given the distribution after
 # peeling
-overhead = -0.1
+rate = 0.0
 while True:
-    overhead += 0.01
-    r = overhead + 1.0
+    rate += 0.01
+    r = rate
     print("trying", r)
     d = [pdf_remaining_degree[i] for i in range(K+1)]
     (d2, tx_dec) = iterative_peel(d, Alpha, r)
@@ -86,8 +86,6 @@ while True:
         print(d2)
         print(tx_dec)
         break
-
-
 
 # assume the worst case that we lose transactions with the largest degree
 # calculate CDF degree K until we reach Beta fraction
