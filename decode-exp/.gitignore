@@ -1,7 +1,0 @@
-decode-exp
-*.top
-*.cfg
-*.dat
-*.prof
-*.pprof
-*.pdf
