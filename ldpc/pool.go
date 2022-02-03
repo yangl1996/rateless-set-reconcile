@@ -57,7 +57,7 @@ type PeerState struct {
 	hasher               hash.Hash64
 }
 
-func newPeer(salt [SaltSize]byte) *PeerState {
+func NewPeer(salt [SaltSize]byte) *PeerState {
 	p := &PeerState{
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions:  make(map[uint32]*pendingTransaction),
