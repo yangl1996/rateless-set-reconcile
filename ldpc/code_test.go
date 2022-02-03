@@ -37,8 +37,8 @@ func TestCodeRate(t *testing.T) {
 }
 
 func TestEdgeSlepianWolf(t *testing.T) {
-	step := 0.1
-	for tc := 0.0; tc <= 1.0; tc += step {
+	step := 0.01
+	for tc := 0.9; tc <= 1.0; tc += step {
 		tc := tc
 		t.Run(fmt.Sprintf("%.2f", tc), func(t *testing.T) {
 			overlap := int(tc * 10000)
