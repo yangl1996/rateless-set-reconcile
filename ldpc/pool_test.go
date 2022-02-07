@@ -175,3 +175,67 @@ func TestDecodeCodewords(t *testing.T) {
 		}
 	}
 }
+
+func TestAddTransaction (t *testing.T) {
+	p := NewPeer(testSalt)
+	// create the following codewords:
+	// cw0 = tx0 + tx1
+	// cw1 = tx1 + tx2 + tx3
+	// cw2 = tx1 + tx3
+	txs := make([]*Transaction, 4)
+	txstubs := make([]*pendingTransaction, 4)
+	for i := range txs {
+		txs[i], txstubs[i] = randomTransaction()
+		p.pendingTransactions[txstubs[i].saltedHash] = txstubs[i]
+	}
+	cws := make([]*pendingCodeword, 3)
+	for i := range cws {
+		cws[i] = &pendingCodeword{}
+	}
+	cws[0].addTransaction(txs[0], txstubs[0])
+	cws[0].addTransaction(txs[1], txstubs[1])
+	cws[1].addTransaction(txs[1], txstubs[1])
+	cws[1].addTransaction(txs[2], txstubs[2])
+	cws[1].addTransaction(txs[3], txstubs[3])
+	cws[2].addTransaction(txs[1], txstubs[1])
+	cws[2].addTransaction(txs[3], txstubs[3])
+
+	// now, add tx[0] and we should be able to decode everything
+	newtx := p.AddTransaction(txs[0])
+	for i := 0; i < 3; i++ {
+		if len(cws[i].members) != 0 {
+			t.Error("nonempty member set of decoded codeword")
+		}
+		if cws[i].symbol != zeroTx {
+			t.Error("nonzero symbol of decoded codeword")
+		}
+	}
+
+	if len(p.receivedTransactions) != 4 || len(newtx) != 3 {
+		t.Error("incorrect number of decoded transactions")
+	}
+	for i := 0; i < 4; i++ {
+		dec, there := p.receivedTransactions[txstubs[i].saltedHash]
+		if !there {
+			t.Error("missing decoded transaction")
+		}
+		if dec.serialized != txs[i].serialized {
+			t.Error("incorrect decoded transaction data")
+		}
+		if i != 0 {
+			found := false
+			for _, ptr := range newtx {
+				if ptr == dec {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Error("missing decoded transaction in returned array")
+			}
+		}
+	}
+	if len(p.pendingTransactions) != 0 {
+		t.Error("incorrect number of pending transactions")
+	}
+}
