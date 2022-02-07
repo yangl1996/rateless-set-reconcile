@@ -6,6 +6,7 @@ import (
 	"hash"
 	"math"
 	"math/rand"
+	"sync"
 )
 
 type saltedTransaction struct {
@@ -46,6 +47,14 @@ func (e *Encoder) ProduceCodeword() *Codeword {
 	return e.produceCodeword(deg)
 }
 
+type codewordBuilder []saltedTransaction
+
+var codewordBuilderPool = sync.Pool {
+	New: func() interface{} {
+		return &codewordBuilder{}
+	},
+}
+
 func (e *Encoder) produceCodeword(deg int) *Codeword {
 	c := &Codeword{}
 	if deg > len(e.window) {
@@ -56,9 +65,10 @@ func (e *Encoder) produceCodeword(deg int) *Codeword {
 	}
 	c.members = make([]uint32, deg)
 	// reservoir sampling
-	selected := make([]saltedTransaction, deg)
-	for idx := range selected {
-		selected[idx] = e.window[idx]
+	selected := codewordBuilderPool.Get().(*codewordBuilder)
+	*selected = (*selected)[:0]
+	for idx := 0; idx < deg; idx++ {
+		*selected = append(*selected, e.window[idx])
 	}
 	d := float64(deg)
 	var W float64
@@ -67,13 +77,15 @@ func (e *Encoder) produceCodeword(deg int) *Codeword {
 	for midx < len(e.window) {
 		midx += (int)(math.Floor(math.Log(rand.Float64())/math.Log(1.0-W))) + 1
 		if midx < len(e.window) {
-			selected[rand.Intn(deg)] = e.window[midx]
+			(*selected)[rand.Intn(deg)] = e.window[midx]
 			W = W * math.Exp(math.Log(rand.Float64())/d)
 		}
 	}
-	for idx, item := range selected {
+	for idx, item := range (*selected) {
 		c.members[idx] = item.saltedHash
 		c.symbol.XOR(&item.serialized)
+		(*selected)[idx].Transaction = nil	// set the ptr to nil so when selected is in the pool, it does not point to some transaction and cause it to remain in GC scope
 	}
+	codewordBuilderPool.Put(selected)
 	return c
 }
