@@ -86,7 +86,7 @@ func TestMarkDecoded(t *testing.T) {
 }
 
 func TestDecodeCodewords(t *testing.T) {
-	p := NewPeer(testSalt)
+	p := NewDecoder(testSalt)
 	// create the following codewords:
 	// cw0 = tx0 + tx1
 	// cw1 = tx1 + tx2 + tx3
@@ -176,8 +176,8 @@ func TestDecodeCodewords(t *testing.T) {
 	}
 }
 
-func TestAddTransaction (t *testing.T) {
-	p := NewPeer(testSalt)
+func TestAddTransaction(t *testing.T) {
+	p := NewDecoder(testSalt)
 	// create the following codewords:
 	// cw0 = tx0 + tx1
 	// cw1 = tx1 + tx2 + tx3

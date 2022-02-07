@@ -8,7 +8,7 @@ import (
 
 const SaltSize = 16
 
-var pendingTransactionPool = sync.Pool {
+var pendingTransactionPool = sync.Pool{
 	New: func() interface{} {
 		return &pendingTransaction{}
 	},
@@ -38,7 +38,7 @@ func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []
 	return decodableCws
 }
 
-var pendingCodewordPool = sync.Pool {
+var pendingCodewordPool = sync.Pool{
 	New: func() interface{} {
 		return &pendingCodeword{}
 	},
@@ -51,7 +51,7 @@ type pendingCodeword struct {
 }
 
 func (cw *pendingCodeword) reset() {
-	cw.members= cw.members[:0]
+	cw.members = cw.members[:0]
 	cw.queued = false
 }
 
@@ -72,14 +72,14 @@ func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preim
 	panic("unable to peel decoded transaction from codeword pointing to it")
 }
 
-type PeerState struct {
+type Decoder struct {
 	receivedTransactions map[uint32]*Transaction
 	pendingTransactions  map[uint32]*pendingTransaction
 	hasher               hash.Hash64
 }
 
-func NewPeer(salt [SaltSize]byte) *PeerState {
-	p := &PeerState{
+func NewDecoder(salt [SaltSize]byte) *Decoder {
+	p := &Decoder{
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions:  make(map[uint32]*pendingTransaction),
 		hasher:               siphash.New(salt[:]),
@@ -87,7 +87,7 @@ func NewPeer(salt [SaltSize]byte) *PeerState {
 	return p
 }
 
-func (p *PeerState) AddCodeword(rawCodeword *Codeword) []*Transaction {
+func (p *Decoder) AddCodeword(rawCodeword *Codeword) []*Transaction {
 	cw := pendingCodewordPool.Get().(*pendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.symbol
@@ -123,7 +123,7 @@ func (p *PeerState) AddCodeword(rawCodeword *Codeword) []*Transaction {
 	return nil
 }
 
-func (p *PeerState) AddTransaction(t *Transaction) []*Transaction {
+func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
@@ -150,7 +150,7 @@ func (p *PeerState) AddTransaction(t *Transaction) []*Transaction {
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *PeerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
+func (p *Decoder) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 	newTx := []*Transaction{}
 	for len(queue) > 0 {
 		// pop the last item from the queue (stack)
