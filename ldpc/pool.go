@@ -3,35 +3,56 @@ package ldpc
 import (
 	"github.com/dchest/siphash"
 	"hash"
+	"sync"
 )
 
 const SaltSize = 16
+
+var pendingTransactionPool = sync.Pool {
+	New: func() interface{} {
+		return &pendingTransaction{}
+	},
+}
 
 type pendingTransaction struct {
 	saltedHash uint32
 	blocking   []*pendingCodeword
 }
 
+func (tx *pendingTransaction) reset() {
+	tx.blocking = tx.blocking[:0]
+}
+
 func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []*pendingCodeword) []*pendingCodeword {
 	// peel all codewords containing this transaction
-	for _, peelable := range tx.blocking {
+	for idx, peelable := range tx.blocking {
 		peelable.peelTransaction(tx, preimage)
 		// if it is now decodable, queue it for decoding
 		if len(peelable.members) <= 1 && !peelable.queued {
 			peelable.queued = true
 			decodableCws = append(decodableCws, peelable)
 		}
+		// set the pointer to nil to free the pointed codeword stub
+		tx.blocking[idx] = nil
 	}
-	// we do not need to set each item in tx.blocking to nil
-	// because the whole slice (and the backing array) is going out
-	// of scope with tx
 	return decodableCws
+}
+
+var pendingCodewordPool = sync.Pool {
+	New: func() interface{} {
+		return &pendingCodeword{}
+	},
 }
 
 type pendingCodeword struct {
 	symbol  TransactionData
 	members []*pendingTransaction
 	queued  bool
+}
+
+func (cw *pendingCodeword) reset() {
+	cw.members= cw.members[:0]
+	cw.queued = false
 }
 
 func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
@@ -67,18 +88,18 @@ func NewPeer(salt [SaltSize]byte) *PeerState {
 }
 
 func (p *PeerState) AddCodeword(rawCodeword *Codeword) []*Transaction {
-	cw := &pendingCodeword{
-		symbol: rawCodeword.symbol,
-	}
+	cw := pendingCodewordPool.Get().(*pendingCodeword)
+	cw.reset()
+	cw.symbol = rawCodeword.symbol
 	for _, member := range rawCodeword.members {
 		pending, pendingExists := p.pendingTransactions[member]
 		received, receivedExists := p.receivedTransactions[member]
 		if !receivedExists {
 			if !pendingExists {
 				// we have never heard of it
-				pending = &pendingTransaction{
-					saltedHash: member,
-				}
+				pending = pendingTransactionPool.Get().(*pendingTransaction)
+				pending.reset()
+				pending.saltedHash = member
 				p.pendingTransactions[member] = pending
 			}
 			// link to the pending transaction
@@ -116,6 +137,8 @@ func (p *PeerState) AddTransaction(t *Transaction) []*Transaction {
 			// peel the transaction and try decoding
 			delete(p.pendingTransactions, hash)
 			queue := pending.markDecoded(t, nil)
+			// we can free t now
+			pendingTransactionPool.Put(pending)
 			return p.decodeCodewords(queue)
 		} else {
 			return nil
@@ -129,16 +152,13 @@ func (p *PeerState) AddTransaction(t *Transaction) []*Transaction {
 // transactions decoded. It updates its local receivedTransactions set.
 func (p *PeerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 	newTx := []*Transaction{}
-
-	for _, c := range queue {
-		// we do not want to add the same codeword to the queue twice, so we mark
-		// it as queued
-		c.queued = true
-	}
 	for len(queue) > 0 {
 		// pop the last item from the queue (stack)
 		c := queue[len(queue)-1]
 		queue = queue[:len(queue)-1]
+		if !c.queued {
+			panic("decoding a codeword not queued")
+		}
 		if len(c.members) == 0 {
 			// nothing to do, already fully peeled
 		} else if len(c.members) == 1 {
@@ -159,6 +179,7 @@ func (p *PeerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 					delete(p.pendingTransactions, tx.saltedHash)
 					p.receivedTransactions[tx.saltedHash] = decodedTx
 					queue = tx.markDecoded(decodedTx, queue)
+					pendingTransactionPool.Put(tx)
 				} else {
 					panic("unpeeled transaction is not pending")
 				}
@@ -168,6 +189,10 @@ func (p *PeerState) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 		} else {
 			panic("queued undecodable codeword")
 		}
+		if len(c.members) != 0 {
+			panic("codeword not empty after decoded")
+		}
+		pendingCodewordPool.Put(c)
 	}
 	return newTx
 }

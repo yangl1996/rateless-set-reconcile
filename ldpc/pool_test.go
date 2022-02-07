@@ -116,6 +116,7 @@ func TestDecodeCodewords(t *testing.T) {
 	cws[4].addTransaction(txs[5], txstubs[5])
 
 	// now, mark cws[3] as decodable
+	cws[3].queued = true
 	newtx := p.decodeCodewords([]*pendingCodeword{cws[3]})
 	// we should be able to decode txs 0-3, leaving 5 undecoded
 	for i := 0; i < 4; i++ {
