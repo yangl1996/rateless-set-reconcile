@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"github.com/yangl1996/soliton"
+	"log"
 )
 
 type sender struct {
@@ -37,6 +38,9 @@ func (s *sender) loop() error {
 			s.encoder.AddTransaction(tx)
 		case <-s.sendTimer.C:
 			// schedule the next event
+			if s.txRate < 1.0 {
+				s.txRate = 1.0
+			}
 			s.sendTimer.Reset(time.Duration(1.0 / s.txRate * float64(time.Second)))
 			// send the codeword
 			s.nextCodeword.Codeword = s.encoder.ProduceCodeword()
@@ -45,6 +49,7 @@ func (s *sender) loop() error {
 				return err
 			}
 			s.nextCodeword.Loss = 0
+			log.Println("send codeword")
 		}
 	}
 	panic("unreachable")
