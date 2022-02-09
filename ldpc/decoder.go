@@ -87,7 +87,7 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 	return p
 }
 
-func (p *Decoder) AddCodeword(rawCodeword *Codeword, decoded []*Transaction) []*Transaction {
+func (p *Decoder) AddCodeword(rawCodeword *Codeword) []*Transaction {
 	cw := pendingCodewordPool.Get().(*pendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.symbol
@@ -118,12 +118,12 @@ func (p *Decoder) AddCodeword(rawCodeword *Codeword, decoded []*Transaction) []*
 	if len(cw.members) <= 1 {
 		cw.queued = true
 		queue := []*pendingCodeword{cw}
-		return p.decodeCodewords(queue, decoded)
+		return p.decodeCodewords(queue)
 	}
 	return nil
 }
 
-func (p *Decoder) AddTransaction(t *Transaction, decoded []*Transaction) []*Transaction {
+func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
@@ -139,7 +139,7 @@ func (p *Decoder) AddTransaction(t *Transaction, decoded []*Transaction) []*Tran
 			queue := pending.markDecoded(t, nil)
 			// we can free t now
 			pendingTransactionPool.Put(pending)
-			return p.decodeCodewords(queue, decoded)
+			return p.decodeCodewords(queue)
 		} else {
 			return nil
 		}
@@ -150,7 +150,8 @@ func (p *Decoder) AddTransaction(t *Transaction, decoded []*Transaction) []*Tran
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *Decoder) decodeCodewords(queue []*pendingCodeword, newTx []*Transaction) []*Transaction {
+func (p *Decoder) decodeCodewords(queue []*pendingCodeword) []*Transaction {
+	newTx := []*Transaction{}
 	for len(queue) > 0 {
 		// pop the last item from the queue (stack)
 		c := queue[len(queue)-1]
