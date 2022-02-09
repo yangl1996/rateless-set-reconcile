@@ -88,7 +88,8 @@ func BenchmarkDecode(b *testing.B) {
 	b.SetBytes(TxSize)
 	b.ResetTimer()
 	for _, cw := range codewords {
-		dec.AddCodeword(cw)
+		c, _ := dec.AddCodeword(cw)
+		c.Free()
 	}
 	b.StopTimer()
 	ndec := len(dec.receivedTransactions)

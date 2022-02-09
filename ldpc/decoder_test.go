@@ -17,11 +17,11 @@ func randomTransaction() (*Transaction, *pendingTransaction) {
 	tx1.UnmarshalBinary(t1[:])
 	hasher.Reset()
 	hasher.Write(tx1.hash[:])
-	tx1stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*pendingCodeword{}}
+	tx1stub := &pendingTransaction{(uint32)(hasher.Sum64()), []*PendingCodeword{}}
 	return tx1, tx1stub
 }
 
-func (c *pendingCodeword) addTransaction(t *Transaction, stub *pendingTransaction) {
+func (c *PendingCodeword) addTransaction(t *Transaction, stub *pendingTransaction) {
 	c.symbol.XOR(&t.serialized)
 	c.members = append(c.members, stub)
 	stub.blocking = append(stub.blocking, c)
@@ -32,7 +32,7 @@ func TestPeelTransaction(t *testing.T) {
 	tx1, tx1stub := randomTransaction()
 	tx2, tx2stub := randomTransaction()
 
-	cw := &pendingCodeword{}
+	cw := &PendingCodeword{}
 	cw.addTransaction(tx1, tx1stub)
 	cw.addTransaction(tx2, tx2stub)
 
@@ -57,11 +57,11 @@ func TestMarkDecoded(t *testing.T) {
 	tx1, tx1stub := randomTransaction()
 	tx2, tx2stub := randomTransaction()
 
-	cw1 := &pendingCodeword{}
+	cw1 := &PendingCodeword{}
 	cw1.addTransaction(tx1, tx1stub)
 	cw1.addTransaction(tx2, tx2stub)
 
-	cw2 := &pendingCodeword{}
+	cw2 := &PendingCodeword{}
 	cw2.addTransaction(tx1, tx1stub)
 
 	decodable := tx1stub.markDecoded(tx1, nil)
@@ -99,9 +99,9 @@ func TestDecodeCodewords(t *testing.T) {
 		txs[i], txstubs[i] = randomTransaction()
 		p.pendingTransactions[txstubs[i].saltedHash] = txstubs[i]
 	}
-	cws := make([]*pendingCodeword, 5)
+	cws := make([]*PendingCodeword, 5)
 	for i := range cws {
-		cws[i] = &pendingCodeword{}
+		cws[i] = &PendingCodeword{}
 	}
 	cws[0].addTransaction(txs[0], txstubs[0])
 	cws[0].addTransaction(txs[1], txstubs[1])
@@ -117,7 +117,7 @@ func TestDecodeCodewords(t *testing.T) {
 
 	// now, mark cws[3] as decodable
 	cws[3].queued = true
-	newtx := p.decodeCodewords([]*pendingCodeword{cws[3]})
+	newtx := p.decodeCodewords([]*PendingCodeword{cws[3]})
 	// we should be able to decode txs 0-3, leaving 5 undecoded
 	for i := 0; i < 4; i++ {
 		if len(cws[i].members) != 0 {
@@ -188,9 +188,9 @@ func TestAddTransaction(t *testing.T) {
 		txs[i], txstubs[i] = randomTransaction()
 		p.pendingTransactions[txstubs[i].saltedHash] = txstubs[i]
 	}
-	cws := make([]*pendingCodeword, 3)
+	cws := make([]*PendingCodeword, 3)
 	for i := range cws {
-		cws[i] = &pendingCodeword{}
+		cws[i] = &PendingCodeword{}
 	}
 	cws[0].addTransaction(txs[0], txstubs[0])
 	cws[0].addTransaction(txs[1], txstubs[1])

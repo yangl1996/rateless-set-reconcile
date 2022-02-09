@@ -16,14 +16,14 @@ var pendingTransactionPool = sync.Pool{
 
 type pendingTransaction struct {
 	saltedHash uint32
-	blocking   []*pendingCodeword
+	blocking   []*PendingCodeword
 }
 
 func (tx *pendingTransaction) reset() {
 	tx.blocking = tx.blocking[:0]
 }
 
-func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []*pendingCodeword) []*pendingCodeword {
+func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []*PendingCodeword) []*PendingCodeword {
 	// peel all codewords containing this transaction
 	for idx, peelable := range tx.blocking {
 		peelable.peelTransaction(tx, preimage)
@@ -40,22 +40,37 @@ func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []
 
 var pendingCodewordPool = sync.Pool{
 	New: func() interface{} {
-		return &pendingCodeword{}
+		return &PendingCodeword{}
 	},
 }
 
-type pendingCodeword struct {
+type PendingCodeword struct {
 	symbol  TransactionData
 	members []*pendingTransaction
 	queued  bool
+	decoded bool
+	freed   bool
 }
 
-func (cw *pendingCodeword) reset() {
+func (cw *PendingCodeword) Free() {
+	cw.freed = true
+	if cw.decoded {
+		pendingCodewordPool.Put(cw)
+	}
+}
+
+func (cw *PendingCodeword) Decoded() bool {
+	return cw.decoded
+}
+
+func (cw *PendingCodeword) reset() {
 	cw.members = cw.members[:0]
 	cw.queued = false
+	cw.decoded = false
+	cw.freed = false
 }
 
-func (peelable *pendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
+func (peelable *PendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
 	for idx, ptr := range peelable.members {
 		if ptr == stub {
 			l := len(peelable.members)
@@ -87,8 +102,8 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 	return p
 }
 
-func (p *Decoder) AddCodeword(rawCodeword *Codeword) []*Transaction {
-	cw := pendingCodewordPool.Get().(*pendingCodeword)
+func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Transaction) {
+	cw := pendingCodewordPool.Get().(*PendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.symbol
 	for _, member := range rawCodeword.members {
@@ -117,10 +132,11 @@ func (p *Decoder) AddCodeword(rawCodeword *Codeword) []*Transaction {
 	}
 	if len(cw.members) <= 1 {
 		cw.queued = true
-		queue := []*pendingCodeword{cw}
-		return p.decodeCodewords(queue)
+		queue := []*PendingCodeword{cw}
+		txs := p.decodeCodewords(queue)
+		return cw, txs
 	}
-	return nil
+	return cw, nil
 }
 
 func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
@@ -150,7 +166,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *Decoder) decodeCodewords(queue []*pendingCodeword) []*Transaction {
+func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 	newTx := []*Transaction{}
 	for len(queue) > 0 {
 		// pop the last item from the queue (stack)
@@ -192,7 +208,10 @@ func (p *Decoder) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 		if len(c.members) != 0 {
 			panic("codeword not empty after decoded")
 		}
-		pendingCodewordPool.Put(c)
+		c.decoded = true
+		if c.freed {
+			pendingCodewordPool.Put(c)
+		}
 	}
 	return newTx
 }
