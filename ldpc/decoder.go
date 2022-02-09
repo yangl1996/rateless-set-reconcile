@@ -196,3 +196,7 @@ func (p *Decoder) decodeCodewords(queue []*pendingCodeword) []*Transaction {
 	}
 	return newTx
 }
+
+func (p *Decoder) NumTransactionsReceived() int {
+	return len(p.receivedTransactions)
+}
