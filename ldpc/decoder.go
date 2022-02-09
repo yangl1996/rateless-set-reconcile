@@ -160,6 +160,8 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			return nil
 		}
 	} else {
+		panic("adding transaction already decoded")
+		/*
 		if existing.serialized == t.serialized {
 			// adding a transaction that we already know
 			// update the pointer we have, so that we do not hold duplicates in memory
@@ -170,6 +172,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			// adding a transaction that is a hash conflict with an existing one
 			panic("adding transaction with a conflicting hash")
 		}
+		*/
 	}
 }
 
