@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
-	//"github.com/yangl1996/soliton"
+	"github.com/yangl1996/soliton"
 	"math/rand"
 )
 
@@ -32,16 +32,17 @@ var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
 func main() {
 	// test the encoder with simple degree distribution
 	{
-		dist := bimodal{0.5}
-		e := ldpc.NewEncoder(testKey, dist, 50)
+		//dist := bimodal{0.5}
+		dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 200, 0.03, 0.5)
+		e := ldpc.NewEncoder(testKey, dist, 200)
 		d := ldpc.NewDecoder(testKey)
-		for i := 0; i < 50; i++ {
+		for i := 0; i < 200; i++ {
 			tx := randomTransaction()
 			e.AddTransaction(tx)
 		}
 		credit := 0.0
-		factor := 1.3
-		for i := 0; i < 100000; i++ {
+		factor := 1.15
+		for i := 0; i < 1000000; i++ {
 			tx := randomTransaction()
 			e.AddTransaction(tx)
 			credit += factor
