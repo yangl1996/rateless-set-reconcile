@@ -117,7 +117,7 @@ func TestDecodeCodewords(t *testing.T) {
 
 	// now, mark cws[3] as decodable
 	cws[3].queued = true
-	newtx := p.decodeCodewords([]*pendingCodeword{cws[3]})
+	newtx := p.decodeCodewords([]*pendingCodeword{cws[3]}, nil)
 	// we should be able to decode txs 0-3, leaving 5 undecoded
 	for i := 0; i < 4; i++ {
 		if len(cws[i].members) != 0 {
@@ -201,7 +201,7 @@ func TestAddTransaction(t *testing.T) {
 	cws[2].addTransaction(txs[3], txstubs[3])
 
 	// now, add tx[0] and we should be able to decode everything
-	newtx := p.AddTransaction(txs[0])
+	newtx := p.AddTransaction(txs[0], nil)
 	for i := 0; i < 3; i++ {
 		if len(cws[i].members) != 0 {
 			t.Error("nonempty member set of decoded codeword")
