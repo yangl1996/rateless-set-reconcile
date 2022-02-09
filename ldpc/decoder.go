@@ -143,7 +143,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
-	if existing, there := p.receivedTransactions[hash]; !there {
+	if _, there := p.receivedTransactions[hash]; !there {
 		p.receivedTransactions[hash] = t
 		if pending, there := p.pendingTransactions[hash]; there {
 			// quick sanity check
