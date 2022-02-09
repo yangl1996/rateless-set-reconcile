@@ -2,12 +2,15 @@ package ldpc
 
 import (
 	"github.com/dchest/siphash"
-	"github.com/yangl1996/soliton"
 	"hash"
 	"math"
 	"math/rand"
 	"sync"
 )
+
+type DegreeDistribution interface {
+	Uint64() uint64
+}
 
 type saltedTransaction struct {
 	saltedHash uint32
@@ -17,11 +20,11 @@ type saltedTransaction struct {
 type Encoder struct {
 	window     []saltedTransaction
 	hasher     hash.Hash64
-	degreeDist *soliton.Soliton
+	degreeDist DegreeDistribution
 	windowSize int
 }
 
-func NewEncoder(salt [SaltSize]byte, dist *soliton.Soliton, ws int) *Encoder {
+func NewEncoder(salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder {
 	p := &Encoder{
 		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
