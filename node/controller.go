@@ -26,6 +26,7 @@ type sender struct {
 }
 
 func (s *sender) loop() error {
+	log.Println("sender started")
 	for {
 		select {
 		case <-s.shutdown:
@@ -38,10 +39,12 @@ func (s *sender) loop() error {
 			s.encoder.AddTransaction(tx)
 		case <-s.sendTimer.C:
 			// schedule the next event
+			s.txRate -= s.rateDecreaseConstant
 			if s.txRate < 1.0 {
 				s.txRate = 1.0
 			}
 			s.sendTimer.Reset(time.Duration(1.0 / s.txRate * float64(time.Second)))
+			log.Println("current rate", s.txRate)
 			// send the codeword
 			s.nextCodeword.Codeword = s.encoder.ProduceCodeword()
 			err := s.tx.Encode(s.nextCodeword)
@@ -49,7 +52,6 @@ func (s *sender) loop() error {
 				return err
 			}
 			s.nextCodeword.Loss = 0
-			log.Println("send codeword")
 		}
 	}
 	panic("unreachable")
@@ -109,20 +111,30 @@ type controller struct {
 	peers []peer
 	newPeer chan io.ReadWriter
 	allTransactions []*ldpc.Transaction
+	localTransaction chan *ldpc.Transaction
 }
 
 func newController() *controller {
 	return &controller {
 		newCodeword: make(chan indexedCodeword, 1000),
 		newPeer: make(chan io.ReadWriter),
+		localTransaction: make(chan *ldpc.Transaction, 1000),
 	}
+}
+
+func (c *controller) iterativeDecode() {
 }
 
 var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 
 func (c *controller) loop() error {
+	log.Println("controller started")
 	for {
 		select {
+		case tx := <-c.localTransaction:
+			for _, peer := range c.peers {
+				peer.sender.newTransaction <- tx
+			}
 		case conn := <-c.newPeer:
 			peerLoss := make(chan int, 100)
 			r := receiver {
@@ -150,8 +162,19 @@ func (c *controller) loop() error {
 				r.decoder.AddTransaction(existingTx)
 			}
 			c.peers = append(c.peers, peer{s, r})
-			go r.receiveCodeword()
-			go s.loop()
+			go func() {
+				err := r.receiveCodeword()
+				if err != nil {
+					panic(err)
+				}
+			}()
+			go func() {
+				err := s.loop()
+				if err != nil {
+					panic(err)
+				}
+			}()
+			log.Println("new peer")
 		case codeword := <-c.newCodeword:
 			idx := codeword.peerIdx
 			now := time.Now()
@@ -175,6 +198,7 @@ func (c *controller) loop() error {
 			stub, newTx := c.peers[idx].receiver.decoder.AddCodeword(codeword.Codeword)
 			c.peers[idx].receiver.rxWindow = append(c.peers[idx].receiver.rxWindow, receivedCodeword{stub, now})
 			for len(newTx) != 0 {
+				log.Printf("decoded %d transactions\n", len(newTx))
 				// forward the new transactions from the last-decoded node to all peers
 				for idx := range c.peers {
 					if idx != lastDecoded {

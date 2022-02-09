@@ -52,7 +52,7 @@ func (e *Encoder) ProduceCodeword() *Codeword {
 
 type codewordBuilder []saltedTransaction
 
-var codewordBuilderPool = sync.Pool {
+var codewordBuilderPool = sync.Pool{
 	New: func() interface{} {
 		return &codewordBuilder{}
 	},
@@ -66,7 +66,7 @@ func (e *Encoder) produceCodeword(deg int) *Codeword {
 	if deg == 0 {
 		return c
 	}
-	c.members = make([]uint32, deg)
+	c.Members = make([]uint32, deg)
 	// reservoir sampling
 	selected := codewordBuilderPool.Get().(*codewordBuilder)
 	*selected = (*selected)[:0]
@@ -84,10 +84,10 @@ func (e *Encoder) produceCodeword(deg int) *Codeword {
 			W = W * math.Exp(math.Log(rand.Float64())/d)
 		}
 	}
-	for idx, item := range (*selected) {
-		c.members[idx] = item.saltedHash
-		c.symbol.XOR(&item.serialized)
-		(*selected)[idx].Transaction = nil	// set the ptr to nil so when selected is in the pool, it does not point to some transaction and cause it to remain in GC scope
+	for idx, item := range *selected {
+		c.Members[idx] = item.saltedHash
+		c.Symbol.XOR(&item.serialized)
+		(*selected)[idx].Transaction = nil // set the ptr to nil so when selected is in the pool, it does not point to some transaction and cause it to remain in GC scope
 	}
 	codewordBuilderPool.Put(selected)
 	return c

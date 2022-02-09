@@ -105,8 +105,8 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Transaction) {
 	cw := pendingCodewordPool.Get().(*PendingCodeword)
 	cw.reset()
-	cw.symbol = rawCodeword.symbol
-	for _, member := range rawCodeword.members {
+	cw.symbol = rawCodeword.Symbol
+	for _, member := range rawCodeword.Members {
 		pending, pendingExists := p.pendingTransactions[member]
 		received, receivedExists := p.receivedTransactions[member]
 		if !receivedExists {
@@ -143,7 +143,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
-	if _, there := p.receivedTransactions[hash]; !there {
+	if existing, there := p.receivedTransactions[hash]; !there {
 		p.receivedTransactions[hash] = t
 		if pending, there := p.pendingTransactions[hash]; there {
 			// quick sanity check
@@ -160,8 +160,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			return nil
 		}
 	} else {
-		panic("adding transaction already decoded")
-		/*
+		//panic("adding transaction already decoded")
 		if existing.serialized == t.serialized {
 			// adding a transaction that we already know
 			// update the pointer we have, so that we do not hold duplicates in memory
@@ -172,7 +171,6 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			// adding a transaction that is a hash conflict with an existing one
 			panic("adding transaction with a conflicting hash")
 		}
-		*/
 	}
 }
 
