@@ -5,6 +5,8 @@ import (
 	"encoding/gob"
 	"time"
 	"io"
+	"math/rand"
+	"github.com/yangl1996/soliton"
 )
 
 type sender struct {
@@ -87,11 +89,31 @@ type peer struct {
 	receiver
 }
 
+func (p *peer) ingestTransactions() []*ldpc.Transaction {
+	var newTx []*ldpc.Transaction
+	for _, ntx := range p.receiver.thirdPartyTransactions {
+		buffer := p.receiver.decoder.AddTransaction(ntx)
+		newTx = append(newTx, buffer...)
+	}
+	p.receiver.thirdPartyTransactions = p.receiver.thirdPartyTransactions[:0]
+	return newTx
+}
+
 type controller struct {
 	newCodeword chan indexedCodeword	// should only be used for receiving
 	peers []peer
 	newPeer chan io.ReadWriter
+	allTransactions []*ldpc.Transaction
 }
+
+func newController() *controller {
+	return &controller {
+		newCodeword: make(chan indexedCodeword, 1000),
+		newPeer: make(chan io.ReadWriter),
+	}
+}
+
+var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 
 func (c *controller) loop() error {
 	for {
@@ -103,14 +125,26 @@ func (c *controller) loop() error {
 				newCodeword: c.newCodeword,
 				peerLoss: peerLoss,
 				peerIdx: len(c.peers),
+				decoder: ldpc.NewDecoder(testKey),
+				timeout: time.Duration(0.5 * float64(time.Second)),
 			}
+			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 50, 0.03, 0.5)
 			s := sender {
 				tx: gob.NewEncoder(conn),
+				encoder: ldpc.NewEncoder(testKey, dist, 50),
+				txRate: 1.0,
+				rateIncreaseConstant: 0.1,
+				rateDecreaseConstant: 0.002,
+				sendTimer: time.NewTimer(time.Duration(1.0 / 1.0 * float64(time.Second))),
 				peerLoss: peerLoss,
 				ourLoss: make(chan int, 100),
 				shutdown: make(chan struct{}),
 				newTransaction: make(chan *ldpc.Transaction, 100),
 			}
+			for _, existingTx := range c.allTransactions {
+				r.decoder.AddTransaction(existingTx)
+			}
+			c.peers = append(c.peers, peer{s, r})
 			go r.receiveCodeword()
 			go s.loop()
 		case codeword := <-c.newCodeword:
@@ -147,11 +181,8 @@ func (c *controller) loop() error {
 				}
 				newTx = nil
 				for idx := range c.peers {
-					if len(c.peers[idx].receiver.thirdPartyTransactions) != 0 {
-						for _, ntx := range c.peers[idx].receiver.thirdPartyTransactions {
-							buffer := c.peers[idx].receiver.decoder.AddTransaction(ntx)
-							newTx = append(newTx, buffer...)
-						}
+					newTx = c.peers[idx].ingestTransactions()
+					if len(newTx) > 0 {
 						break
 					}
 				}
