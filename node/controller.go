@@ -137,6 +137,10 @@ func (c *controller) loop() error {
 		select {
 		case tx := <-c.localTransaction:
 			for _, peer := range c.peers {
+				out := peer.receiver.decoder.AddTransaction(tx)
+				if len(out) != 0 {
+					panic("adding local transaction resulting in decoding")
+				}
 				peer.sender.newTransaction <- tx
 			}
 		case conn := <-c.newPeer:
