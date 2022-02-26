@@ -106,7 +106,10 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 	return p
 }
 
-func (p *Decoder) forgetOldTransactions() {
+func (p *Decoder) storeNewTransaction(hash uint32, t *Transaction) {
+	p.receivedTransactions[hash] = t
+	p.recentTransactions = append(p.recentTransactions, hash)
+	p.numTransactionsDecoded += 1
 	for len(p.recentTransactions) > p.numTransactionsMemorized {
 		delete(p.receivedTransactions, p.recentTransactions[0])
 		p.recentTransactions = p.recentTransactions[1:]
@@ -114,7 +117,6 @@ func (p *Decoder) forgetOldTransactions() {
 }
 
 func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Transaction) {
-	p.forgetOldTransactions()
 	cw := pendingCodewordPool.Get().(*PendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.Symbol
@@ -152,14 +154,11 @@ func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Trans
 }
 
 func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
-	p.forgetOldTransactions()
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
 	if existing, there := p.receivedTransactions[hash]; !there {
-		p.receivedTransactions[hash] = t
-		p.recentTransactions = append(p.recentTransactions, hash)
-		p.numTransactionsDecoded += 1
+		p.storeNewTransaction(hash, t)
 		if pending, there := p.pendingTransactions[hash]; there {
 			// quick sanity check
 			if pending.saltedHash != hash {
@@ -219,9 +218,7 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 					}
 					newTx = append(newTx, decodedTx)
 					delete(p.pendingTransactions, tx.saltedHash)
-					p.receivedTransactions[tx.saltedHash] = decodedTx
-					p.recentTransactions = append(p.recentTransactions, tx.saltedHash)
-					p.numTransactionsDecoded += 1
+					p.storeNewTransaction(tx.saltedHash, decodedTx)
 					queue = tx.markDecoded(decodedTx, queue)
 					pendingTransactionPool.Put(tx)
 				} else {
