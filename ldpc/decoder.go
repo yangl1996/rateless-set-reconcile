@@ -89,8 +89,11 @@ func (peelable *PendingCodeword) peelTransaction(stub *pendingTransaction, preim
 
 type Decoder struct {
 	receivedTransactions map[uint32]*Transaction
+	recentTransactions []uint32
 	pendingTransactions  map[uint32]*pendingTransaction
 	hasher               hash.Hash64
+	numTransactionsDecoded int
+	numTransactionsMemorized int
 }
 
 func NewDecoder(salt [SaltSize]byte) *Decoder {
@@ -98,11 +101,20 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions:  make(map[uint32]*pendingTransaction),
 		hasher:               siphash.New(salt[:]),
+		numTransactionsMemorized: 262144,
 	}
 	return p
 }
 
+func (p *Decoder) forgetOldTransactions() {
+	for len(p.recentTransactions) > p.numTransactionsMemorized {
+		delete(p.receivedTransactions, p.recentTransactions[0])
+		p.recentTransactions = p.recentTransactions[1:]
+	}
+}
+
 func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Transaction) {
+	p.forgetOldTransactions()
 	cw := pendingCodewordPool.Get().(*PendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.Symbol
@@ -140,11 +152,14 @@ func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Trans
 }
 
 func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
+	p.forgetOldTransactions()
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
 	if existing, there := p.receivedTransactions[hash]; !there {
 		p.receivedTransactions[hash] = t
+		p.recentTransactions = append(p.recentTransactions, hash)
+		p.numTransactionsDecoded += 1
 		if pending, there := p.pendingTransactions[hash]; there {
 			// quick sanity check
 			if pending.saltedHash != hash {
@@ -166,6 +181,7 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			// update the pointer we have, so that we do not hold duplicates in memory
 			p.receivedTransactions[hash] = t
 			// this duplicate transaction will not be helpful for decoding
+			// also, no need to append to p.recentTransaction since we already know it
 			return nil
 		} else {
 			// adding a transaction that is a hash conflict with an existing one
@@ -204,6 +220,8 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 					newTx = append(newTx, decodedTx)
 					delete(p.pendingTransactions, tx.saltedHash)
 					p.receivedTransactions[tx.saltedHash] = decodedTx
+					p.recentTransactions = append(p.recentTransactions, tx.saltedHash)
+					p.numTransactionsDecoded += 1
 					queue = tx.markDecoded(decodedTx, queue)
 					pendingTransactionPool.Put(tx)
 				} else {
@@ -227,5 +245,5 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 }
 
 func (p *Decoder) NumTransactionsReceived() int {
-	return len(p.receivedTransactions)
+	return p.numTransactionsDecoded
 }

@@ -46,7 +46,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 	dec := NewDecoder(testSalt)
 	ncw := 0
-	for len(dec.receivedTransactions) < 50 {
+	for dec.NumTransactionsReceived() < 50 {
 		c := e.ProduceCodeword()
 		dec.AddCodeword(c)
 		ncw += 1
@@ -92,7 +92,7 @@ func BenchmarkDecode(b *testing.B) {
 		c.Free()
 	}
 	b.StopTimer()
-	ndec := len(dec.receivedTransactions)
+	ndec := dec.NumTransactionsReceived()
 	for k, _ := range dec.receivedTransactions {
 		_, there := txHashes[k]
 		if !there {

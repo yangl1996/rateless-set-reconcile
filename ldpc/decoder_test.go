@@ -137,7 +137,7 @@ func TestDecodeCodewords(t *testing.T) {
 		t.Error("incorrect symbol for pending codeword")
 	}
 
-	if len(p.receivedTransactions) != 4 || len(newtx) != 4 {
+	if p.NumTransactionsReceived() != 4 || len(newtx) != 4 {
 		t.Error("incorrect number of decoded transactions")
 	}
 	for i := 0; i < 4; i++ {
@@ -211,7 +211,7 @@ func TestAddTransaction(t *testing.T) {
 		}
 	}
 
-	if len(p.receivedTransactions) != 4 || len(newtx) != 3 {
+	if p.NumTransactionsReceived() != 4 || len(newtx) != 3 {
 		t.Error("incorrect number of decoded transactions")
 	}
 	for i := 0; i < 4; i++ {
