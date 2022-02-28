@@ -216,11 +216,18 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 					if err != nil {
 						panic("error unmarshalling degree-1 codeword into transaction")
 					}
-					newTx = append(newTx, decodedTx)
-					delete(p.pendingTransactions, tx.saltedHash)
-					p.storeNewTransaction(tx.saltedHash, decodedTx)
-					queue = tx.markDecoded(decodedTx, queue)
-					pendingTransactionPool.Put(tx)
+					p.hasher.Reset()
+					p.hasher.Write(decodedTx.hash[:])
+					computedHash := (uint32)(p.hasher.Sum64())
+					if computedHash != tx.saltedHash {
+						panic("hash of decoded transaction does not match codeword header")
+					} else {
+						newTx = append(newTx, decodedTx)
+						delete(p.pendingTransactions, tx.saltedHash)
+						p.storeNewTransaction(tx.saltedHash, decodedTx)
+						queue = tx.markDecoded(decodedTx, queue)
+						pendingTransactionPool.Put(tx)
+					}
 				} else {
 					panic("unpeeled transaction is not pending")
 				}
