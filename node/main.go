@@ -35,7 +35,8 @@ func main() {
 		for {
 			tx := randomTransaction()
 			c1.localTransaction <- tx
-			time.Sleep(time.Duration(10 * time.Millisecond))
+			time.Sleep(time.Duration(1 * time.Millisecond))
+			 
 		}
 	}()
 

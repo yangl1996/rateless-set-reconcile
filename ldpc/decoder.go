@@ -35,6 +35,7 @@ func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []
 		// set the pointer to nil to free the pointed codeword stub
 		tx.blocking[idx] = nil
 	}
+	pendingTransactionPool.Put(tx)
 	return decodableCws
 }
 
@@ -49,6 +50,7 @@ type PendingCodeword struct {
 	members []*pendingTransaction
 	queued  bool
 	decoded bool
+	// TODO: show if the codeword failed to decode
 	freed   bool
 }
 
@@ -70,6 +72,34 @@ func (cw *PendingCodeword) reset() {
 	cw.freed = false
 }
 
+func (cw *PendingCodeword) failToDecode() (uint32, bool) {
+	if len(cw.members) != 1 {
+		panic("failing a codeword when it has more than 1 members")
+	}
+	ptr := cw.members[0]
+	for cwIdx, cwPtr := range ptr.blocking {
+		if cwPtr == cw {
+			// zero the pointer so that the pointed tx does not leak
+			cw.members[0] = nil
+			cw.members = cw.members[:0]
+			// remove the link from the pending tx to this failed cw
+			l := len(ptr.blocking)
+			ptr.blocking[cwIdx] = ptr.blocking[l-1]
+			ptr.blocking[l-1] = nil
+			ptr.blocking = ptr.blocking[:l-1]
+			// free the pending tx if it is blocking nothing
+			if len(ptr.blocking) == 0 {
+				hash := ptr.saltedHash
+				pendingTransactionPool.Put(ptr)
+				return hash, true
+			} else {
+				return 0, false
+			}
+		}
+	}
+	panic("unable to find blocked codeword in pending transaction")
+}
+
 func (peelable *PendingCodeword) peelTransaction(stub *pendingTransaction, preimage *Transaction) {
 	for idx, ptr := range peelable.members {
 		if ptr == stub {
@@ -87,9 +117,14 @@ func (peelable *PendingCodeword) peelTransaction(stub *pendingTransaction, preim
 	panic("unable to peel decoded transaction from codeword pointing to it")
 }
 
+type recentTransaction struct {
+	ptr *Transaction
+	hash uint32
+}
+
 type Decoder struct {
 	receivedTransactions map[uint32]*Transaction
-	recentTransactions []uint32
+	recentTransactions []recentTransaction
 	pendingTransactions  map[uint32]*pendingTransaction
 	hasher               hash.Hash64
 	numTransactionsDecoded int
@@ -108,10 +143,12 @@ func NewDecoder(salt [SaltSize]byte) *Decoder {
 
 func (p *Decoder) storeNewTransaction(hash uint32, t *Transaction) {
 	p.receivedTransactions[hash] = t
-	p.recentTransactions = append(p.recentTransactions, hash)
+	p.recentTransactions = append(p.recentTransactions, recentTransaction{t, hash})
 	p.numTransactionsDecoded += 1
 	for len(p.recentTransactions) > p.numTransactionsMemorized {
-		delete(p.receivedTransactions, p.recentTransactions[0])
+		if e := p.receivedTransactions[p.recentTransactions[0].hash]; e == p.recentTransactions[0].ptr {
+			delete(p.receivedTransactions, p.recentTransactions[0].hash)
+		}
 		p.recentTransactions = p.recentTransactions[1:]
 	}
 }
@@ -167,24 +204,22 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 			// peel the transaction and try decoding
 			delete(p.pendingTransactions, hash)
 			queue := pending.markDecoded(t, nil)
-			// we can free t now
-			pendingTransactionPool.Put(pending)
 			return p.decodeCodewords(queue)
 		} else {
 			return nil
 		}
 	} else {
-		//panic("adding transaction already decoded")
 		if existing.serialized == t.serialized {
-			// adding a transaction that we already know
-			// update the pointer we have, so that we do not hold duplicates in memory
-			p.receivedTransactions[hash] = t
-			// this duplicate transaction will not be helpful for decoding
-			// also, no need to append to p.recentTransaction since we already know it
+			// something that we already know; do not do anything
 			return nil
 		} else {
-			// adding a transaction that is a hash conflict with an existing one
-			panic("adding transaction with a conflicting hash")
+			// adding a transaction that is a hash conflict with an existing one that we have not forgotten
+			p.storeNewTransaction(hash, t)
+			if _, there := p.pendingTransactions[hash]; there {
+				panic("pending transaction is already decoded")
+			} else {
+				return nil
+			}
 		}
 	}
 }
@@ -220,13 +255,17 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 					p.hasher.Write(decodedTx.hash[:])
 					computedHash := (uint32)(p.hasher.Sum64())
 					if computedHash != tx.saltedHash {
-						panic("hash of decoded transaction does not match codeword header")
+						failedTx, failed := c.failToDecode()
+						if failed {
+							delete(p.pendingTransactions, failedTx)
+						}
+						//TODO: streamline the API
+						//panic("hash of decoded transaction does not match codeword header")
 					} else {
 						newTx = append(newTx, decodedTx)
 						delete(p.pendingTransactions, tx.saltedHash)
 						p.storeNewTransaction(tx.saltedHash, decodedTx)
 						queue = tx.markDecoded(decodedTx, queue)
-						pendingTransactionPool.Put(tx)
 					}
 				} else {
 					panic("unpeeled transaction is not pending")
