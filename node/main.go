@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"log"
 	"net"
@@ -36,11 +37,15 @@ func main() {
 			tx := randomTransaction()
 			c1.localTransaction <- tx
 			time.Sleep(time.Duration(1 * time.Millisecond))
-			 
 		}
 	}()
 
 	log.Println("running")
 
-	select{}
+	var m runtime.MemStats
+	for {
+		runtime.ReadMemStats(&m)
+		log.Printf("Heap=%v MB, Sys=%v MB, GCCycles=%v\n", m.Alloc/1024/1024, m.Sys/1024/1024, m.NumGC)
+		time.Sleep(1 * time.Second)
+	}
 }
