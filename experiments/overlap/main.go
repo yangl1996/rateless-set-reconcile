@@ -5,6 +5,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"github.com/yangl1996/soliton"
 	"math/rand"
+	"math"
 )
 
 type uniform struct{}
@@ -40,31 +41,42 @@ func testOverlap(N int, commonFrac float64) (Ntx, Ncw int) {
 	dist2 := soliton.NewRobustSoliton(rand.New(rand.NewSource(2)), uint64(N), 0.03, 0.5)
 	e1 := ldpc.NewEncoder(testKey, dist1, N)
 	e2 := ldpc.NewEncoder(testKey, dist2, N)
-	d := ldpc.NewDecoder(testKey, N)
+	d := ldpc.NewDecoder(testKey, 2147483647)
 
+	txset := make(map[ldpc.Transaction]struct{})
 	nc := int(float64(N) * commonFrac)
-	nd := N - nc
+    nd := N - nc
+
 	for i := 0; i < nc; i++ {
 		tx := randomTransaction()
+		txset[*tx] = struct{}{}
 		e1.AddTransaction(tx)
 		e2.AddTransaction(tx)
 	}
 	for i := 0; i < nd; i++ {
 		tx := randomTransaction()
+		txset[*tx] = struct{}{}
 		e1.AddTransaction(tx)
 		tx = randomTransaction()
+		txset[*tx] = struct{}{}
 		e2.AddTransaction(tx)
 	}
-
+	ntx := len(txset)
 	ncw := 0
 	for d.NumTransactionsReceived() < N+nd {
 		c1 := e1.ProduceCodeword()
 		c2 := e2.ProduceCodeword()
-		d.AddCodeword(c1)
-		d.AddCodeword(c2)
+		_, newtx := d.AddCodeword(c1)
+		for _, tx := range newtx {
+			delete(txset, *tx)
+		}
+		_, newtx = d.AddCodeword(c2)
+		for _, tx := range newtx {
+			delete(txset, *tx)
+		}
 		ncw += 2
 	}
-	return N+nd, ncw
+	return ntx, ncw
 }
 
 func testDist(dist ldpc.DegreeDistribution, rate float64) float64{
@@ -103,9 +115,29 @@ func testUntil(r float64, d ldpc.DegreeDistribution) {
 }
 
 func main() {
-	for overlap := 0.0; overlap <= 1.0; overlap += 0.05 {
-		ntx, ncw := testOverlap(10000, overlap)
-		rate := float64(ncw) / float64(ntx)
-		fmt.Printf("%d %.2f %d %.2f\n", 10000, overlap, ncw, rate)
+	fmt.Println("# overlap  mean inflation   stddev inflation")
+	Ns := []int{50, 200, 1000}
+	for i, N := range Ns {
+		if i != 0 {
+			// for gnuplot
+			fmt.Println()
+			fmt.Println()
+		}
+		fmt.Printf("\"k=%d\"\n", N)
+		for overlap := 0.0; overlap <= 1.01; overlap += 0.05 {
+			total := 0.0
+			totalSq := 0.0
+			ntest := 400
+			for i := 0; i < ntest; i++ {
+				ntx, ncw := testOverlap(N, overlap)
+				rate := float64(ncw) / float64(ntx)
+				total += rate
+				totalSq += rate * rate
+			}
+			avg := total / float64(ntest)
+			stddev := math.Sqrt(totalSq / float64(ntest) - avg * avg)
+
+			fmt.Printf("%.2f %.2f %.2f\n", overlap, avg, stddev)
+		}
 	}
 }
