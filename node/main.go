@@ -7,7 +7,6 @@ import (
 	"net"
 	"math/rand"
 	"time"
-	"io"
 	"flag"
 	"strings"
 )
@@ -28,6 +27,7 @@ func main() {
 	K := flag.Uint64("k", 50, "coding window size and max codeword degree")
 	M := flag.Uint64("m", 262144, "peeling window size")
 	C := flag.Float64("c", 0.03, "parameter C of the soliton distribution")
+	txRate := flag.Float64("tx", 1000.0, "local transaction generation rate")
 	delta := flag.Float64("delta", 0.5, "parameter delta of the soliton distribution")
 	initRate := flag.Float64("r0", 1.0, "initial codeword rate")
 	minRate := flag.Float64("rmin", 1.0, "min codeword rate")
@@ -37,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	c := &controller {
-		newPeerConn: make(chan io.ReadWriter),
+		newPeer: make(chan *peer),
 		decodedTransaction: make(chan *ldpc.Transaction, 1000),
 		localTransaction: make(chan *ldpc.Transaction, 1000),
 		K: *K,
@@ -62,7 +62,7 @@ func main() {
 			if err != nil {
 				log.Println("error accepting incoming connection:", err)
 			} else {
-				c.newPeerConn <- cn
+				c.handleConn(cn)
 			}
 		}
 	}()
@@ -74,17 +74,18 @@ func main() {
 				if err != nil {
 					log.Println("error connecting:", a, err)
 				} else {
-					c.newPeerConn <- cn
+					c.handleConn(cn)
 				}
 			}()
 		}
 	}
 
+	ticker := time.NewTicker(time.Duration(1.0 / *txRate * float64(time.Second)))
 	go func() {
 		for {
+			<-ticker.C
 			tx := randomTransaction()
 			c.localTransaction <- tx
-			time.Sleep(time.Duration(1 * time.Millisecond))
 		}
 	}()
 

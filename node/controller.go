@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/gob"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"github.com/yangl1996/soliton"
@@ -20,7 +21,7 @@ func (h *peer) notifyNewTransaction(t *ldpc.Transaction) {
 	h.newTxToReceiver <- t
 }
 
-func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration) *peer {
+func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration, encoderKey [ldpc.SaltSize]byte, decoderKey [ldpc.SaltSize]byte) *peer {
 	peerLoss := make(chan int, 100)
 	ourLoss := make(chan int, 100)
 	senderNewTx := make(chan *ldpc.Transaction, 100)
@@ -29,7 +30,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(time.Now().Unix())), K, solitonC, solitonDelta)
 	s := sender{
 		tx:                   gob.NewEncoder(conn),
-		encoder:              ldpc.NewEncoder(testKey, dist, int(K)),
+		encoder:              ldpc.NewEncoder(encoderKey, dist, int(K)),
 		cwRate:               initRate,
 		rateIncreaseConstant: incConstant,
 		rateDecreaseConstant: incConstant*targetLoss,
@@ -42,7 +43,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 
 	r := receiver{
 		rx:          gob.NewDecoder(conn),
-		decoder:     ldpc.NewDecoder(testKey, int(M)),
+		decoder:     ldpc.NewDecoder(decoderKey, int(M)),
 		peerLoss: peerLoss,
 		ourLoss: ourLoss,
 		decodedTransaction: decoded,
@@ -77,7 +78,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 
 type controller struct {
 	peers            []*peer
-	newPeerConn          chan io.ReadWriter
+	newPeer          chan *peer
 	decodedTransaction chan *ldpc.Transaction
 	localTransaction chan *ldpc.Transaction
 
@@ -92,8 +93,6 @@ type controller struct {
 	decodeTimeout time.Duration
 }
 
-var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
-
 func (c *controller) loop() error {
 	log.Println("controller started")
 	for {
@@ -106,10 +105,31 @@ func (c *controller) loop() error {
 			for _, peer := range c.peers {
 				peer.notifyNewTransaction(tx)
 			}
-		case conn := <-c.newPeerConn:
+		case p := <-c.newPeer:
 			log.Println("new peer")
-			p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout)
 			c.peers = append(c.peers, p)
 		}
 	}
+}
+
+func (c *controller) handleConn(conn io.ReadWriter) error {
+	var encoderKey [ldpc.SaltSize]byte
+	var decoderKey [ldpc.SaltSize]byte
+	rand.Read(encoderKey[:])
+
+	// send our key
+	_, err := conn.Write(encoderKey[:])
+	if err != nil {
+		return err
+	}
+	_, err = conn.Read(decoderKey[:])
+	if err != nil {
+		return err
+	}
+	log.Printf("key exchanged, our key %s, peer key %s\n", hex.EncodeToString(encoderKey[:]), hex.EncodeToString(decoderKey[:]))
+
+	p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout, encoderKey, decoderKey)
+
+	c.newPeer <- p
+	return nil
 }
