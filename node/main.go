@@ -22,7 +22,7 @@ func randomTransaction() *ldpc.Transaction {
 
 func main() {
 	addr := flag.String("l", ":9000", "address to listen")
-	conn := flag.String("c", "", "comma-delimited list of addresses to connect to")
+	conn := flag.String("p", "", "comma-delimited list of addresses to connect to")
 	K := flag.Uint64("k", 50, "coding window size and max codeword degree")
 	M := flag.Uint64("m", 262144, "peeling window size")
 	C := flag.Float64("c", 0.03, "parameter C of the soliton distribution")
