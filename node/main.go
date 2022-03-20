@@ -80,14 +80,16 @@ func main() {
 		}
 	}
 
-	ticker := time.NewTicker(time.Duration(1.0 / *txRate * float64(time.Second)))
-	go func() {
-		for {
-			<-ticker.C
-			tx := randomTransaction()
-			c.localTransaction <- tx
-		}
-	}()
+	if *txRate > 0 {
+		ticker := time.NewTicker(time.Duration(1.0 / *txRate * float64(time.Second)))
+		go func() {
+			for {
+				<-ticker.C
+				tx := randomTransaction()
+				c.localTransaction <- tx
+			}
+		}()
+	}
 
 	log.Println("running")
 
