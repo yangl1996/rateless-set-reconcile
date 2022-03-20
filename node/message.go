@@ -8,3 +8,7 @@ type Codeword struct {
 	*ldpc.Codeword
 	Loss int
 }
+
+type HashKey struct {
+	key [ldpc.SaltSize]byte
+}

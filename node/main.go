@@ -21,6 +21,8 @@ func randomTransaction() *ldpc.Transaction {
 }
 
 func main() {
+	rand.Seed(time.Now().Unix())
+
 	addr := flag.String("l", ":9000", "address to listen")
 	conn := flag.String("p", "", "comma-delimited list of addresses to connect to")
 	K := flag.Uint64("k", 50, "coding window size and max codeword degree")
