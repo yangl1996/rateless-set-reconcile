@@ -25,6 +25,8 @@ func main() {
 	conn := flag.String("c", "", "comma-delimited list of addresses to connect to")
 	K := flag.Uint64("k", 50, "coding window size and max codeword degree")
 	M := flag.Uint64("m", 262144, "peeling window size")
+	C := flag.Float64("c", 0.03, "parameter C of the soliton distribution")
+	delta := flag.Float64("delta", 0.5, "parameter delta of the soliton distribution")
 	initRate := flag.Float64("r0", 1.0, "initial codeword rate")
 	minRate := flag.Float64("rmin", 1.0, "min codeword rate")
 	incConstant := flag.Float64("inc", 0.1, "codeword rate increment upon loss")
@@ -38,6 +40,8 @@ func main() {
 		localTransaction: make(chan *ldpc.Transaction, 1000),
 		K: *K,
 		M: *M,
+		solitonC: *C,
+		solitonDelta: *delta,
 		initRate: *initRate,
 		minRate: *minRate,
 		incConstant: *incConstant,

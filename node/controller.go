@@ -20,13 +20,13 @@ func (h *peer) notifyNewTransaction(t *ldpc.Transaction) {
 	h.newTxToReceiver <- t
 }
 
-func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration) *peer {
+func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration) *peer {
 	peerLoss := make(chan int, 100)
 	ourLoss := make(chan int, 100)
 	senderNewTx := make(chan *ldpc.Transaction, 100)
 	receiverNewTx := make(chan *ldpc.Transaction, 100)
 
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), K, 0.03, 0.5)
+	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), K, solitonC, solitonDelta)
 	s := sender{
 		tx:                   gob.NewEncoder(conn),
 		encoder:              ldpc.NewEncoder(testKey, dist, int(K)),
@@ -83,6 +83,8 @@ type controller struct {
 
 	K uint64
 	M uint64
+	solitonC float64
+	solitonDelta float64
 	initRate float64
 	minRate float64
 	incConstant float64
@@ -106,7 +108,7 @@ func (c *controller) loop() error {
 			}
 		case conn := <-c.newPeerConn:
 			log.Println("new peer")
-			p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout)
+			p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout)
 			c.peers = append(c.peers, p)
 		}
 	}
