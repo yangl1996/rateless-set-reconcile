@@ -23,6 +23,10 @@ func randomTransaction() *ldpc.Transaction {
 func main() {
 	addr := flag.String("l", ":9000", "address to listen")
 	conn := flag.String("c", "", "comma-delimited list of addresses to connect to")
+	flag.Parse()
+
+
+
 	newController := func() *controller {
 		return &controller {
 			newPeerConn: make(chan io.ReadWriter),
@@ -35,13 +39,13 @@ func main() {
 	go c.loop()
 	l, err := net.Listen("tcp", *addr)
 	if err != nil {
-		log.Fatalln("failed to listen to", *addr)
+		log.Fatalln("failed to listen:", err)
 	}
 	go func() {
 		for {
 			cn, err := l.Accept()
 			if err != nil {
-				log.Println("error accepting incoming connection")
+				log.Println("error accepting incoming connection:", err)
 			} else {
 				c.newPeerConn <- cn
 			}
@@ -53,7 +57,7 @@ func main() {
 			go func() {
 				cn, err := net.Dial("tcp", a)
 				if err != nil {
-					log.Println("error connecting to peer", a)
+					log.Println("error connecting:", a, err)
 				} else {
 					c.newPeerConn <- cn
 				}
