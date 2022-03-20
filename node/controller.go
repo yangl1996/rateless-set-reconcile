@@ -26,7 +26,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 	senderNewTx := make(chan *ldpc.Transaction, 100)
 	receiverNewTx := make(chan *ldpc.Transaction, 100)
 
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), K, solitonC, solitonDelta)
+	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(time.Now().Unix())), K, solitonC, solitonDelta)
 	s := sender{
 		tx:                   gob.NewEncoder(conn),
 		encoder:              ldpc.NewEncoder(testKey, dist, int(K)),
