@@ -7,6 +7,7 @@ import (
 	"net"
 	"math/rand"
 	"time"
+	"io"
 )
 
 func randomTransaction() *ldpc.Transaction {
@@ -18,6 +19,13 @@ func randomTransaction() *ldpc.Transaction {
 }
 
 func main() {
+	newController := func() *controller {
+		return &controller {
+			newPeerConn: make(chan io.ReadWriter),
+			decodedTransaction: make(chan *ldpc.Transaction, 1000),
+			localTransaction: make(chan *ldpc.Transaction, 1000),
+		}
+	}
 	c1 := newController()
 	c2 := newController()
 	go c1.loop()
@@ -25,11 +33,11 @@ func main() {
 	l, _ := net.Listen("tcp", ":9999")
 	go func() {
 		cn, _ := l.Accept()
-		c1.newPeer <- cn
+		c1.newPeerConn <- cn
 	}()
 	go func() {
 		cn, _ := net.Dial("tcp", ":9999")
-		c2.newPeer <- cn
+		c2.newPeerConn <- cn
 	}()
 
 	go func() {

@@ -22,6 +22,7 @@ type Encoder struct {
 	hasher     hash.Hash64
 	degreeDist DegreeDistribution
 	windowSize int
+	hashes map[uint32]struct{}
 }
 
 func NewEncoder(salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder {
@@ -29,6 +30,7 @@ func NewEncoder(salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder {
 		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
 		windowSize: ws,
+		hashes: make(map[uint32]struct{}),
 	}
 	return p
 }
@@ -37,11 +39,16 @@ func (e *Encoder) AddTransaction(t *Transaction) {
 	e.hasher.Reset()
 	e.hasher.Write(t.hash[:])
 	hash := (uint32)(e.hasher.Sum64())
+	if _, there := e.hashes[hash]; there {
+		// the transaction is already in the window
+		return
+	}
 	tx := saltedTransaction{hash, t}
 	e.window = append(e.window, tx)
-	if len(e.window) > e.windowSize {
-		diff := len(e.window) - e.windowSize
-		e.window = e.window[diff:]
+	e.hashes[hash] = struct{}{}
+	for len(e.window) > e.windowSize {
+		delete(e.hashes, e.window[0].saltedHash)
+		e.window = e.window[1:]
 	}
 }
 
