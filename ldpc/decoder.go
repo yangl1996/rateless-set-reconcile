@@ -131,12 +131,12 @@ type Decoder struct {
 	numTransactionsMemorized int
 }
 
-func NewDecoder(salt [SaltSize]byte) *Decoder {
+func NewDecoder(salt [SaltSize]byte, memory int) *Decoder {
 	p := &Decoder{
 		receivedTransactions: make(map[uint32]*Transaction),
 		pendingTransactions:  make(map[uint32]*pendingTransaction),
 		hasher:               siphash.New(salt[:]),
-		numTransactionsMemorized: 262144,
+		numTransactionsMemorized: memory,
 	}
 	return p
 }

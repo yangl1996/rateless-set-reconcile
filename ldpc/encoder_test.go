@@ -44,7 +44,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		tx, _ := randomTransaction()
 		e.AddTransaction(tx)
 	}
-	dec := NewDecoder(testSalt)
+	dec := NewDecoder(testSalt, 262144)
 	ncw := 0
 	for dec.NumTransactionsReceived() < 50 {
 		c := e.ProduceCodeword()
@@ -83,7 +83,7 @@ func BenchmarkDecode(b *testing.B) {
 			codewords = append(codewords, cw)
 		}
 	}
-	dec := NewDecoder(testSalt)
+	dec := NewDecoder(testSalt, 262144)
 	b.ReportAllocs()
 	b.SetBytes(TxSize)
 	b.ResetTimer()

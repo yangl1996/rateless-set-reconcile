@@ -23,9 +23,13 @@ func randomTransaction() *ldpc.Transaction {
 func main() {
 	addr := flag.String("l", ":9000", "address to listen")
 	conn := flag.String("c", "", "comma-delimited list of addresses to connect to")
+	K := flag.Int64("k", 50, "coding window size and max codeword degree")
+	initRate := flag.Float64("r0", 1.0, "initial codeword rate")
+	minRate := flag.Float64("rmin", 1.0, "min codeword rate")
+	incConstant := flag.Float64("inc", 0.1, "codeword rate increment upon loss")
+	targetLoss := flag.Float64("loss", 0.02, "target codeword loss rate")
+	decodeTimeout := flag.Duration("t", 500 * time.Millisecond, "codeword decoding timeout")
 	flag.Parse()
-
-
 
 	newController := func() *controller {
 		return &controller {
