@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/gob"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"github.com/yangl1996/soliton"
@@ -126,7 +125,7 @@ func (c *controller) handleConn(conn io.ReadWriter) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("key exchanged, our key %s, peer key %s\n", hex.EncodeToString(encoderKey[:]), hex.EncodeToString(decoderKey[:]))
+	log.Printf("key exchanged, our key %x, peer key %x\n", encoderKey[:], decoderKey[:])
 
 	p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout, encoderKey, decoderKey)
 
