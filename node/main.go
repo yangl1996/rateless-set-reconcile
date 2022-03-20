@@ -68,15 +68,16 @@ func main() {
 	}()
 
 	if *conn != "" {
-		for _, a := range strings.Split(*conn, ",") {
-			go func() {
-				cn, err := net.Dial("tcp", a)
+		addrList := strings.Split(*conn, ",")
+		for _, a := range addrList {
+			go func(addr string) {
+				cn, err := net.Dial("tcp", addr)
 				if err != nil {
-					log.Println("error connecting:", a, err)
+					log.Println("error connecting:", err)
 				} else {
 					c.handleConn(cn)
 				}
-			}()
+			}(a)
 		}
 	}
 
