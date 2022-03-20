@@ -35,9 +35,41 @@ func randomTransaction() *ldpc.Transaction {
 
 var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 
+func testOverlap(N int, commonFrac float64) (Ntx, Ncw int) {
+	dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(N), 0.03, 0.5)
+	dist2 := soliton.NewRobustSoliton(rand.New(rand.NewSource(2)), uint64(N), 0.03, 0.5)
+	e1 := ldpc.NewEncoder(testKey, dist1, N)
+	e2 := ldpc.NewEncoder(testKey, dist2, N)
+	d := ldpc.NewDecoder(testKey, N)
+
+	nc := int(float64(N) * commonFrac)
+	nd := N - nc
+	for i := 0; i < nc; i++ {
+		tx := randomTransaction()
+		e1.AddTransaction(tx)
+		e2.AddTransaction(tx)
+	}
+	for i := 0; i < nd; i++ {
+		tx := randomTransaction()
+		e1.AddTransaction(tx)
+		tx = randomTransaction()
+		e2.AddTransaction(tx)
+	}
+
+	ncw := 0
+	for d.NumTransactionsReceived() < N+nd {
+		c1 := e1.ProduceCodeword()
+		c2 := e2.ProduceCodeword()
+		d.AddCodeword(c1)
+		d.AddCodeword(c2)
+		ncw += 2
+	}
+	return N+nd, ncw
+}
+
 func testDist(dist ldpc.DegreeDistribution, rate float64) float64{
 	e := ldpc.NewEncoder(testKey, dist, 50)
-	d := ldpc.NewDecoder(testKey)
+	d := ldpc.NewDecoder(testKey, 1000000)
 	for i := 0; i < 50; i++ {
 		tx := randomTransaction()
 		e.AddTransaction(tx)
@@ -71,11 +103,9 @@ func testUntil(r float64, d ldpc.DegreeDistribution) {
 }
 
 func main() {
-	fmt.Println("degree-1")
-	testUntil(0.95, uniform{})
-	fmt.Println("bimodal 0.2 0.8")
-	testUntil(0.95, bimodal{0.2})
-	fmt.Println("soliton")
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 50, 0.03, 0.5)
-	testUntil(0.95, dist)
+	for overlap := 0.0; overlap <= 1.0; overlap += 0.05 {
+		ntx, ncw := testOverlap(10000, overlap)
+		rate := float64(ncw) / float64(ntx)
+		fmt.Printf("%d %.2f %d %.2f\n", 10000, overlap, ncw, rate)
+	}
 }
