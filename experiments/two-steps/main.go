@@ -3,27 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
+	"github.com/yangl1996/rateless-set-reconcile/experiments"
 	"github.com/yangl1996/soliton"
 	"math/rand"
 	"math"
 )
 
-func randomTransaction() *ldpc.Transaction {
-	d := ldpc.TransactionData{}
-    rand.Read(d[:])
-	t := &ldpc.Transaction{}
-	t.UnmarshalBinary(d[:])
-    return t
-}
-
-var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
-
 func testOverlap(N int, commonFrac float64) (Ntx, Ncw int) {
 	dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(N), 0.03, 0.5)
 	dist2 := soliton.NewRobustSoliton(rand.New(rand.NewSource(2)), uint64(N), 0.03, 0.5)
-	e1 := ldpc.NewEncoder(testKey, dist1, N)
-	e2 := ldpc.NewEncoder(testKey, dist2, N)
-	d := ldpc.NewDecoder(testKey, 2147483647)
+	e1 := ldpc.NewEncoder(experiments.TestKey, dist1, N)
+	e2 := ldpc.NewEncoder(experiments.TestKey, dist2, N)
+	d := ldpc.NewDecoder(experiments.TestKey, 2147483647)
 
 	txset1 := make(map[ldpc.Transaction]struct{})
 	txset2 := make(map[ldpc.Transaction]struct{})
@@ -31,17 +22,17 @@ func testOverlap(N int, commonFrac float64) (Ntx, Ncw int) {
     nd := N - nc
 
 	for i := 0; i < nc; i++ {
-		tx := randomTransaction()
+		tx := experiments.RandomTransaction()
 		txset1[*tx] = struct{}{}
 		txset2[*tx] = struct{}{}
 		e1.AddTransaction(tx)
 		e2.AddTransaction(tx)
 	}
 	for i := 0; i < nd; i++ {
-		tx := randomTransaction()
+		tx := experiments.RandomTransaction()
 		txset1[*tx] = struct{}{}
 		e1.AddTransaction(tx)
-		tx = randomTransaction()
+		tx = experiments.RandomTransaction()
 		txset2[*tx] = struct{}{}
 		e2.AddTransaction(tx)
 	}
