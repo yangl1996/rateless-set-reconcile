@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"encoding/gob"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"time"
@@ -38,6 +39,7 @@ func (r *receiver) receive(cw chan<- *ldpc.Codeword) error {
 }
 
 func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
+	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case cw := <-cwChan:
@@ -68,6 +70,8 @@ func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
 			for _, ntx := range buf {
 				r.decodedTransaction <- ntx
 			}
+		case <-ticker.C:
+			log.Println("transactions stored", r.decoder.NumTransactionsReceived())
 		}
 	}
 }
