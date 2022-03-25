@@ -31,42 +31,52 @@ func testOverlap(K int) (float64, float64) {
 	}
 	rate1 := float64(cnt1) / float64(K)
 
-	nc := 5000
-	rate2 := 0.9
+	nc := 1000
+	rate2 := 1.0
 	txlist := []*ldpc.Transaction{}
 	for i := 0; i < nc+2*K; i++ {
 		tx := experiments.RandomTransaction()
 		txlist = append(txlist, tx)
 	}
+	ncode := 0
 	for ;;rate2 += 0.02 {
+		ncode = 0
+		if rate2 > 5.0 {
+			panic("high rate")
+		}
 		txset2 := make(map[ldpc.Transaction]struct{})
 		d2 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
+		e := ldpc.NewEncoder(experiments.TestKey, dist1, K)
 		for i := 0; i < K; i++ {
 			d2.AddTransaction(txlist[i])
 			d2.AddTransaction(txlist[i+K+nc])
+			//e.AddTransaction(txlist[i])
 		}
-		for i := 0; i < nc; i++ {
-			txset2[*txlist[i+K]] = struct{}{}
+		for i := K; i < nc+K; i++ {
+			txset2[*txlist[i]] = struct{}{}
 		}
-		e := ldpc.NewEncoder(experiments.TestKey, dist1, K)
 		credit := 0.0
-		for i := 0; i < nc+K*2; i++ {
+		for i := 0; i < nc+K+K; i++ {
 			e.AddTransaction(txlist[i])
 			credit += rate2
 			for credit > 1.0 {
 				c := e.ProduceCodeword()
+				ncode += 1
 				_, newtx := d2.AddCodeword(c)
 				for _, tx := range newtx {
 					delete(txset2, *tx)
 				}
 				credit -= 1.0
+				if len(txset2) == 0 {
+					break
+				}
 			}
 		}
 		if len(txset2) == 0 {
 			break
 		}
 	}
-	return rate1, rate2
+	return rate1, float64(ncode) / float64(nc)
 }
 
 func main() {
