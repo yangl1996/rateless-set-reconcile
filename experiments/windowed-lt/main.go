@@ -31,7 +31,7 @@ func testOverlap(K int) (float64, float64) {
 	}
 	rate1 := float64(cnt1) / float64(K)
 
-	nc := 10000
+	nc := 5000
 	rate2 := 1.0
 	txlist := []*ldpc.Transaction{}
 	for i := 0; i < nc+2*K; i++ {
@@ -79,12 +79,12 @@ func testOverlap(K int) (float64, float64) {
 			break
 		}
 	}
-	return rate1, float64(ncode) / float64(nc)
+	return rate1,rate2 
 }
 
 func main() {
 	fmt.Println("# K  conventional stddev windowed stddev")
-	Ns := []int{50, 200, 1000}
+	Ns := []int{50, 100, 200}
 	for _, N := range Ns {
 		var normalTotal, normalTotalSq, windowTotal, windowTotalSq float64
 		ntest := 100
