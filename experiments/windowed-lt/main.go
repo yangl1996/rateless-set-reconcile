@@ -31,7 +31,7 @@ func testOverlap(K int) (float64, float64) {
 	}
 	rate1 := float64(cnt1) / float64(K)
 
-	nc := 1000
+	nc := 10000
 	rate2 := 1.0
 	txlist := []*ldpc.Transaction{}
 	for i := 0; i < nc+2*K; i++ {
@@ -58,6 +58,9 @@ func testOverlap(K int) (float64, float64) {
 		credit := 0.0
 		for i := 0; i < nc+K+K; i++ {
 			e.AddTransaction(txlist[i])
+			if i < K {
+				continue
+			}
 			credit += rate2
 			for credit > 1.0 {
 				c := e.ProduceCodeword()
