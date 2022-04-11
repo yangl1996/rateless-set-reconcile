@@ -23,5 +23,5 @@ plot 'results.txt' i 0 u 1:($2-1.0) w lines title columnheader(1) lw 2 lc rgb '#
      'results.txt' i 0 u 1:($2-1.0-$3):($2-1.0+$3) with filledcurves notitle fc rgb '#440154', \
      'results.txt' i 1 u 1:($2-1.0) w lines title columnheader(1) lw 2 lc rgb '#2c718e', \
      'results.txt' i 1 u 1:($2-1.0-$3):($2-1.0+$3) with filledcurves notitle fc rgb '#2c718e', \
-     'results.txt' i 2 u 1:($2-1.0) w lines title columnheader(1) lw 2 lc rgb '#cb4679', \
-     'results.txt' i 2 u 1:($2-1.0-$3):($2-1.0+$3) with filledcurves notitle fc rgb '#cb4679'
+#     'results.txt' i 2 u 1:($2-1.0) w lines title columnheader(1) lw 2 lc rgb '#cb4679', \
+#     'results.txt' i 2 u 1:($2-1.0-$3):($2-1.0+$3) with filledcurves notitle fc rgb '#cb4679'

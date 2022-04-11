@@ -16,52 +16,45 @@ func testOverlap(N int, commonFrac float64) (Ntx, Ncw int) {
 	e2 := ldpc.NewEncoder(experiments.TestKey, dist2, N)
 	d := ldpc.NewDecoder(experiments.TestKey, 2147483647)
 
-	txset1 := make(map[ldpc.Transaction]struct{})
-	txset2 := make(map[ldpc.Transaction]struct{})
+	txset := make(map[ldpc.Transaction]struct{})
 	nc := int(float64(N) * commonFrac)
     nd := N - nc
 
 	for i := 0; i < nc; i++ {
 		tx := experiments.RandomTransaction()
-		txset1[*tx] = struct{}{}
-		txset2[*tx] = struct{}{}
+		txset[*tx] = struct{}{}
 		e1.AddTransaction(tx)
 		e2.AddTransaction(tx)
 	}
 	for i := 0; i < nd; i++ {
 		tx := experiments.RandomTransaction()
-		txset1[*tx] = struct{}{}
+		txset[*tx] = struct{}{}
 		e1.AddTransaction(tx)
 		tx = experiments.RandomTransaction()
-		txset2[*tx] = struct{}{}
+		txset[*tx] = struct{}{}
 		e2.AddTransaction(tx)
 	}
-	ntx := nc+nd*2
+	ntx := len(txset)
 	ncw := 0
-	for len(txset1) > 0 {
+	for len(txset) > int(0.05*float64(ntx)) {
 		c1 := e1.ProduceCodeword()
-		ncw += 1
+		c2 := e2.ProduceCodeword()
 		_, newtx := d.AddCodeword(c1)
 		for _, tx := range newtx {
-			delete(txset1, *tx)
-			delete(txset2, *tx)
+			delete(txset, *tx)
 		}
-	}
-	for len(txset2) > 0 {
-		c2 := e2.ProduceCodeword()
-		ncw += 1
-		_, newtx := d.AddCodeword(c2)
+		_, newtx = d.AddCodeword(c2)
 		for _, tx := range newtx {
-			delete(txset1, *tx)
-			delete(txset2, *tx)
+			delete(txset, *tx)
 		}
+		ncw += 2
 	}
 	return ntx, ncw
 }
 
 func main() {
 	fmt.Println("# overlap  mean inflation   stddev inflation")
-	Ns := []int{50, 200, 1000}
+	Ns := []int{50, 200}
 	for i, N := range Ns {
 		if i != 0 {
 			// for gnuplot
@@ -72,7 +65,7 @@ func main() {
 		for overlap := 0.0; overlap <= 1.01; overlap += 0.05 {
 			total := 0.0
 			totalSq := 0.0
-			ntest := 500
+			ntest := 400
 			for i := 0; i < ntest; i++ {
 				ntx, ncw := testOverlap(N, overlap)
 				rate := float64(ncw) / float64(ntx)
