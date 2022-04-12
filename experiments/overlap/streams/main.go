@@ -62,14 +62,16 @@ func testOverlap(K, N int, overlap float64) {
 						delete(txset1, *tx)
 						delete(txset2, *tx)
 					}
+					c1 -= 1.0
 				}
 				for c2 >= 1.0 {
-					c := e1.ProduceCodeword()
+					c := e2.ProduceCodeword()
 					_, newtx := d1.AddCodeword(c)
 					for _, tx := range newtx {
 						delete(txset1, *tx)
 						delete(txset2, *tx)
 					}
+					c2 -= 1.0
 				}
 			}
 			deliver1 := float64(ntx1-len(txset1)) / float64(ntx1)
