@@ -8,6 +8,78 @@ import (
 	"math/rand"
 )
 
+type receivedCodeword struct {
+	*ldpc.PendingCodeword
+	receivedTime int
+}
+
+func testController(K int, overlap float64, timeout int) {
+	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
+
+	d1 := ldpc.NewDecoder(experiments.TestKey, 262144)
+	e1 := ldpc.NewEncoder(experiments.TestKey, dist, K)
+	e2 := ldpc.NewEncoder(experiments.TestKey, dist, K)
+	// one step is 1ms
+	step := 0
+	var rxWindow []receivedCodeword
+	receive := func(cw *ldpc.Codeword) int {
+		loss := 0
+		for len(rxWindow) > 0 {
+			head := rxWindow[0]
+			dur := step - head.receivedTime
+			if dur < timeout {
+				break
+			}
+			if !head.Decoded() {
+				loss += 1
+			}
+			head.Free()
+			rxWindow = rxWindow[1:]
+		}
+		stub, _ := d1.AddCodeword(cw)
+		rxWindow = append(rxWindow, receivedCodeword{stub, step})
+		return loss
+	}
+
+	r1 := 1.7
+	r2 := 1.8
+	c1 := 0.0
+	c2 := 0.0
+	for {
+		step += 1
+		if (rand.Float64() < overlap) {
+			tx := experiments.RandomTransaction()
+			e1.AddTransaction(tx)
+			e2.AddTransaction(tx)
+		} else {
+			tx1 := experiments.RandomTransaction()
+			e1.AddTransaction(tx1)
+			tx2 := experiments.RandomTransaction()
+			e2.AddTransaction(tx2)
+		}
+		c1 += r1
+		c2 += r2
+		for c1 >= 1.0 {
+			c := e1.ProduceCodeword()
+			r1 -= (0.002/1000.0)
+			loss := receive(c)
+			r1 += (0.1/1000.0)*float64(loss)
+			c1 -= 1.0
+		}
+		for c2 >= 1.0 {
+			c := e2.ProduceCodeword()
+			r2 -= (0.002/1000.0)
+			loss := receive(c)
+			r2 += (0.1/1000.0)*float64(loss)
+			c2 -= 1.0
+		}
+		if step%1000 == 0 {
+			fmt.Println(step, r1, r2)
+		}
+	}
+	return
+}
+
 func testOverlap(K, N int, overlap, threshold float64) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
