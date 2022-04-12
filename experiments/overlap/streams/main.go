@@ -13,19 +13,25 @@ type receivedCodeword struct {
 	receivedTime int
 }
 
+type decoder struct {
+	*ldpc.Decoder
+	rxWindow []receivedCodeword
+}
+
 func testController(K int, overlap float64, timeout int) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
-	d1 := ldpc.NewDecoder(experiments.TestKey, 262144)
+	d1 := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
+	d2 := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
 	e1 := ldpc.NewEncoder(experiments.TestKey, dist, K)
 	e2 := ldpc.NewEncoder(experiments.TestKey, dist, K)
+
 	// one step is 1ms
 	step := 0
-	var rxWindow []receivedCodeword
-	receive := func(cw *ldpc.Codeword) int {
+	scan := func(d *decoder) int {
 		loss := 0
-		for len(rxWindow) > 0 {
-			head := rxWindow[0]
+		for len(d.rxWindow) > 0 {
+			head := d.rxWindow[0]
 			dur := step - head.receivedTime
 			if dur < timeout {
 				break
@@ -34,11 +40,14 @@ func testController(K int, overlap float64, timeout int) {
 				loss += 1
 			}
 			head.Free()
-			rxWindow = rxWindow[1:]
+			d.rxWindow = d.rxWindow[1:]
 		}
-		stub, _ := d1.AddCodeword(cw)
-		rxWindow = append(rxWindow, receivedCodeword{stub, step})
 		return loss
+	}
+	add := func(d *decoder, cw *ldpc.Codeword) {
+		stub, _ := d.AddCodeword(cw)
+		d.rxWindow = append(d.rxWindow, receivedCodeword{stub, step})
+		return
 	}
 
 	r1 := 1.7
@@ -62,17 +71,19 @@ func testController(K int, overlap float64, timeout int) {
 		for c1 >= 1.0 {
 			c := e1.ProduceCodeword()
 			r1 -= (0.002/1000.0)
-			loss := receive(c)
-			r1 += (0.1/1000.0)*float64(loss)
+			add(d1, c)
 			c1 -= 1.0
 		}
 		for c2 >= 1.0 {
 			c := e2.ProduceCodeword()
 			r2 -= (0.002/1000.0)
-			loss := receive(c)
-			r2 += (0.1/1000.0)*float64(loss)
+			add(d2, c)
 			c2 -= 1.0
 		}
+		loss1 := scan(d1)
+		r1 += (0.1/1000.0)*float64(loss1)
+		loss2 := scan(d2)
+		r2 += (0.1/1000.0)*float64(loss2)
 		if step%1000 == 0 {
 			fmt.Println(step, r1, r2)
 		}
@@ -171,5 +182,6 @@ func testOverlap(K, N int, overlap, threshold float64) {
 
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
-	testOverlap(50, 10000, 0.8, 0.95)
+	//testOverlap(50, 10000, 0.8, 0.95)
+	testController(50, 0.8, 500)
 }
