@@ -24,17 +24,16 @@ func testOverlap(K, N int, overlap float64) {
 		}
 	}
 
-	d1 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
-	e1 := ldpc.NewEncoder(experiments.TestKey, dist, K)
-	e2 := ldpc.NewEncoder(experiments.TestKey, dist, K)
+	minRate := (2.0-overlap)/2.0
+	maxRate := 2.0-overlap
+	for r1 := minRate; r1 <= maxRate; r1 += 0.05 {
+		for r2 := minRate; r2 <= maxRate; r2 += 0.05 {
+			d1 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
+			e1 := ldpc.NewEncoder(experiments.TestKey, dist, K)
+			e2 := ldpc.NewEncoder(experiments.TestKey, dist, K)
 
-	rates := []float64{1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0}
-	for _, r1 := range rates {
-		for _, r2 := range rates {
 			txset1 := make(map[ldpc.Transaction]struct{})
 			txset2 := make(map[ldpc.Transaction]struct{})
-			ntx1 := len(txset1)
-			ntx2 := len(txset2)
 			c1 := 0.0
 			c2 := 0.0
 			ptr := 0
@@ -74,8 +73,8 @@ func testOverlap(K, N int, overlap float64) {
 					c2 -= 1.0
 				}
 			}
-			deliver1 := float64(ntx1-len(txset1)) / float64(ntx1)
-			deliver2 := float64(ntx2-len(txset2)) / float64(ntx2)
+			deliver1 := float64(N-len(txset1)) / float64(N)
+			deliver2 := float64(N-len(txset2)) / float64(N)
 			fmt.Printf("%.2f %.2f %.2f %.2f\n", r1, r2, deliver1, deliver2)
 		}
 	}
