@@ -37,5 +37,6 @@ set label "Infeasible" at 0.5,0.5 center rotate by -45 front textcolor black box
 
 plot 'results2.txt' u (($1+$2)/sqrt(2)):(($2-$1)/sqrt(2)) w filledcurves x1 notitle lc rgb "#b0b0b0", \
      'results2.txt' u (($1+$2)/sqrt(2)):(($2-$1)/sqrt(2)) w lines notitle lc rgb "#b0b0b0" lw 2 , \
-     'log.txt' u 2:3 w lines notitle lw 1 lt 1
+     'log1.txt' u 2:3 w lines s bezier notitle lw 1 lt 1, \
+     'log2.txt' u 2:3 w lines s bezier  notitle lw 1 lt 2
 
