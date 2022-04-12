@@ -32,7 +32,8 @@ unset table
 set style fill pattern 7
 set tics front
 
-set label "Infeasible" at 0.5,0.5 center rotate by -45 front textcolor black
+set style textbox opaque noborder
+set label "Infeasible" at 0.5,0.5 center rotate by -45 front textcolor black boxed
 
 plot 'results2.txt' u (($1+$2)/sqrt(2)):(($2-$1)/sqrt(2)) w filledcurves x1 notitle lc rgb "#b0b0b0", \
      'results2.txt' u (($1+$2)/sqrt(2)):(($2-$1)/sqrt(2)) w lines notitle lc rgb "#b0b0b0" lw 2 , \
