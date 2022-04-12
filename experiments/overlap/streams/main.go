@@ -197,5 +197,5 @@ func testOverlap(K, N int, overlap, threshold float64) {
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
 	//testOverlap(50, 10000, 0.8, 0.95)
-	testController(50, 0.8, 0.2, 1.9, 500)
+	testController(50, 0.8, 1.9, 1.0, 500)
 }

@@ -1,10 +1,13 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 1.9,1.4
+set term pdf size 1.9,1.74 enhanced
 set output "fig-overlap.pdf"
 
-set xlabel "r1"
-set ylabel "r2"
+set size ratio 1
+
+#set lmargin 0
+set xlabel "Rate of sender 1 (s^{-1})" offset 0,0.2
+set ylabel "Rate of sender 2 (s^{-1})" offset 1,0
 set notitle
 set yrange [0:2.0]
 set xrange [0:2.0]
