@@ -24,8 +24,10 @@ func testOverlap(K, N int, overlap float64) {
 		}
 	}
 
-	minRate := (2.0-overlap)/2.0
-	maxRate := 2.0-overlap
+	//minRate := (2.0-overlap)/2.0
+	minRate := 0.0
+	maxRate := 2.0
+	//maxRate := 2.0-overlap
 	for r1 := minRate; r1 <= maxRate; r1 += 0.05 {
 		for r2 := minRate; r2 <= maxRate; r2 += 0.05 {
 			d1 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
@@ -75,7 +77,10 @@ func testOverlap(K, N int, overlap float64) {
 			}
 			deliver1 := float64(N-len(txset1)) / float64(N)
 			deliver2 := float64(N-len(txset2)) / float64(N)
-			fmt.Printf("%.2f %.2f %.2f %.2f\n", r1, r2, deliver1, deliver2)
+			if deliver1 > 0.95 && deliver2 > 0.95 {
+				fmt.Printf("%.2f %.2f %.2f %.2f\n", r1, r2, deliver1, deliver2)
+				break
+			}
 		}
 	}
 }
