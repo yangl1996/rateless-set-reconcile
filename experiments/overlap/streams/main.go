@@ -18,7 +18,7 @@ type decoder struct {
 	rxWindow []receivedCodeword
 }
 
-func testController(K int, overlap float64, timeout int) {
+func testController(K int, overlap, r1init, r2init float64, timeout int) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	d1 := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
@@ -45,13 +45,27 @@ func testController(K int, overlap float64, timeout int) {
 		return loss
 	}
 	add := func(d *decoder, cw *ldpc.Codeword) {
-		stub, _ := d.AddCodeword(cw)
+		stub, txs := d.AddCodeword(cw)
 		d.rxWindow = append(d.rxWindow, receivedCodeword{stub, step})
+		last := d
+		for len(txs) > 0 {
+			newtxs := []*ldpc.Transaction{}
+			if last == d1 {
+				last = d2
+			} else {
+				last = d1
+			}
+			for _, t := range txs {
+				buf := last.AddTransaction(t)
+				newtxs = append(newtxs, buf...)
+			}
+			txs = newtxs
+		}
 		return
 	}
 
-	r1 := 1.7
-	r2 := 1.8
+	r1 := r1init
+	r2 := r2init
 	c1 := 0.0
 	c2 := 0.0
 	for {
@@ -183,5 +197,5 @@ func testOverlap(K, N int, overlap, threshold float64) {
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
 	//testOverlap(50, 10000, 0.8, 0.95)
-	testController(50, 0.8, 500)
+	testController(50, 0.8, 0.2, 1.9, 500)
 }
