@@ -35,13 +35,13 @@ func NewEncoder(salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder {
 	return p
 }
 
-func (e *Encoder) AddTransaction(t *Transaction) {
+func (e *Encoder) AddTransaction(t *Transaction) bool {
 	e.hasher.Reset()
 	e.hasher.Write(t.hash[:])
 	hash := (uint32)(e.hasher.Sum64())
 	if _, there := e.hashes[hash]; there {
 		// the transaction is already in the window
-		return
+		return false
 	}
 	tx := saltedTransaction{hash, t}
 	e.window = append(e.window, tx)
@@ -50,6 +50,7 @@ func (e *Encoder) AddTransaction(t *Transaction) {
 		delete(e.hashes, e.window[0].saltedHash)
 		e.window = e.window[1:]
 	}
+	return true
 }
 
 func (e *Encoder) ProduceCodeword() *Codeword {
