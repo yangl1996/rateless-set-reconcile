@@ -10,6 +10,7 @@ import (
 	"flag"
 	"strings"
 	"encoding/binary"
+	"github.com/DataDog/sketches-go/ddsketch"
 )
 
 func getDelayUs(t *ldpc.Transaction) time.Duration {
@@ -46,6 +47,10 @@ func main() {
 	decodeTimeout := flag.Duration("t", 500 * time.Millisecond, "codeword decoding timeout")
 	flag.Parse()
 
+	sketch, err := ddsketch.NewDefaultDDSketchWithExactSummaryStatistics(0.01)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	c := &controller {
 		newPeer: make(chan *peer),
 		decodedTransaction: make(chan *ldpc.Transaction, 1000),
@@ -59,6 +64,7 @@ func main() {
 		incConstant: *incConstant,
 		targetLoss: *targetLoss,
 		decodeTimeout: *decodeTimeout,
+		delaySketch: sketch,
 	}
 
 	go c.loop()

@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"time"
+	"github.com/DataDog/sketches-go/ddsketch"
 )
 
 type peer struct {
@@ -90,9 +91,12 @@ type controller struct {
 	incConstant float64
 	targetLoss float64
 	decodeTimeout time.Duration
+
+	delaySketch *ddsketch.DDSketchWithExactSummaryStatistics
 }
 
 func (c *controller) loop() error {
+	ticker := time.NewTicker(1 * time.Second)
 	log.Println("controller started")
 	for {
 		select {
