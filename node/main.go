@@ -71,12 +71,18 @@ func main() {
 		addrList := strings.Split(*conn, ",")
 		for _, a := range addrList {
 			go func(addr string) {
-				cn, err := net.Dial("tcp", addr)
-				if err != nil {
-					log.Println("error connecting:", err)
-				} else {
-					c.handleConn(cn)
+				var cn net.Conn
+				var err error
+				for {
+					cn, err = net.Dial("tcp", addr)
+					if err != nil {
+						log.Println("error connecting:", err)
+						time.Sleep(time.Duration(1 * time.Second))
+					} else {
+						break
+					}
 				}
+				c.handleConn(cn)
 			}(a)
 		}
 	}
