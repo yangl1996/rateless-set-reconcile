@@ -95,9 +95,12 @@ type controller struct {
 	decodeTimeout time.Duration
 
 	delaySketch *ddsketch.DDSketchWithExactSummaryStatistics
+	warmupTime time.Duration
 }
 
 func (c *controller) loop() error {
+	start := time.Now()
+	warmupFinished := false
 	ticker := time.NewTicker(1 * time.Second)
 	log.Println("controller started")
 	for {
@@ -108,9 +111,12 @@ func (c *controller) loop() error {
 			}
 		case tx := <-c.decodedTransaction:
 			delay := getDelayUs(tx)
-			err := c.delaySketch.Add(delay)
-			if err != nil {
-				log.Println("error inserting delay into sketch:", err)
+			if warmupFinished || time.Since(start) > c.warmupTime {
+				warmupFinished = true
+				err := c.delaySketch.Add(delay/1000.0)
+				if err != nil {
+					log.Println("error inserting delay into sketch:", err)
+				}
 			}
 			for _, peer := range c.peers {
 				peer.notifyNewTransaction(tx)
@@ -119,6 +125,9 @@ func (c *controller) loop() error {
 			log.Println("new peer")
 			c.peers = append(c.peers, p)
 		case <-ticker.C:
+			if !warmupFinished {
+				continue
+			}
 			qts, err := c.delaySketch.GetValuesAtQuantiles([]float64{0.05, 0.50, 0.95})
 			if err != nil {
 				log.Println("error getting quantiles:", err)
@@ -126,7 +135,7 @@ func (c *controller) loop() error {
 			}
 			cnt := c.delaySketch.GetCount()
 			sum := c.delaySketch.GetSum()
-			log.Printf("tx=%d, p5_latency_us=%.2f, p95_latency_us=%.2f, p50_latency_us=%.2f, mean_latency_us=%.2f\n", int(cnt), qts[0], qts[2], qts[1], sum/cnt)
+			log.Printf("tx=%d, p5_latency_ms=%.2f, p95_latency_ms=%.2f, p50_latency_ms=%.2f, mean_latency_ms=%.2f\n", int(cnt), qts[0], qts[2], qts[1], sum/cnt)
 		}
 	}
 }
