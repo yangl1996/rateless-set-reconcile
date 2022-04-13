@@ -20,3 +20,4 @@ for a, b in graph.edges():
     out["Topology"].append(ne)
 
 print(json.dumps(out, sort_keys=True, indent=4))
+print("diameter:", networkx.diameter(graph), file=sys.stderr)
