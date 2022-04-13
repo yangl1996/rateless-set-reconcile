@@ -8,6 +8,33 @@ import (
 	"strings"
 )
 
+type Connection struct {
+	From int
+	To int
+}
+
+type Experiment struct {
+	Topology []Connection
+}
+
+func ReadExperimentInfo(path string) Experiment {
+	var dt Experiment
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Println("error opening file: ", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	dec := json.NewDecoder(f)
+	err = dec.Decode(&dt)
+	if err != nil {
+		fmt.Println("error decoding json: ", err)
+		os.Exit(1)
+	}
+	return dt
+}
+
 type Server struct {
 	ID       string
 	PublicIP string

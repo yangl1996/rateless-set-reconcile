@@ -6,7 +6,7 @@ import (
 )
 
 func helper() {
-	fmt.Println("available commands: cluster, exp, verify")
+	fmt.Println("available commands: cluster, exp")
 	os.Exit(1)
 }
 
@@ -21,9 +21,6 @@ func main() {
 		return
 	case "exp":
 		dispatchBwTest(os.Args[2:])
-		return
-	case "verify":
-		dispatchVerify(os.Args[2:])
 		return
 	default:
 		helper()

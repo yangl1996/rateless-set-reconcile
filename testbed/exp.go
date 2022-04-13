@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 	"os/exec"
-	"math/rand"
+	"strings"
 )
 
 type RemoteError struct {
@@ -27,9 +27,7 @@ func dispatchBwTest(args []string) {
 	command := flag.NewFlagSet("exp", flag.ExitOnError)
 	serverListFilePath := command.String("l", "servers.json", "path to the server list file")
 	install := command.String("install", "", "install the given binary")
-	generate := command.Int("generate", 0, "generate the dirty tree with the given size")
-	dim := command.Int("dim", 50, "set the dimension of the tree")
-	serve := command.Bool("serve", false, "serve the dirty tree")
+	runExp := command.String("run", "", "run the test with the given setup file")
 
 	command.Parse(args[0:])
 
@@ -59,40 +57,29 @@ func dispatchBwTest(args []string) {
 	connWg.Wait()
 
 	if *install != "" {
-		fn := func(s Server, c *ssh.Client) error {
+		fn := func(i int, s Server, c *ssh.Client) error {
 			if err := killServer(c); err != nil {
 				return err
 			}
-			return uploadFile(s, *install, "super-light-client")
+			return uploadFile(s, *install, "txcode-node")
 		}
 		runAll(servers, clients, fn)
 	}
 
-	if *generate != 0 {
-		fn := func(s Server, c *ssh.Client) error {
-			var diff int
-			for diff == 0 {
-				diff = rand.Intn(*generate)
+	if *runExp != "" {
+		exp := ReadExperimentInfo(*runExp)
+		fn := func(i int, s Server, c *ssh.Client) error {
+			// figure out my outgoing peers
+			peerAddrs := []string{}
+			for _, pair := range exp.Topology {
+				if pair.From == i {
+					peerAddrs = append(peerAddrs, servers[pair.To].PublicIP+":9000")
+				}
 			}
-			if err := killServer(c); err != nil {
-				return err
+			var peerCmd string
+			if len(peerAddrs) > 0 {
+				peerCmd = strings.Join(peerAddrs, ",")
 			}
-			if err := cleanUpLedger(c); err != nil {
-				return err
-			}
-			sess, err := c.NewSession()
-			if err != nil {
-				return err
-			}
-			defer sess.Close()
-			cmd := fmt.Sprintf("./super-light-client build -diff %d -dim %d -size %d", diff, *dim, *generate)
-			return sess.Run(cmd)
-		}
-		runAll(servers, clients, fn)
-	}
-
-	if *serve {
-		fn := func(s Server, c *ssh.Client) error {
 			if err := killServer(c); err != nil {
 				return err
 			}
@@ -101,8 +88,13 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			defer sess.Close()
-			cmd := fmt.Sprintf("./super-light-client serve")
-			fmt.Println(s.Location, "started serving")
+			var cmd string
+			if peerCmd != "" {
+				cmd = fmt.Sprintf("./txcode-node -p %s", peerCmd)
+			} else {
+				cmd = fmt.Sprintf("./txcode-node")
+			}
+			fmt.Println(s.Location, "started running")
 			return sess.Run(cmd)
 		}
 		runAll(servers, clients, fn)
@@ -110,7 +102,7 @@ func dispatchBwTest(args []string) {
 }
 
 
-func runAll(servers []Server, clients []*ssh.Client, fn func(Server, *ssh.Client) error) error {
+func runAll(servers []Server, clients []*ssh.Client, fn func(int, Server, *ssh.Client) error) error {
 	if len(servers) != len(clients) {
 		panic("incorrect")
 	}
@@ -119,7 +111,7 @@ func runAll(servers []Server, clients []*ssh.Client, fn func(Server, *ssh.Client
 	for i := range clients {
 		go func(i int, s Server, c *ssh.Client) {
 			defer wg.Done()
-			err := fn(s, c)
+			err := fn(i, s, c)
 			if err != nil {
 				switch err := err.(type) {
 				case *exec.ExitError:
@@ -165,18 +157,8 @@ func killServer(c *ssh.Client) error {
 	if err != nil {
 		return RemoteError{err, "error creating session"}
 	}
-	pkill.Run(`killall -w super-light-client`)
+	pkill.Run(`killall -w txcode-node`)
 	pkill.Close()
-	return nil
-}
-
-func cleanUpLedger(c *ssh.Client) error {
-	rmrf, err := c.NewSession()
-	if err != nil {
-		return RemoteError{err, "error creating session"}
-	}
-	rmrf.Run(`rm -rf tree.pogreb`)
-	rmrf.Close()
 	return nil
 }
 
