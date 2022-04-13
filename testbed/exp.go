@@ -28,6 +28,7 @@ func dispatchBwTest(args []string) {
 	serverListFilePath := command.String("l", "servers.json", "path to the server list file")
 	install := command.String("install", "", "install the given binary")
 	runExp := command.String("run", "", "run the test with the given setup file")
+	downloadResults := command.String("dl", "", "download the results and store it with the given prefix")
 
 	command.Parse(args[0:])
 
@@ -94,8 +95,19 @@ func dispatchBwTest(args []string) {
 			} else {
 				cmd = fmt.Sprintf("./txcode-node")
 			}
+			cmd += " &> log.txt"
 			fmt.Println(s.Location, "started running")
 			return sess.Run(cmd)
+		}
+		runAll(servers, clients, fn)
+	}
+
+	if *downloadResults != "" {
+		fn := func(i int, s Server, c *ssh.Client) error {
+			if err := killServer(c); err != nil {
+				return err
+			}
+			return copyBackFile(s, "log.txt", fmt.Sprintf("%s-%d", *downloadResults, i))
 		}
 		runAll(servers, clients, fn)
 	}
