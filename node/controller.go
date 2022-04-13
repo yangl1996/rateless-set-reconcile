@@ -21,7 +21,7 @@ func (h *peer) notifyNewTransaction(t *ldpc.Transaction) {
 	h.newTxToReceiver <- t
 }
 
-func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration, encoderKey [ldpc.SaltSize]byte, decoderKey [ldpc.SaltSize]byte) *peer {
+func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration, encoderKey [ldpc.SaltSize]byte, decoderKey [ldpc.SaltSize]byte) *peer {
 	peerLoss := make(chan int, 100)
 	ourLoss := make(chan int, 100)
 	senderNewTx := make(chan *ldpc.Transaction, 100)
@@ -29,6 +29,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(time.Now().Unix())), K, solitonC, solitonDelta)
 	s := sender{
+		peerId: id,
 		tx:                   gob.NewEncoder(conn),
 		encoder:              ldpc.NewEncoder(encoderKey, dist, int(K)),
 		cwRate:               initRate,
@@ -42,6 +43,7 @@ func newPeer(conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*l
 	}
 
 	r := receiver{
+		peerId: id,
 		rx:          gob.NewDecoder(conn),
 		decoder:     ldpc.NewDecoder(decoderKey, int(M)),
 		peerLoss: peerLoss,
@@ -105,17 +107,31 @@ func (c *controller) loop() error {
 				peer.notifyNewTransaction(tx)
 			}
 		case tx := <-c.decodedTransaction:
+			delay := getDelayUs(tx)
+			err := c.delaySketch.Add(delay)
+			if err != nil {
+				log.Println("error inserting delay into sketch:", err)
+			}
 			for _, peer := range c.peers {
 				peer.notifyNewTransaction(tx)
 			}
 		case p := <-c.newPeer:
 			log.Println("new peer")
 			c.peers = append(c.peers, p)
+		case <-ticker.C:
+			qts, err := c.delaySketch.GetValuesAtQuantiles([]float64{0.05, 0.50, 0.95})
+			if err != nil {
+				log.Println("error getting quantiles:", err)
+				break
+			}
+			cnt := c.delaySketch.GetCount()
+			sum := c.delaySketch.GetSum()
+			log.Printf("tx=%d, p5_latency_us=%.2f, p95_latency_us=%.2f, p50_latency_us=%.2f, mean_latency_us=%.2f\n", int(cnt), qts[0], qts[2], qts[1], sum/cnt)
 		}
 	}
 }
 
-func (c *controller) handleConn(conn io.ReadWriter) error {
+func (c *controller) handleConn(id string, conn io.ReadWriter) error {
 	var encoderKey [ldpc.SaltSize]byte
 	var decoderKey [ldpc.SaltSize]byte
 	rand.Read(encoderKey[:])
@@ -129,9 +145,9 @@ func (c *controller) handleConn(conn io.ReadWriter) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("key exchanged, our key %x, peer key %x\n", encoderKey[:], decoderKey[:])
+	log.Printf("key exchanged with peer %s, our key %x, peer key %x\n", id, encoderKey[:], decoderKey[:])
 
-	p := newPeer(conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout, encoderKey, decoderKey)
+	p := newPeer(id, conn, c.decodedTransaction, nil, c.K, c.M, c.solitonC, c.solitonDelta, c.initRate, c.minRate, c.incConstant, c.targetLoss, c.decodeTimeout, encoderKey, decoderKey)
 
 	c.newPeer <- p
 	return nil

@@ -8,6 +8,7 @@ import (
 )
 
 type sender struct {
+	peerId string
 	tx                   *gob.Encoder
 	encoder              *ldpc.Encoder
 	cwRate               float64 // codeword sending rate in s^-1
@@ -48,7 +49,7 @@ func (s *sender) loop() error {
 			}
 			s.nextCodeword.Loss = 0
 		case <-ticker.C:
-			log.Println("codeword rate", s.cwRate)
+			log.Printf("peer %s codeword rate %.2f\n", s.peerId, s.cwRate)
 		}
 	}
 	panic("unreachable")

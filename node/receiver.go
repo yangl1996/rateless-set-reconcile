@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"time"
+	"log"
 )
 
 type receivedCodeword struct {
@@ -12,6 +13,7 @@ type receivedCodeword struct {
 }
 
 type receiver struct {
+	peerId string
 	rx          *gob.Decoder
 	decoder                *ldpc.Decoder
 	peerLoss    chan<- int
@@ -38,9 +40,12 @@ func (r *receiver) receive(cw chan<- *ldpc.Codeword) error {
 }
 
 func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
+	ticker := time.NewTicker(1 * time.Second)
+	cwcnt := 0
 	for {
 		select {
 		case cw := <-cwChan:
+			cwcnt += 1
 			now := time.Now()
 			// clean up the pending codewords
 			loss := 0
@@ -68,6 +73,8 @@ func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
 			for _, ntx := range buf {
 				r.decodedTransaction <- ntx
 			}
+		case <-ticker.C:
+			log.Printf("peer %s received cws %d\n", r.peerId, cwcnt)
 		}
 	}
 }

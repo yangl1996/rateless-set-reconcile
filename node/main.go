@@ -13,11 +13,11 @@ import (
 	"github.com/DataDog/sketches-go/ddsketch"
 )
 
-func getDelayUs(t *ldpc.Transaction) time.Duration {
+func getDelayUs(t *ldpc.Transaction) float64 {
 	dt := t.Serialized()
 	sent := int64(binary.LittleEndian.Uint64(dt[0:8]))
 	rcvd := time.Now().UnixMicro()
-	return time.Duration(time.Duration(rcvd - sent) * time.Microsecond)
+	return float64(rcvd - sent)
 }
 
 func randomTransaction() *ldpc.Transaction {
@@ -78,7 +78,7 @@ func main() {
 			if err != nil {
 				log.Println("error accepting incoming connection:", err)
 			} else {
-				c.handleConn(cn)
+				c.handleConn(cn.RemoteAddr().String(), cn)
 			}
 		}
 	}()
@@ -98,7 +98,7 @@ func main() {
 						break
 					}
 				}
-				c.handleConn(cn)
+				c.handleConn(cn.RemoteAddr().String(), cn)
 			}(a)
 		}
 	}
