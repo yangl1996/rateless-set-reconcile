@@ -1,0 +1,222 @@
+[
+    {
+        "ID": "57302717",
+        "PublicIP": "45.76.36.191",
+        "PrivateIP": "45.76.36.191",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Amsterdam",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302706",
+        "PublicIP": "108.61.252.54",
+        "PrivateIP": "108.61.252.54",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Atlanta",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302700",
+        "PublicIP": "66.42.115.130",
+        "PrivateIP": "66.42.115.130",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Chicago",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302701",
+        "PublicIP": "216.128.135.199",
+        "PrivateIP": "216.128.135.199",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Dallas",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302702",
+        "PublicIP": "208.72.154.101",
+        "PrivateIP": "208.72.154.101",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Honolulu",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302707",
+        "PublicIP": "209.250.229.213",
+        "PrivateIP": "209.250.229.213",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "London",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302708",
+        "PublicIP": "149.28.77.3",
+        "PrivateIP": "149.28.77.3",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Los Angeles",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302703",
+        "PublicIP": "67.219.100.178",
+        "PrivateIP": "67.219.100.178",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Melbourne",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302718",
+        "PublicIP": "207.246.119.66",
+        "PrivateIP": "207.246.119.66",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Miami",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302719",
+        "PublicIP": "65.20.67.64",
+        "PrivateIP": "65.20.67.64",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Mumbai",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302709",
+        "PublicIP": "45.77.220.253",
+        "PrivateIP": "45.77.220.253",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "New Jersey",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302713",
+        "PublicIP": "140.82.55.179",
+        "PrivateIP": "140.82.55.179",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Paris",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302704",
+        "PublicIP": "45.76.247.230",
+        "PrivateIP": "45.76.247.230",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Seattle",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302714",
+        "PublicIP": "141.164.56.72",
+        "PrivateIP": "141.164.56.72",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Seoul",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302715",
+        "PublicIP": "45.63.93.152",
+        "PrivateIP": "45.63.93.152",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Silicon Valley",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302720",
+        "PublicIP": "139.180.131.209",
+        "PrivateIP": "139.180.131.209",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Singapore",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302710",
+        "PublicIP": "65.20.112.26",
+        "PrivateIP": "65.20.112.26",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Stockholm",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302705",
+        "PublicIP": "139.180.169.16",
+        "PrivateIP": "139.180.169.16",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Sydney",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302711",
+        "PublicIP": "149.248.55.182",
+        "PrivateIP": "149.248.55.182",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Toronto",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    },
+    {
+        "ID": "57302712",
+        "PublicIP": "70.34.243.226",
+        "PrivateIP": "70.34.243.226",
+        "Port": 22,
+        "User": "root",
+        "KeyPath": "/Users/leiy/.ssh/vultr",
+        "Location": "Warsaw",
+        "Tag": "ouroboros",
+        "Provider": "vultr"
+    }
+]

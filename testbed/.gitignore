@@ -8,3 +8,5 @@ temp.sh
 *.pdf
 !intra-vultr.txt
 !fc.json
+!servers-sample.json
+!config.json
