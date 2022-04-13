@@ -89,11 +89,11 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			defer sess.Close()
-			var cmd string
+			cmd := "ufw disable && "
 			if peerCmd != "" {
-				cmd = fmt.Sprintf("./txcode-node -p %s", peerCmd)
+				cmd += fmt.Sprintf("./txcode-node -p %s", peerCmd)
 			} else {
-				cmd = fmt.Sprintf("./txcode-node")
+				cmd += fmt.Sprintf("./txcode-node")
 			}
 			cmd += " &> log.txt"
 			fmt.Println(s.Location, "started running")
