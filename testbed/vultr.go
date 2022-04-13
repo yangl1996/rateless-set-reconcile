@@ -94,7 +94,6 @@ func StartServers(tag string, price float64, location string, count int) []govul
 	c := govultr.NewClient(nil, APIKey)
 
 	// check the list of vc2 instance types and get the one that costs $5 per month
-	/*
 	plans, err := c.Plan.List(context.Background(), "")
 	if err != nil {
 		fmt.Println("error listing available plans: ", err)
@@ -117,8 +116,11 @@ func StartServers(tag string, price float64, location string, count int) []govul
 		os.Exit(1)
 	}
 	planID := plan.PlanID
-	*/
-	planID := 523
+	supportedRegions := make(map[int]struct{})
+	for _, t := range plan.Regions {
+		supportedRegions[t] = struct{}{}
+	}
+	var rids []int
 
 	// get the list of regions that supports the desired VC2 instance
 	regions, err := c.Region.List(context.Background())
@@ -126,27 +128,13 @@ func StartServers(tag string, price float64, location string, count int) []govul
 		fmt.Println("error listing available regions: ", err)
 		os.Exit(1)
 	}
-	var rids []int
 	for _, v := range regions {
 		rid, err := strconv.Atoi(v.RegionID)
 		if err != nil {
 			fmt.Println("invalid region id: ", err)
 			os.Exit(1)
 		}
-		availableTypes, err := c.Region.Vc2Availability(context.Background(), rid)
-		if err != nil {
-			fmt.Println("error listing supported plans: ", err)
-			os.Exit(1)
-		}
-		// look for the plan
-		found := false
-		for _, t := range availableTypes {
-			if t == planID {
-				found = true
-				break
-			}
-		}
-		if found {
+		if _, there := supportedRegions[rid]; there {
 			// if we are matching against location
 			if location != "" {
 				loc := strings.ToLower(v.Name)
