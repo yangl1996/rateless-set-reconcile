@@ -55,7 +55,7 @@ func main() {
 		*initRate = *minRate
 	}
 
-	sketch, err := ddsketch.NewDefaultDDSketchWithExactSummaryStatistics(0.01)
+	sketch, err := ddsketch.NewDefaultDDSketchWithExactSummaryStatistics(0.001)
 	if err != nil {
 		log.Fatalln(err)
 	}

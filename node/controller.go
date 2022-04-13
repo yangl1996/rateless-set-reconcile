@@ -127,6 +127,7 @@ func (c *controller) loop() error {
 			if !warmupFinished {
 				if time.Since(start) > c.warmupTime {
 					warmupFinished = true
+					log.Println("data logging warmup completed")
 				} else {
 					break
 				}
