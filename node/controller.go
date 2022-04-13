@@ -110,23 +110,26 @@ func (c *controller) loop() error {
 				peer.notifyNewTransaction(tx)
 			}
 		case tx := <-c.decodedTransaction:
-			delay := getDelayUs(tx)
-			if warmupFinished || time.Since(start) > c.warmupTime {
-				warmupFinished = true
+			for _, peer := range c.peers {
+				peer.notifyNewTransaction(tx)
+			}
+			if warmupFinished {
+				delay := getDelayUs(tx)
 				err := c.delaySketch.Add(delay/1000.0)
 				if err != nil {
 					log.Println("error inserting delay into sketch:", err)
 				}
-			}
-			for _, peer := range c.peers {
-				peer.notifyNewTransaction(tx)
 			}
 		case p := <-c.newPeer:
 			log.Println("new peer")
 			c.peers = append(c.peers, p)
 		case <-ticker.C:
 			if !warmupFinished {
-				continue
+				if time.Since(start) > c.warmupTime {
+					warmupFinished = true
+				} else {
+					break
+				}
 			}
 			qts, err := c.delaySketch.GetValuesAtQuantiles([]float64{0.05, 0.50, 0.95})
 			if err != nil {

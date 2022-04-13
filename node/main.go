@@ -113,12 +113,21 @@ func main() {
 	}
 
 	if *txRate > 0 {
-		ticker := time.NewTicker(time.Duration(1.0 / *txRate * float64(time.Second)))
+		r := *txRate
 		go func() {
+			cnt := 0
+			timer := time.NewTimer(time.Duration(rand.ExpFloat64() / r * float64(time.Second)))
+			ticker := time.NewTicker(time.Duration(1) * time.Second)
 			for {
-				<-ticker.C
-				tx := randomTransaction()
-				c.localTransaction <- tx
+				select {
+				case <-ticker.C:
+					log.Printf("generated tx %d\n", cnt)
+				case <-timer.C:
+					timer.Reset(time.Duration(rand.ExpFloat64() / r * float64(time.Second)))
+					tx := randomTransaction()
+					c.localTransaction <- tx
+					cnt += 1
+				}
 			}
 		}()
 	}
