@@ -135,9 +135,12 @@ func StartServers(tag string, price float64, location string, count int) []govul
 			os.Exit(1)
 		}
 		if _, there := supportedRegions[rid]; there {
+			loc := strings.ToLower(v.Name)
+			if loc == "seoul" {
+				continue	// the dc is slow
+			}
 			// if we are matching against location
 			if location != "" {
-				loc := strings.ToLower(v.Name)
 				q := strings.ToLower(location)
 				if !strings.Contains(loc, q) {
 					continue

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"os/exec"
 	"strings"
+	"math/rand"
 )
 
 type RemoteError struct {
@@ -22,6 +23,7 @@ func (e RemoteError) Error() string {
 		return e.problem
 	}
 }
+
 
 func dispatchBwTest(args []string) {
 	command := flag.NewFlagSet("exp", flag.ExitOnError)
@@ -68,13 +70,15 @@ func dispatchBwTest(args []string) {
 	}
 
 	if *runExp != "" {
+		// port scanners send garbage data and confuses gob; randomize the port to mitigate
+		port := int(rand.Float64() * 40000.0) + 10000
 		exp := ReadExperimentInfo(*runExp)
 		fn := func(i int, s Server, c *ssh.Client) error {
 			// figure out my outgoing peers
 			peerAddrs := []string{}
 			for _, pair := range exp.Topology {
 				if pair.From == i {
-					peerAddrs = append(peerAddrs, servers[pair.To].PublicIP+":9000")
+					peerAddrs = append(peerAddrs, fmt.Sprintf("%s:%d", servers[pair.To].PublicIP, port))
 				}
 			}
 			var peerCmd string
@@ -89,13 +93,13 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			defer sess.Close()
-			cmd := "ufw disable && "
+			cmd := "bash -c 'ufw disable ; nohup "
 			if peerCmd != "" {
 				cmd += fmt.Sprintf("./txcode-node -p %s", peerCmd)
 			} else {
 				cmd += fmt.Sprintf("./txcode-node")
 			}
-			cmd += " &> log.txt"
+			cmd += fmt.Sprintf(" -l 0.0.0.0:%d %s > log.txt 2>&1 &'", port, strings.Join(command.Args(), " "))
 			fmt.Println(s.Location, "started running")
 			return sess.Run(cmd)
 		}
