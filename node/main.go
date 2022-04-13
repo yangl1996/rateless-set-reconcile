@@ -9,11 +9,21 @@ import (
 	"time"
 	"flag"
 	"strings"
+	"encoding/binary"
 )
 
+func getDelayUs(t *ldpc.Transaction) time.Duration {
+	dt := t.Serialized()
+	sent := int64(binary.LittleEndian.Uint64(dt[0:8]))
+	rcvd := time.Now().UnixMicro()
+	return time.Duration(time.Duration(rcvd - sent) * time.Microsecond)
+}
+
 func randomTransaction() *ldpc.Transaction {
+	ut := uint64(time.Now().UnixMicro())
     d := ldpc.TransactionData{}
-    rand.Read(d[:])
+	binary.LittleEndian.PutUint64(d[0:8], ut)
+    rand.Read(d[8:])
     t := &ldpc.Transaction{}
     t.UnmarshalBinary(d[:])
     return t

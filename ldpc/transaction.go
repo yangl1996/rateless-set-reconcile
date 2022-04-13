@@ -30,6 +30,10 @@ type Transaction struct {
 	hash       [blake2b.Size]byte
 }
 
+func (t *Transaction) Serialized() []byte {
+	return t.serialized[:]
+}
+
 func (t *Transaction) UnmarshalBinary(data []byte) error {
 	// check transaction size
 	if len(data) != TxSize {
