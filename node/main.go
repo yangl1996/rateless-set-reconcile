@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"syscall"
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"log"
 	"net"
@@ -9,8 +10,10 @@ import (
 	"time"
 	"flag"
 	"strings"
+	"context"
 	"encoding/binary"
 	"github.com/DataDog/sketches-go/ddsketch"
+	"golang.org/x/sys/unix"
 )
 
 func getDelayUs(t *ldpc.Transaction) float64 {
@@ -46,6 +49,7 @@ func main() {
 	incConstant := flag.Float64("inc", 0.1, "codeword rate increment upon loss")
 	targetLoss := flag.Float64("loss", 0.02, "target codeword loss rate")
 	decodeTimeout := flag.Duration("t", 500 * time.Millisecond, "codeword decoding timeout")
+	tcpWriteBuffer := flag.Int("tcpbuffer", 65000, "tcp write buffer size")
 	flag.Parse()
 
 	flag.VisitAll(func(f *flag.Flag) {
@@ -82,7 +86,23 @@ func main() {
 	}
 
 	go c.loop()
-	l, err := net.Listen("tcp", *addr)
+
+	// function to set the write buffer size
+	swb := func(network, address string, c syscall.RawConn) error {
+		var err error
+		c.Control(func(fd uintptr) {
+			err = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_SNDBUF, *tcpWriteBuffer)
+			if err != nil {
+				return
+			}
+		})
+		return err
+
+	}
+	lconf := &net.ListenConfig{
+		Control: swb,
+	}
+	l, err := lconf.Listen(context.Background(), "tcp", *addr)
 	if err != nil {
 		log.Fatalln("failed to listen:", err)
 	}
@@ -104,13 +124,20 @@ func main() {
 				var cn net.Conn
 				var err error
 				for {
-					cn, err = net.Dial("tcp", addr)
+					dialer := &net.Dialer{
+						Control: swb,
+					}
+					cn, err = dialer.Dial("tcp", addr)
 					if err != nil {
 						log.Println("error connecting:", err)
 						time.Sleep(time.Duration(1 * time.Second))
 					} else {
 						break
 					}
+				}
+				err = cn.(*net.TCPConn).SetWriteBuffer(*tcpWriteBuffer)
+				if err != nil {
+					log.Fatalln("failed to set write buffer:", err)
 				}
 				c.handleConn(cn.RemoteAddr().String(), cn)
 			}(a)

@@ -56,8 +56,15 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 		r.decoder.AddTransaction(existingTx)
 	}
 
+	txCwCh := make(chan Codeword, 1000)
 	go func() {
-		err := s.loop()
+		err := s.loop(txCwCh)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		err := s.sendCodewords(txCwCh)
 		if err != nil {
 			panic(err)
 		}
