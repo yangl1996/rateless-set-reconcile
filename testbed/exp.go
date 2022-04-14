@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh"
@@ -31,6 +32,7 @@ func dispatchBwTest(args []string) {
 	install := command.String("install", "", "install the given binary")
 	runExp := command.String("run", "", "run the test with the given setup file")
 	downloadResults := command.String("dl", "", "download the results and store it with the given prefix")
+	measure := command.String("ping", "", "ping the nodes to get the latency using the given setup file")
 
 	command.Parse(args[0:])
 
@@ -65,6 +67,34 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			return uploadFile(s, *install, "txcode-node")
+		}
+		runAll(servers, clients, fn)
+	}
+
+	if *measure != "" {
+		exp := ReadExperimentInfo(*measure)
+		fn := func(i int, s Server, c *ssh.Client) error {
+			for _, pair := range exp.Topology {
+				if pair.From == i {
+					cmd := fmt.Sprintf("ping -c 30 %s | tail -n1 | cut -f5 -d'/'", servers[pair.To].PublicIP)
+					sess, err := c.NewSession()
+					if err != nil {
+						return err
+					}
+					defer sess.Close()
+					out, err := sess.Output(cmd)
+					if err != nil {
+						return err
+					}
+					meanDelay, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+					if err != nil {
+						return err
+					}
+					line := fmt.Sprintf("        node[%d].peer++ <--> {  delay = %.1fms; } <--> node[%d].peer++;", pair.From, meanDelay/2.0, pair.To)
+					fmt.Println(line)
+				}
+			}
+			return nil
 		}
 		runAll(servers, clients, fn)
 	}
