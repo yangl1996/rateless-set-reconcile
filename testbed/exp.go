@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"math/rand"
+	"time"
 )
 
 type RemoteError struct {
@@ -27,6 +28,7 @@ func (e RemoteError) Error() string {
 
 
 func dispatchBwTest(args []string) {
+	rand.Seed(time.Now().UnixNano())
 	command := flag.NewFlagSet("exp", flag.ExitOnError)
 	serverListFilePath := command.String("l", "servers.json", "path to the server list file")
 	install := command.String("install", "", "install the given binary")
@@ -101,6 +103,7 @@ func dispatchBwTest(args []string) {
 
 	if *runExp != "" {
 		// port scanners send garbage data and confuses gob; randomize the port to mitigate
+
 		port := int(rand.Float64() * 40000.0) + 10000
 		exp := ReadExperimentInfo(*runExp)
 		fn := func(i int, s Server, c *ssh.Client) error {
