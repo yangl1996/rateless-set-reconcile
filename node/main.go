@@ -33,10 +33,6 @@ func randomTransaction() *ldpc.Transaction {
 func main() {
 	rand.Seed(time.Now().Unix())
 
-	flag.VisitAll(func(f *flag.Flag) {
-		log.Printf("config name %v value %v\n", f.Name, f.Value)
-	})
-
 	warmup := flag.Duration("warmup", time.Duration(1)*time.Minute, "time to wait before collecting data")
 	addr := flag.String("l", ":9000", "address to listen")
 	conn := flag.String("p", "", "comma-delimited list of addresses to connect to")
@@ -51,6 +47,11 @@ func main() {
 	targetLoss := flag.Float64("loss", 0.02, "target codeword loss rate")
 	decodeTimeout := flag.Duration("t", 500 * time.Millisecond, "codeword decoding timeout")
 	flag.Parse()
+
+	flag.VisitAll(func(f *flag.Flag) {
+		log.Printf("config name %v value %v\n", f.Name, f.Value)
+	})
+
 
 	if *initRate == 0 {
 		*initRate = *txRate
