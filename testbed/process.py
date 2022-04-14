@@ -22,6 +22,7 @@ for i in range(args.n):
     cwcnt = []
     txcnt = []
     gencnt = []
+    txdelay = [0, 0, 0, 0]  # p5 p50 p95 mean
     # take the first pass to find all peers
     with open(filename) as f:
         for line in f:
@@ -54,6 +55,18 @@ for i in range(args.n):
                     end = line.find(", p5_latency_ms")
                     cnt = int(line[start:end])
                     txcnt.append(cnt)
+                    start = line.find("p5_latency_ms=") + 14
+                    end = line.find(", p95")
+                    txdelay[0] = float(line[start:end])
+                    start = line.find("p95_latency_ms=") + 15
+                    end = line.find(", p50")
+                    txdelay[2] = float(line[start:end])
+                    start = line.find("p50_latency_ms=") + 15
+                    end = line.find(", mean")
+                    txdelay[1] = float(line[start:end])
+                    start = line.find("mean_latency_ms=") + 16
+                    end = line.find("\n")
+                    txdelay[3] = float(line[start:end])
                 elif "generated tx" in line:
                     dt = int(datetime.strptime(line[0:19], '%Y/%m/%d %H:%M:%S').timestamp())
                     start = line.find("tx") + 3
@@ -78,5 +91,5 @@ for i in range(args.n):
     endTx = txcnt[minLen-1]
     startGen = gencnt[0]
     endGen = gencnt[minLen-1]
-    # overhead (cw/tx), received tx rate
-    print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen))
+    # overhead (cw/tx), received tx rate, latency p5, p50, p95, mean
+    print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
