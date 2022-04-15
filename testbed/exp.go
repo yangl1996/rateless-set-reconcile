@@ -126,7 +126,7 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			defer sess.Close()
-			cmd := "bash -c 'ufw disable ; nohup "
+			cmd := "bash -c 'sysctl net.ipv4.tcp_congestion_control=bbr; ufw disable ; nohup "
 			if peerCmd != "" {
 				cmd += fmt.Sprintf("./txcode-node -p %s", peerCmd)
 			} else {
