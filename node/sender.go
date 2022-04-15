@@ -47,7 +47,7 @@ func (s *sender) loop(ch chan<- Codeword) error {
 			s.encoder.AddTransaction(tx)
 		case <-s.sendTimer.C:
 			// send the codeword
-			nc := Codeword{s.encoder.ProduceCodeword(), s.accumLoss}
+			nc := Codeword{s.encoder.ProduceCodeword(), s.accumLoss, time.Now().UnixMicro()}
 			select {
 			case ch <- nc:
 				s.accumLoss = 0

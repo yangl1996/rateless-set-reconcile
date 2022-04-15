@@ -5,6 +5,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/ldpc"
 	"time"
 	"log"
+	"github.com/DataDog/sketches-go/ddsketch"
 )
 
 type receivedCodeword struct {
@@ -23,23 +24,21 @@ type receiver struct {
 
 	rxWindow               []receivedCodeword
 	timeout                time.Duration
+	delaySketch *ddsketch.DDSketchWithExactSummaryStatistics
 }
 
-func (r *receiver) receive(cw chan<- *ldpc.Codeword) error {
+func (r *receiver) receive(cw chan<- Codeword) error {
 	for {
-		newcw := &Codeword{}
-		err := r.rx.Decode(newcw)
+		newcw := Codeword{}
+		err := r.rx.Decode(&newcw)
 		if err != nil {
 			return err
 		}
-		if newcw.Loss > 0 {
-			r.peerLoss <- newcw.Loss
-		}
-		cw <- newcw.Codeword
+		cw <- newcw
 	}
 }
 
-func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
+func (r *receiver) decode(cwChan <-chan Codeword) error {
 	ticker := time.NewTicker(1 * time.Second)
 	cwcnt := 0
 	for {
@@ -62,8 +61,15 @@ func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
 				r.rxWindow = r.rxWindow[1:]
 			}
 			r.ourLoss <- loss
+			// report the loss of the peer
+			if cw.Loss > 0 {
+				r.peerLoss <- cw.Loss
+			}
+			// record the codeword transmission delay
+			delayms := float64(time.Now().UnixMicro() - cw.UnixMicro) / 1000.0
+			r.delaySketch.Add(delayms)
 			// try to decode the new codeword
-			stub, buf := r.decoder.AddCodeword(cw)
+			stub, buf := r.decoder.AddCodeword(cw.Codeword)
 			r.rxWindow = append(r.rxWindow, receivedCodeword{stub, now})
 			for _, ntx := range buf {
 				r.decodedTransaction <- ntx
@@ -74,7 +80,14 @@ func (r *receiver) decode(cwChan <-chan *ldpc.Codeword) error {
 				r.decodedTransaction <- ntx
 			}
 		case <-ticker.C:
-			log.Printf("peer %s received cws %d\n", r.peerId, cwcnt)
+			qts, err := r.delaySketch.GetValuesAtQuantiles([]float64{0.50, 0.95})
+			if err != nil {
+				qts = []float64{-1, -1}
+			}
+			cnt := r.delaySketch.GetCount()
+			sum := r.delaySketch.GetSum()
+			log.Printf("peer %s received cws %d last second delay ms median %.1f p95 %.1f mean %.1f\n", r.peerId, cwcnt, qts[0], qts[1], sum/cnt)
+			r.delaySketch.Clear()
 		}
 	}
 }

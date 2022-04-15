@@ -42,6 +42,11 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 		newTransaction:       senderNewTx,
 	}
 
+	sketch, err := ddsketch.NewDefaultDDSketchWithExactSummaryStatistics(0.001)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	r := receiver{
 		peerId: id,
 		rx:          gob.NewDecoder(conn),
@@ -51,6 +56,7 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 		decodedTransaction: decoded,
 		newTransaction: receiverNewTx,
 		timeout:     decodeTimeout,
+		delaySketch: sketch,
 	}
 	for _, existingTx := range importTx {
 		r.decoder.AddTransaction(existingTx)
@@ -69,7 +75,7 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 			panic(err)
 		}
 	}()
-	cwCh := make(chan *ldpc.Codeword, 1000)
+	cwCh := make(chan Codeword, 1000)
 	go func() {
 		err := r.receive(cwCh)
 		if err != nil {

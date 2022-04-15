@@ -7,6 +7,7 @@ import (
 type Codeword struct {
 	*ldpc.Codeword
 	Loss int
+	UnixMicro int64
 }
 
 type HashKey struct {
