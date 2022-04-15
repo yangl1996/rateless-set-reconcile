@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("PREFIX", help="prefix of the files", type=str)
 parser.add_argument("N", help="index of the node", type=int)
 parser.add_argument("--cw-trace", help="print the codeword count trace", default=False, action='store_true')
+parser.add_argument("--tx-trace", help="print the transaction count trace", default=False, action='store_true')
 args = parser.parse_args()
 
 filename = args.PREFIX + "-" + str(args.N)
@@ -40,24 +41,12 @@ with open(filename) as f:
             end = line.find(" last second")
             cnt = int(line[start:end])
             cwcnt[peeridx].append(cnt)
-        elif "tx=" in line:
+        elif "total tx" in line:
             dt = int(datetime.strptime(line[0:19], '%Y/%m/%d %H:%M:%S').timestamp())
-            start = line.find("tx=") + 3
-            end = line.find(", p5_latency_ms")
+            start = line.find("total tx") + 9
+            end = line.find("\n")
             cnt = int(line[start:end])
             txcnt.append(cnt)
-            start = line.find("p5_latency_ms=") + 14
-            end = line.find(", p95")
-            txdelay[0] = float(line[start:end])
-            start = line.find("p95_latency_ms=") + 15
-            end = line.find(", p50")
-            txdelay[2] = float(line[start:end])
-            start = line.find("p50_latency_ms=") + 15
-            end = line.find(", mean")
-            txdelay[1] = float(line[start:end])
-            start = line.find("mean_latency_ms=") + 16
-            end = line.find("\n")
-            txdelay[3] = float(line[start:end])
         elif "generated tx" in line:
             dt = int(datetime.strptime(line[0:19], '%Y/%m/%d %H:%M:%S').timestamp())
             start = line.find("tx") + 3
@@ -79,3 +68,10 @@ if args.cw_trace:
             print(t, tot-last)
         last = tot
 
+if args.tx_trace:
+    last = None
+    minLen = len(txcnt)
+    for t in range(minLen):
+        if not last is None:
+            print(t, txcnt[t]-last)
+        last = txcnt[t]
