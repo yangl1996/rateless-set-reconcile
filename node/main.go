@@ -70,7 +70,7 @@ func main() {
 	}
 	c := &controller {
 		newPeer: make(chan *peer),
-		decodedTransaction: make(chan *ldpc.Transaction, 1000),
+		decodedTransaction: make(chan ldpc.DecodedTransaction, 1000),
 		localTransaction: make(chan *ldpc.Transaction, 1000),
 		K: *K,
 		M: *M,

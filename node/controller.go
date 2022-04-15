@@ -16,12 +16,16 @@ type peer struct {
 	newTxToReceiver chan<- *ldpc.Transaction
 }
 
-func (h *peer) notifyNewTransaction(t *ldpc.Transaction) {
+func (h *peer) notifyUnexpiredTransaction (t *ldpc.Transaction) {
 	h.newTxToSender <- t
-	h.newTxToReceiver <- t
+	h.newTxToReceiver <- t 
 }
 
-func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration, encoderKey [ldpc.SaltSize]byte, decoderKey [ldpc.SaltSize]byte) *peer {
+func (h *peer) notifyExpiredTransaction(t *ldpc.Transaction) {
+	h.newTxToReceiver <- t 
+}
+
+func newPeer(id string, conn io.ReadWriter, decoded chan<- ldpc.DecodedTransaction, importTx []*ldpc.Transaction, K, M uint64, solitonC, solitonDelta, initRate, minRate, incConstant, targetLoss float64, decodeTimeout time.Duration, encoderKey [ldpc.SaltSize]byte, decoderKey [ldpc.SaltSize]byte) *peer {
 	peerLoss := make(chan int, 100)
 	ourLoss := make(chan int, 100)
 	senderNewTx := make(chan *ldpc.Transaction, 100)
@@ -93,7 +97,7 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 type controller struct {
 	peers            []*peer
 	newPeer          chan *peer
-	decodedTransaction chan *ldpc.Transaction
+	decodedTransaction chan ldpc.DecodedTransaction
 	localTransaction chan *ldpc.Transaction
 
 	K uint64
@@ -120,15 +124,19 @@ func (c *controller) loop() error {
 		select {
 		case tx := <-c.localTransaction:
 			for _, peer := range c.peers {
-				peer.notifyNewTransaction(tx)
+				peer.notifyUnexpiredTransaction(tx)
 			}
 		case tx := <-c.decodedTransaction:
 			txcnt += 1
 			for _, peer := range c.peers {
-				peer.notifyNewTransaction(tx)
+				if tx.Expired {
+					peer.notifyExpiredTransaction(tx.Transaction)
+				} else {
+					peer.notifyUnexpiredTransaction(tx.Transaction)
+				}
 			}
 			if warmupFinished {
-				delay := getDelayUs(tx)
+				delay := getDelayUs(tx.Transaction)
 				err := c.delaySketch.Add(delay/1000.0)
 				if err != nil {
 					log.Println("error inserting delay into sketch:", err)

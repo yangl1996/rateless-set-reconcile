@@ -39,6 +39,11 @@ func (tx *pendingTransaction) markDecoded(preimage *Transaction, decodableCws []
 	return decodableCws
 }
 
+type DecodedTransaction struct {
+	*Transaction
+	Expired bool // if the transaction is decoded from a timed-out codeword
+}
+
 var pendingCodewordPool = sync.Pool{
 	New: func() interface{} {
 		return &PendingCodeword{}
@@ -53,6 +58,7 @@ type PendingCodeword struct {
 	// TODO: show if the codeword failed to decode
 	freed   bool
 }
+
 
 func (cw *PendingCodeword) Free() {
 	cw.freed = true
@@ -153,7 +159,7 @@ func (p *Decoder) storeNewTransaction(hash uint32, t *Transaction) {
 	}
 }
 
-func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Transaction) {
+func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []DecodedTransaction) {
 	cw := pendingCodewordPool.Get().(*PendingCodeword)
 	cw.reset()
 	cw.symbol = rawCodeword.Symbol
@@ -190,7 +196,7 @@ func (p *Decoder) AddCodeword(rawCodeword *Codeword) (*PendingCodeword, []*Trans
 	return cw, nil
 }
 
-func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
+func (p *Decoder) AddTransaction(t *Transaction) []DecodedTransaction {
 	p.hasher.Reset()
 	p.hasher.Write(t.hash[:])
 	hash := (uint32)(p.hasher.Sum64())
@@ -226,8 +232,8 @@ func (p *Decoder) AddTransaction(t *Transaction) []*Transaction {
 
 // decodeCodewords decodes the list of codewords cws, and returns the list of
 // transactions decoded. It updates its local receivedTransactions set.
-func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
-	newTx := []*Transaction{}
+func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []DecodedTransaction {
+	newTx := []DecodedTransaction{}
 	for len(queue) > 0 {
 		// pop the last item from the queue (stack)
 		c := queue[len(queue)-1]
@@ -262,7 +268,7 @@ func (p *Decoder) decodeCodewords(queue []*PendingCodeword) []*Transaction {
 						//TODO: streamline the API
 						//panic("hash of decoded transaction does not match codeword header")
 					} else {
-						newTx = append(newTx, decodedTx)
+						newTx = append(newTx, DecodedTransaction{decodedTx, c.freed}) // c.freed means that the user has timed out the tx
 						delete(p.pendingTransactions, tx.saltedHash)
 						p.storeNewTransaction(tx.saltedHash, decodedTx)
 						queue = tx.markDecoded(decodedTx, queue)

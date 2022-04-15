@@ -19,7 +19,7 @@ type receiver struct {
 	decoder                *ldpc.Decoder
 	peerLoss    chan<- int
 	ourLoss     chan<- int
-	decodedTransaction chan<- *ldpc.Transaction
+	decodedTransaction chan<- ldpc.DecodedTransaction
 	newTransaction <-chan *ldpc.Transaction
 
 	rxWindow               []receivedCodeword
