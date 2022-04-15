@@ -21,6 +21,7 @@ type sender struct {
 	peerLoss       <-chan int
 	ourLoss        <-chan int
 	newTransaction <-chan *ldpc.Transaction
+	droppedCodewords int
 }
 
 func (s *sender) sendCodewords(ch <-chan Codeword) error {
@@ -56,11 +57,12 @@ func (s *sender) loop(ch chan<- Codeword) error {
 				}
 			default:
 				// do not reset accumLoss now that the codeword is skipped
+				s.droppedCodewords += 1
 			}
 			// schedule the next event
 			s.sendTimer.Reset(time.Duration(1.0 / s.cwRate * float64(time.Second)))
 		case <-ticker.C:
-			log.Printf("peer %s codeword rate %.2f\n", s.peerId, s.cwRate)
+			log.Printf("peer %s codeword rate %.2f dropped %d\n", s.peerId, s.cwRate, s.droppedCodewords)
 		}
 	}
 	panic("unreachable")
