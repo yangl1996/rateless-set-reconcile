@@ -23,6 +23,7 @@ for i in range(args.n):
     txcnt = []
     gencnt = []
     txdelay = [0, 0, 0, 0]  # p5 p50 p95 mean
+    cwrate = []
     # take the first pass to find all peers
     with open(filename) as f:
         for line in f:
@@ -33,6 +34,7 @@ for i in range(args.n):
                 peers[addr] = peercnt
                 peercnt += 1
                 cwcnt.append([])
+                cwrate.append(0)
     # take the second pass to gather data
     with open(filename) as f:
         started = False
@@ -73,6 +75,14 @@ for i in range(args.n):
                     end = line.find("\n")
                     cnt = int(line[start:end])
                     gencnt.append(cnt)
+                elif "codeword rate" in line:
+                    start = line.find("peer") + 5
+                    end = line.find(" codeword rate")
+                    peeridx = peers[line[start:end]]
+                    start = line.find("rate") + 5
+                    end = line.find("\n")
+                    rate = float(line[start:end])
+                    cwrate[peeridx] = rate
     # compute the total number of codewords
     minLen = 10000000000
     for i in range(peercnt):
@@ -93,3 +103,5 @@ for i in range(args.n):
     endGen = gencnt[minLen-1]
     # overhead (cw/tx), received tx rate, latency p5, p50, p95, mean
     print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
+    print(cwrate)
+
