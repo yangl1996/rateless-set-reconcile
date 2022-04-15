@@ -36,7 +36,6 @@ func newPeer(id string, conn io.ReadWriter, decoded chan<- *ldpc.Transaction, im
 		rateIncreaseConstant: incConstant,
 		rateDecreaseConstant: incConstant*targetLoss,
 		minRate: minRate,
-		sendTimer:            time.NewTimer(time.Duration(1.0 / initRate * float64(time.Second))),
 		peerLoss:             peerLoss,
 		ourLoss: ourLoss,
 		newTransaction:       senderNewTx,

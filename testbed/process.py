@@ -80,7 +80,7 @@ for i in range(args.n):
                     end = line.find(" codeword rate")
                     peeridx = peers[line[start:end]]
                     start = line.find("rate") + 5
-                    end = line.find("\n")
+                    end = line.find("dropped")
                     rate = float(line[start:end])
                     cwrate[peeridx] = rate
     # compute the total number of codewords

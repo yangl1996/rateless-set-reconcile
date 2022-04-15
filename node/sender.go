@@ -17,11 +17,11 @@ type sender struct {
 	minRate				float64
 	accumLoss int
 
-	sendTimer      *time.Timer
 	peerLoss       <-chan int
 	ourLoss        <-chan int
 	newTransaction <-chan *ldpc.Transaction
 	droppedCodewords int
+	credit float64
 }
 
 func (s *sender) sendCodewords(ch <-chan Codeword) error {
@@ -35,6 +35,7 @@ func (s *sender) sendCodewords(ch <-chan Codeword) error {
 }
 
 func (s *sender) loop(ch chan<- Codeword) error {
+	sendTicker := time.NewTicker(10 * time.Millisecond)
 	ticker := time.NewTicker(1 * time.Second)
 	log.Println("sender started")
 	for {
@@ -45,22 +46,24 @@ func (s *sender) loop(ch chan<- Codeword) error {
 			s.accumLoss += l
 		case tx := <-s.newTransaction:
 			s.encoder.AddTransaction(tx)
-		case <-s.sendTimer.C:
-			// send the codeword
-			nc := Codeword{s.encoder.ProduceCodeword(), s.accumLoss, time.Now().UnixMicro()}
-			select {
-			case ch <- nc:
-				s.accumLoss = 0
-				s.cwRate -= s.rateDecreaseConstant
-				if s.cwRate < s.minRate {
-					s.cwRate = s.minRate
+		case <-sendTicker.C:
+			s.credit += 0.01 * s.cwRate
+			for s.credit >= 1.0 {
+				s.credit -= 1.0
+				// send the codewords
+				nc := Codeword{s.encoder.ProduceCodeword(), s.accumLoss, time.Now().UnixMicro()}
+				select {
+				case ch <- nc:
+					s.accumLoss = 0
+					s.cwRate -= s.rateDecreaseConstant
+					if s.cwRate < s.minRate {
+						s.cwRate = s.minRate
+					}
+				default:
+					// do not reset accumLoss now that the codeword is skipped
+					s.droppedCodewords += 1
 				}
-			default:
-				// do not reset accumLoss now that the codeword is skipped
-				s.droppedCodewords += 1
 			}
-			// schedule the next event
-			s.sendTimer.Reset(time.Duration(1.0 / s.cwRate * float64(time.Second)))
 		case <-ticker.C:
 			log.Printf("peer %s codeword rate %.2f dropped %d\n", s.peerId, s.cwRate, s.droppedCodewords)
 		}
