@@ -112,6 +112,7 @@ type controller struct {
 }
 
 func (c *controller) loop() error {
+	txcnt := 0
 	start := time.Now()
 	warmupFinished := false
 	ticker := time.NewTicker(1 * time.Second)
@@ -123,6 +124,7 @@ func (c *controller) loop() error {
 				peer.notifyNewTransaction(tx)
 			}
 		case tx := <-c.decodedTransaction:
+			txcnt += 1
 			for _, peer := range c.peers {
 				peer.notifyNewTransaction(tx)
 			}
@@ -137,6 +139,7 @@ func (c *controller) loop() error {
 			log.Println("new peer")
 			c.peers = append(c.peers, p)
 		case <-ticker.C:
+			log.Printf("total tx %d\n", txcnt)
 			if !warmupFinished {
 				if time.Since(start) > c.warmupTime {
 					warmupFinished = true
@@ -152,7 +155,7 @@ func (c *controller) loop() error {
 			}
 			cnt := c.delaySketch.GetCount()
 			sum := c.delaySketch.GetSum()
-			log.Printf("tx=%d, p5_latency_ms=%.2f, p95_latency_ms=%.2f, p50_latency_ms=%.2f, mean_latency_ms=%.2f\n", int(cnt), qts[0], qts[2], qts[1], sum/cnt)
+			log.Printf("since warm up tx=%d, p5_latency_ms=%.2f, p95_latency_ms=%.2f, p50_latency_ms=%.2f, mean_latency_ms=%.2f\n", int(cnt), qts[0], qts[2], qts[1], sum/cnt)
 		}
 	}
 }
