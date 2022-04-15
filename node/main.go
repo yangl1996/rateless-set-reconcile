@@ -105,6 +105,8 @@ func main() {
 	l, err := lconf.Listen(context.Background(), "tcp", *addr)
 	if err != nil {
 		log.Fatalln("failed to listen:", err)
+	} else {
+		log.Println("start listening at", l.Addr())
 	}
 	go func() {
 		for {
