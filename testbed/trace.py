@@ -37,7 +37,7 @@ with open(filename) as f:
             end = line.find(" received")
             peeridx = peers[line[start:end]]
             start = line.find("cws") + 4
-            end = line.find("\n")
+            end = line.find(" last second")
             cnt = int(line[start:end])
             cwcnt[peeridx].append(cnt)
         elif "tx=" in line:
