@@ -13,7 +13,8 @@ parser.add_argument("-n", help="number of servers", type=int, default=19)
 #parser.add_argument("--latency", help="use latency file", type=str, default=None)
 args = parser.parse_args()
 
-results = []
+totgen = 0
+rcvd = []
 
 for i in range(args.n):
     filename = args.PREFIX + "-" + str(i)
@@ -103,5 +104,8 @@ for i in range(args.n):
     endGen = gencnt[minLen-1]
     # overhead (cw/tx), received tx rate, latency p5, p50, p95, mean
     print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
+    totgen += (gencnt[minLen-1]-gencnt[0])
+    rcvd.append(endTx-startTx+endGen-startGen)
 #    print(cwrate)
-
+for v in rcvd:
+    print(v / totgen)
