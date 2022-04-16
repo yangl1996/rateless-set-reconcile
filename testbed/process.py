@@ -4,6 +4,7 @@ import re
 import argparse
 import glob
 from datetime import datetime
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("PREFIX", help="prefix of the files", type=str)
@@ -16,6 +17,9 @@ args = parser.parse_args()
 totgen = 0
 tottime = 0
 rcvd = []
+dl= []
+meanDelay = []
+overhead = []
 
 for i in range(args.n):
     filename = args.PREFIX + "-" + str(i)
@@ -108,6 +112,13 @@ for i in range(args.n):
     totgen += (gencnt[minLen-1]-gencnt[0])
     rcvd.append(endTx-startTx+endGen-startGen)
     tottime += minLen
+    overhead.append(float(endCw-startCw) / float(endTx-startTx+endGen-startGen))
+    meanDelay.append(txdelay[3])
+
 for v in rcvd:
-    print(v / totgen)
+    dl.append(v / totgen)
+
 print("per-node generation rate:", totgen/(tottime/args.n)/args.n)
+print("deliverability p5 mean p95:", np.quantile(dl, 0.05), np.mean(dl), np.quantile(dl, 0.95))
+print("overhead p5 mean p95:", np.quantile(overhead, 0.05), np.mean(overhead), np.quantile(overhead, 0.95))
+print("average delay p5 mean p95:", np.quantile(meanDelay, 0.05), np.mean(meanDelay), np.quantile(meanDelay, 0.95))
