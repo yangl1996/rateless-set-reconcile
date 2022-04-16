@@ -104,7 +104,7 @@ for i in range(args.n):
     startGen = gencnt[0]
     endGen = gencnt[minLen-1]
     # overhead (cw/tx), received tx rate, latency p5, p50, p95, mean
-    print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
+    print(float(endCw-startCw) / float(endTx-startTx+endGen-startGen), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
     totgen += (gencnt[minLen-1]-gencnt[0])
     rcvd.append(endTx-startTx+endGen-startGen)
     tottime += minLen
