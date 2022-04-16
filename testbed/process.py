@@ -113,7 +113,7 @@ for i in range(args.n):
     rcvd.append(endTx-startTx+endGen-startGen)
     tottime += minLen
     overhead.append(float(endCw-startCw) / float(endTx-startTx+endGen-startGen))
-    meanDelay.append(txdelay[3])
+    meanDelay.append(txdelay[3] * (endTx-startTx) / (endTx-startTx+endGen-startGen))
 
 for v in rcvd:
     dl.append(v / totgen)
@@ -121,4 +121,5 @@ for v in rcvd:
 print("per-node generation rate:", totgen/(tottime/args.n)/args.n)
 print("deliverability p5 mean p95:", np.quantile(dl, 0.05), np.mean(dl), np.quantile(dl, 0.95))
 print("overhead p5 mean p95:", np.quantile(overhead, 0.05), np.mean(overhead), np.quantile(overhead, 0.95))
-print("average delay p5 mean p95:", np.quantile(meanDelay, 0.05), np.mean(meanDelay), np.quantile(meanDelay, 0.95))
+print("average delay p5 mean p95:", np.quantile(meanDelay, 0.05)/1000, np.mean(meanDelay)/1000, np.quantile(meanDelay, 0.95)/1000)
+print(totgen/(tottime/args.n), np.quantile(dl, 0.05), np.mean(dl), np.quantile(dl, 0.95), np.quantile(overhead, 0.05), np.mean(overhead), np.quantile(overhead, 0.95), np.quantile(meanDelay, 0.05)/1000, np.mean(meanDelay)/1000, np.quantile(meanDelay, 0.95)/1000)
