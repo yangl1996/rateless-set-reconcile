@@ -14,6 +14,7 @@ parser.add_argument("-n", help="number of servers", type=int, default=19)
 args = parser.parse_args()
 
 totgen = 0
+tottime = 0
 rcvd = []
 
 for i in range(args.n):
@@ -106,6 +107,7 @@ for i in range(args.n):
     print(float(endCw-startCw) / float(endTx-startTx), float(endTx-startTx+endGen-startGen) / float(minLen), txdelay[0], txdelay[1], txdelay[2], txdelay[3])
     totgen += (gencnt[minLen-1]-gencnt[0])
     rcvd.append(endTx-startTx+endGen-startGen)
-#    print(cwrate)
+    tottime += minLen
 for v in rcvd:
     print(v / totgen)
+print("per-node generation rate:", totgen/(tottime/args.n)/args.n)
