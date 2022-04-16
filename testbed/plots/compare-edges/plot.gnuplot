@@ -1,6 +1,6 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 3.8,1.5
+set term pdf size 3.8,1.4
 set output "compare-edges.pdf"
 set ylabel "Codeword rate"
 set xlabel "Edge"
