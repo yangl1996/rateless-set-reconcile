@@ -1,6 +1,6 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 3.8,1.5 #font ",13"
+set term pdf size 3.8,1.4 #font ",13"
 set output "compare-metrics.pdf"
 set multiplot layout 1,3
 set notitle
@@ -10,7 +10,7 @@ g(r, d) = r * 19.0 / 18.0 * (1.0 + d * 4.0 / 128.0) - 1.0
 
 set lmargin 5
 set rmargin 2.1
-set bmargin 4
+set bmargin 3.2
 set tmargin 1.8
 
 set xrange [0:4000]
