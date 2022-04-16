@@ -3,7 +3,7 @@
 set term pdf size 3.8,1.4
 set output "compare-edges.pdf"
 set ylabel "Codeword rate (s^{-1})"
-set xlabel "Edge"
+set xlabel "Pair of peers"
 set y2label "Rel. difference"
 set notitle
 #set yrange [0:77]
