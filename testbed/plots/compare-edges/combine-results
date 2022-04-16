@@ -1,1 +1,1 @@
-cut -f 3 -d' ' sim.csv | paste -d ' ' real.csv -
+cut -f 3 -d' ' sim-adjusted.csv | paste -d ' ' real.csv -

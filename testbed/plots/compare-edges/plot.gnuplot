@@ -21,5 +21,5 @@ set key outside top center maxrows 1
 set style fill transparent solid 0.3 noborder
 
 plot "combined.csv" using 0:($4-$3)/$3 title "Rel. diff." axes x1y2 with boxes, \
-  "combined.csv" using 0:3 title "Real-world" with lines lw 2 lc rgb '#4dbeee', \
-  "combined.csv" using 0:4 title "Simulation" with lines lw 2 lc rgb '#77ac30'
+  "combined.csv" using 0:3 title "Real-world" with lines lw 1.5 lc rgb '#4dbeee', \
+  "combined.csv" using 0:4 title "Simulation" with lines lw 1.5 lc rgb '#77ac30'
