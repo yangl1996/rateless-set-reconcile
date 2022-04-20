@@ -44,7 +44,7 @@ func testOverlap(K int, txs []*ldpc.Transaction) (float64, float64) {
 		for i := 0; i < K; i++ {
 			d2.AddTransaction(txs[i])
 			d2.AddTransaction(txs[i+K+nc])
-			//e.AddTransaction(txlist[i])
+			//e.AddTransaction(txs[i])
 		}
 		for i := K; i < nc+K; i++ {
 			txset2[*txs[i]] = struct{}{}

@@ -6,8 +6,8 @@ set output "fig-overlap-xy.pdf"
 set size ratio 0.666
 
 #set lmargin 0
-set xlabel "Rate of sender 1 (s^{-1})" offset 0,0.2
-set ylabel "Rate of sender 2 (s^{-1})" offset 0,0
+set xlabel "Node A codeword rate (s^{-1})" offset 0,0.2
+set ylabel "Node B codeword rate (s^{-1})" offset 0,0
 set notitle
 set yrange [0:2]
 set xrange [0:3]
