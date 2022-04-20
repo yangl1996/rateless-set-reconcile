@@ -1,6 +1,6 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 1.9,1.4
+set term pdf size 2.6,1.8
 set output "fig-windowed-comparison.pdf"
 
 set lmargin 6.2

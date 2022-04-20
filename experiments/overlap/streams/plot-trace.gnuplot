@@ -1,12 +1,14 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 3.8,1.8 enhanced
+set term pdf size 2.6,1.8 enhanced
 set output "fig-overlap-trace.pdf"
 
+set rmargin 7
+set lmargin 8
 #set lmargin 0
 set xlabel "Time (s)" offset 0,0.2
-set ylabel "Codeword rate(s^{-1})" offset 0,0
-set y2label "Loss rate" offset 0,0
+set ylabel "Codeword rate (s^{-1})" offset 1,0
+set y2label "Loss rate" offset -2,0
 set ytics nomirror
 set notitle
 set yrange [0:2000]

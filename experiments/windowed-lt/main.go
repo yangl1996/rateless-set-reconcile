@@ -9,55 +9,49 @@ import (
 	"math"
 )
 
-func testOverlap(K int) (float64, float64) {
+func testOverlap(K int, txs []*ldpc.Transaction) (float64, float64) {
 	dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 	e1 := ldpc.NewEncoder(experiments.TestKey, dist1, K)
 	d1 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
 
+	ptr := 0
 	txset := make(map[ldpc.Transaction]struct{})
 	for i := 0; i < K; i++ {
-		tx := experiments.RandomTransaction()
-		e1.AddTransaction(tx)
-		txset[*tx] = struct{}{}
+		e1.AddTransaction(txs[ptr])
+		txset[*txs[ptr]] = struct{}{}
+		ptr+=1
 	}
 	cnt1 := 0
 	for len(txset) > 0 {
 		c := e1.ProduceCodeword()
 		_, newtx := d1.AddCodeword(c)
 		for _, tx := range newtx {
-			delete(txset, *tx)
+			delete(txset, *tx.Transaction)
 		}
 		cnt1++
 	}
 	rate1 := float64(cnt1) / float64(K)
 
 	nc := 5000
-	rate2 := 1.0
-	txlist := []*ldpc.Transaction{}
-	for i := 0; i < nc+2*K; i++ {
-		tx := experiments.RandomTransaction()
-		txlist = append(txlist, tx)
-	}
 	ncode := 0
-	for ;;rate2 += 0.02 {
+	max := 2.0
+	min := 1.0
+	test := func(rate2 float64) bool {
 		ncode = 0
-		if rate2 > 5.0 {
-			panic("high rate")
-		}
 		txset2 := make(map[ldpc.Transaction]struct{})
 		d2 := ldpc.NewDecoder(experiments.TestKey, 2147483647)
 		e := ldpc.NewEncoder(experiments.TestKey, dist1, K)
 		for i := 0; i < K; i++ {
-			d2.AddTransaction(txlist[i])
-			d2.AddTransaction(txlist[i+K+nc])
+			d2.AddTransaction(txs[i])
+			d2.AddTransaction(txs[i+K+nc])
 			//e.AddTransaction(txlist[i])
 		}
 		for i := K; i < nc+K; i++ {
-			txset2[*txlist[i]] = struct{}{}
+			txset2[*txs[i]] = struct{}{}
 		}
 		credit := 0.0
 		for i := 0; i < nc+K+K; i++ {
-			e.AddTransaction(txlist[i])
+			e.AddTransaction(txs[i])
 			if i < K {
 				continue
 			}
@@ -67,29 +61,50 @@ func testOverlap(K int) (float64, float64) {
 				ncode += 1
 				_, newtx := d2.AddCodeword(c)
 				for _, tx := range newtx {
-					delete(txset2, *tx)
+					delete(txset2, *tx.Transaction)
 				}
 				credit -= 1.0
 				if len(txset2) == 0 {
-					break
+					return true
 				}
 			}
 		}
 		if len(txset2) == 0 {
-			break
+			return true
+		}
+		return false
+	}
+	for max-min > 0.01 {
+		rate2 := (max+min)/2.0
+		if test(rate2) {
+			max = rate2
+		} else {
+			min = rate2
 		}
 	}
-	return rate1,rate2 
+	return rate1,max
 }
 
 func main() {
+	txs := []*ldpc.Transaction{}
+	{
+		dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(50), 0.03, 0.5)
+		catchConf := ldpc.NewEncoder(experiments.TestKey, dist1, 100000)
+		for len(txs) < 100000 {
+			tx := experiments.RandomTransaction()
+			ok := catchConf.AddTransaction(tx)
+			if ok {
+				txs = append(txs, tx)
+			}
+		}
+	}
 	fmt.Println("# K  conventional stddev windowed stddev")
-	Ns := []int{50, 100, 200}
+	Ns := []int{20, 50, 75, 100, 150, 200}
 	for _, N := range Ns {
 		var normalTotal, normalTotalSq, windowTotal, windowTotalSq float64
 		ntest := 100
 		for i := 0; i < ntest; i++ {
-			normal, window := testOverlap(N)
+			normal, window := testOverlap(N, txs)
 			normalTotal += normal
 			normalTotalSq += normal * normal
 			windowTotal += window
