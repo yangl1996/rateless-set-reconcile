@@ -1,17 +1,17 @@
 #!/usr/local/bin/gnuplot
 
-set term pdf size 1.9,1.74 enhanced
+set term pdf size 3.8,2.1 enhanced
 set output "fig-overlap.pdf"
 
-set size ratio 1
+set size ratio 0.5
 
 #set lmargin 0
 set xlabel "Rate of sender 1 (s^{-1})" offset 0,0.2
 set ylabel "Rate of sender 2 (s^{-1})" offset 0,0
 set notitle
 set yrange [0:2]
-set xrange [0:2]
-set xtics ("0" 0, "1000" 1, "2000" 2)
+set xrange [0:4]
+set xtics ("0" 0, "1000" 1, "2000" 2, "3000" 3, "4000" 4)
 set ytics ("0" 0, "1000" 1, "2000" 2)
 
 # Gnuplot can only smooth a curve of format y(x).

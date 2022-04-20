@@ -180,22 +180,22 @@ func testOverlap(K, N int, s1, s2, common, threshold float64) {
 
 	minRate := 0.0
 	maxRate := 3.0
-	for r1 := s1; r1 <= maxRate; r1 += 0.02 {
-		r2 := (minRate + maxRate/2)
+	for r2 := s2; r2 <= maxRate; r2 += 0.02 {
+		r1 := (minRate + maxRate/2)
 		lastOk := maxRate
 		lastFail := minRate
 		for lastOk - lastFail > 0.01 {
 			d1, d2 := test(r1, r2)
 			if d1 > threshold && d2 > threshold {
-				lastOk = r2
-				r2 = (r2 + lastFail) / 2.0
+				lastOk = r1
+				r1 = (r1 + lastFail) / 2.0
 			} else {
-				lastFail = r2
-				r2 = (r2 + lastOk) / 2.0
+				lastFail = r1
+				r1 = (r1 + lastOk) / 2.0
 			}
 		}
 		if lastOk != maxRate {
-			fmt.Printf("%.2f %.2f\n", r1, lastOk)
+			fmt.Printf("%.2f %.2f\n", lastOk, r2)
 		}
 	}
 }
