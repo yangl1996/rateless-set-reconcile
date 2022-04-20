@@ -180,7 +180,7 @@ func testOverlap(K, N int, s1, s2, common, threshold float64) {
 
 	minRate := 0.0
 	maxRate := 3.0
-	for r1 := minRate; r1 <= maxRate; r1 += 0.01 {
+	for r1 := s1; r1 <= maxRate; r1 += 0.02 {
 		r2 := (minRate + maxRate/2)
 		lastOk := maxRate
 		lastFail := minRate
@@ -202,6 +202,6 @@ func testOverlap(K, N int, s1, s2, common, threshold float64) {
 
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
-	//testOverlap(50, 10000, 0.8, 0.95)
-	testController(50, 0.1, 0.6, 0.4, 2.5, 0.05, 500)
+	testOverlap(50, 10000, 0.6, 0.1, 0.4, 0.95)
+	//testController(50, 0.6, 0.1, 0.4, 2.5, 0.05, 500)
 }
