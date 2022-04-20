@@ -1,7 +1,7 @@
 #!/usr/local/bin/gnuplot
 
 set term pdf size 2.6,1.8 enhanced
-set output "fig-overlap.pdf"
+set output "fig-overlap-xy.pdf"
 
 set size ratio 0.666
 
@@ -33,7 +33,8 @@ set style fill pattern 7
 set tics front
 
 set style textbox opaque noborder
-set label "Infeasible" at 0.5,0.5 center rotate by -45 front textcolor black boxed
+set label "Infeasible" at 0.5,1.0 center rotate by -45 front textcolor black boxed
+set label "Steady state" at 1.0545,0.3297 point pt 6 left offset 0.4,0.4 front textcolor black boxed
 #set label "Start" at 1.9,0.9122 right front textcolor rgb "dark-violet" boxed
 #set label "Start" at 1.9,0.1446 right front textcolor rgb "#009e73" boxed
 #set label "End" at 0.7351,0.8797 left front textcolor rgb "#009e73"

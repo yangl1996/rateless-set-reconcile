@@ -68,6 +68,10 @@ func testController(K int, s1, s2, common, r1init, r2init float64, timeout int) 
 	r2 := r2init
 	c1 := 0.0
 	c2 := 0.0
+	l1 := 0
+	l2 := 0
+	cw1 := 0
+	cw2 := 0
 	for {
 		step += 1
 		if (rand.Float64() < s1) {
@@ -90,19 +94,27 @@ func testController(K int, s1, s2, common, r1init, r2init float64, timeout int) 
 			r1 -= (0.002/1000.0)
 			add(d1, c)
 			c1 -= 1.0
+			cw1 += 1
 		}
 		for c2 >= 1.0 {
 			c := e2.ProduceCodeword()
 			r2 -= (0.002/1000.0)
 			add(d2, c)
 			c2 -= 1.0
+			cw2 += 1
 		}
 		loss1 := scan(d1)
 		r1 += (0.1/1000.0)*float64(loss1)
 		loss2 := scan(d2)
 		r2 += (0.1/1000.0)*float64(loss2)
-		if step%1000 == 0 {
-			fmt.Println(step, r1, r2)
+		l1 += loss1
+		l2 += loss2
+		if step%10000 == 0 {
+			fmt.Println(step, r1, r2, float64(l1)/float64(cw1), float64(l2)/float64(cw2))
+			l1 = 0
+			l2 = 0
+			cw1 = 0
+			cw2 = 0
 		}
 	}
 	return
@@ -203,5 +215,5 @@ func testOverlap(K, N int, s1, s2, common, threshold float64) {
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
 	//testOverlap(50, 10000, 0.6, 0.1, 0.4, 0.95)
-	testController(50, 0.6, 0.1, 0.4, 0.2, 2.0, 500)
+	testController(50, 0.6, 0.1, 0.4, 0.1, 0.1, 500)
 }
