@@ -18,7 +18,7 @@ type decoder struct {
 	rxWindow []receivedCodeword
 }
 
-func testController(K int, overlap, r1init, r2init float64, timeout int) {
+func testController(K int, s1, s2, common, r1init, r2init float64, timeout int) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	d1 := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
@@ -49,14 +49,14 @@ func testController(K int, overlap, r1init, r2init float64, timeout int) {
 		d.rxWindow = append(d.rxWindow, receivedCodeword{stub, step})
 		last := d
 		for len(txs) > 0 {
-			newtxs := []*ldpc.Transaction{}
+			newtxs := []ldpc.DecodedTransaction{}
 			if last == d1 {
 				last = d2
 			} else {
 				last = d1
 			}
 			for _, t := range txs {
-				buf := last.AddTransaction(t)
+				buf := last.AddTransaction(t.Transaction)
 				newtxs = append(newtxs, buf...)
 			}
 			txs = newtxs
@@ -70,15 +70,18 @@ func testController(K int, overlap, r1init, r2init float64, timeout int) {
 	c2 := 0.0
 	for {
 		step += 1
-		if (rand.Float64() < overlap) {
+		if (rand.Float64() < s1) {
+			tx := experiments.RandomTransaction()
+			e1.AddTransaction(tx)
+		}
+		if (rand.Float64() < s2) {
+			tx := experiments.RandomTransaction()
+			e2.AddTransaction(tx)
+		}
+		if (rand.Float64() < common) {
 			tx := experiments.RandomTransaction()
 			e1.AddTransaction(tx)
 			e2.AddTransaction(tx)
-		} else {
-			tx1 := experiments.RandomTransaction()
-			e1.AddTransaction(tx1)
-			tx2 := experiments.RandomTransaction()
-			e2.AddTransaction(tx2)
 		}
 		c1 += r1
 		c2 += r2
@@ -105,14 +108,14 @@ func testController(K int, overlap, r1init, r2init float64, timeout int) {
 	return
 }
 
-func testOverlap(K, N int, overlap, threshold float64) {
+func testOverlap(K, N int, s1, s2, common, threshold float64) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	// create 2N transactions
 	txs := []*ldpc.Transaction{}
 	{
-		catchConf := ldpc.NewEncoder(experiments.TestKey, dist, N*2)
-		for len(txs) < N*2 {
+		catchConf := ldpc.NewEncoder(experiments.TestKey, dist, N*3)
+		for len(txs) < N*3 {
 			tx := experiments.RandomTransaction()
 			ok := catchConf.AddTransaction(tx)
 			if ok {
@@ -132,17 +135,20 @@ func testOverlap(K, N int, overlap, threshold float64) {
 		c2 := 0.0
 		ptr := 0
 		for i := 0; i < N; i++ {
-			if (rand.Float64() < overlap) {
+			if (rand.Float64() < s1) {
 				e1.AddTransaction(txs[ptr])
-				e2.AddTransaction(txs[ptr])
 				txset1[*txs[ptr]] = struct{}{}
+				ptr++
+			}
+			if (rand.Float64() < s2) {
+				e2.AddTransaction(txs[ptr])
 				txset2[*txs[ptr]] = struct{}{}
 				ptr++
-			} else {
+			}
+			if (rand.Float64() < common) {
 				e1.AddTransaction(txs[ptr])
-				txset1[*txs[ptr]] = struct{}{}
-				ptr++
 				e2.AddTransaction(txs[ptr])
+				txset1[*txs[ptr]] = struct{}{}
 				txset2[*txs[ptr]] = struct{}{}
 				ptr++
 			}
@@ -152,8 +158,8 @@ func testOverlap(K, N int, overlap, threshold float64) {
 				c := e1.ProduceCodeword()
 				_, newtx := d1.AddCodeword(c)
 				for _, tx := range newtx {
-					delete(txset1, *tx)
-					delete(txset2, *tx)
+					delete(txset1, *tx.Transaction)
+					delete(txset2, *tx.Transaction)
 				}
 				c1 -= 1.0
 			}
@@ -161,8 +167,8 @@ func testOverlap(K, N int, overlap, threshold float64) {
 				c := e2.ProduceCodeword()
 				_, newtx := d1.AddCodeword(c)
 				for _, tx := range newtx {
-					delete(txset1, *tx)
-					delete(txset2, *tx)
+					delete(txset1, *tx.Transaction)
+					delete(txset2, *tx.Transaction)
 				}
 				c2 -= 1.0
 			}
@@ -172,8 +178,8 @@ func testOverlap(K, N int, overlap, threshold float64) {
 		return deliver1, deliver2
 	}
 
-	minRate := (1.0-overlap) / 2.0
-	maxRate := 2.0
+	minRate := 0.0
+	maxRate := 3.0
 	for r1 := minRate; r1 <= maxRate; r1 += 0.01 {
 		r2 := (minRate + maxRate/2)
 		lastOk := maxRate
@@ -197,5 +203,5 @@ func testOverlap(K, N int, overlap, threshold float64) {
 func main() {
 	fmt.Println("# rate1 rate2 deliver1 deliver2")
 	//testOverlap(50, 10000, 0.8, 0.95)
-	testController(50, 0.8, 2.5, 0.05, 500)
+	testController(50, 0.1, 0.6, 0.4, 2.5, 0.05, 500)
 }
