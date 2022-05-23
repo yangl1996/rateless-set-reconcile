@@ -6,6 +6,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/experiments"
 	"github.com/yangl1996/soliton"
 	"math/rand"
+	"flag"
 )
 
 func testOverlap(T1, T2, Tc, K int) (c1, c2 int) {
@@ -67,16 +68,23 @@ func testOverlap(T1, T2, Tc, K int) (c1, c2 int) {
 }
 
 func main() {
-	total1 := 0
-	total2 := 0
-	ntest := 10
-	for i := 0; i < ntest; i++ {
-		cnt1, cnt2 := testOverlap(20000, 20000, 100000, 10000)
-		total1 += cnt1
-		total2 += cnt2
-	}
-	avg1 := float64(total1) / float64(ntest) / float64(20000+100000)
-	avg2 := float64(total2) / float64(ntest) / float64(20000+100000)
+	t1 := flag.Int("t1", 20000, "number of unique transactions for sender 1")
+	t2 := flag.Int("t2", 20000, "number of unique transactions for sender 2")
+	tc := flag.Int("tc", 100000, "number of common transactions")
+	k := flag.Int("k", 10000, "soliton distribution parameter")
+	ntest := flag.Int("run", 10, "number of tests")
+	flag.Parse()
 
-	fmt.Printf("sender1=%.2f sender2=%.2f\n", avg1, avg2)
+	total1 := 0.0
+	total2 := 0.0
+	fmt.Println("    snd1 snd2")
+	for i := 0; i < *ntest; i++ {
+		cnt1, cnt2 := testOverlap(*t1, *t2, *tc, *k)
+		r1 := float64(cnt1) / float64(*t1 + *tc)
+		r2 := float64(cnt2) / float64(*t2 + *tc)
+		total1 += r1
+		total2 += r2
+		fmt.Printf("    %.2f %.2f\n", r1, r2)
+	}
+	fmt.Printf("avg %.2f %.2f\n", total1/float64(*ntest), total2/float64(*ntest))
 }
