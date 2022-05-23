@@ -77,6 +77,9 @@ func testController(K int, s, rinit float64, timeout int) {
 			l = 0
 			cw = 0
 		}
+		if step > 500000 {
+			break
+		}
 	}
 	return
 }
