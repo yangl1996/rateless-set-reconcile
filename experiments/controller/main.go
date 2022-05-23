@@ -72,7 +72,7 @@ func testController(K int, s, rinit float64, timeout int) {
 			add(d, codeword)
 
 			cvirt += 1
-			if cvirt != 20 {
+			if cvirt != 15 {
 				add(dvirt, codeword)
 				r -= (0.002/1000.0)
 			} else {
