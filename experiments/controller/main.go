@@ -22,7 +22,7 @@ func testController(K int, s, rinit float64, timeout int) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	d := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
-	//dvirt := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
+	dvirt := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
 	e := ldpc.NewEncoder(experiments.TestKey, dist, K)
 
 	// one step is 1ms
@@ -54,6 +54,8 @@ func testController(K int, s, rinit float64, timeout int) {
 	c := 0.0
 	l := 0
 	cw := 0
+
+	cvirt := 0
 	for {
 		step += 1
 		if (rand.Float64() < s) {
@@ -64,14 +66,22 @@ func testController(K int, s, rinit float64, timeout int) {
 		c += r
 		for c >= 1.0 {
 			codeword := e.ProduceCodeword()
-			r -= (0.002/1000.0)
-			add(d, codeword)
 			c -= 1.0
 			cw += 1
+
+			add(d, codeword)
+
+			cvirt += 1
+			if cvirt != 20 {
+				add(dvirt, codeword)
+				r -= (0.002/1000.0)
+			} else {
+				cvirt = 0
+			}
 		}
-		loss := scan(d)
+		loss := scan(dvirt)
 		r += (0.1/1000.0)*float64(loss)
-		l += loss
+		l += scan(d)
 		if step%1000 == 0 {
 			fmt.Println(step, r, float64(l)/float64(cw))
 			l = 0
