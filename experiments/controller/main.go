@@ -6,6 +6,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/experiments"
 	"github.com/yangl1996/soliton"
 	"math/rand"
+	"flag"
 )
 
 type receivedCodeword struct {
@@ -18,7 +19,7 @@ type decoder struct {
 	rxWindow []receivedCodeword
 }
 
-func testController(K int, s, rinit float64, timeout int) {
+func testController(K int, s, rinit float64, timeout int, loss float64, drop float64) float64 {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	d := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
@@ -55,7 +56,10 @@ func testController(K int, s, rinit float64, timeout int) {
 	l := 0
 	cw := 0
 
-	cvirt := 0
+	cvirt := 0.0
+
+	totCw := 0
+	totLoss := 0
 	for {
 		step += 1
 		if (rand.Float64() < s) {
@@ -68,20 +72,27 @@ func testController(K int, s, rinit float64, timeout int) {
 			codeword := e.ProduceCodeword()
 			c -= 1.0
 			cw += 1
+			if step > 100000 {
+				totCw += 1
+			}
 
 			add(d, codeword)
 
-			cvirt += 1
-			if cvirt != 15 {
+			cvirt += drop
+			if cvirt < 1.0 {
 				add(dvirt, codeword)
-				r -= (0.002/1000.0)
+				r -= (loss*0.1/1000.0)
 			} else {
-				cvirt = 0
+				cvirt -= 1.0
 			}
 		}
 		loss := scan(dvirt)
 		r += (0.1/1000.0)*float64(loss)
-		l += scan(d)
+		realLoss := scan(d)
+		l += realLoss
+		if step > 100000 {
+			totLoss += realLoss
+		}
 		if step%1000 == 0 {
 			fmt.Println(step, r, float64(l)/float64(cw))
 			l = 0
@@ -91,10 +102,14 @@ func testController(K int, s, rinit float64, timeout int) {
 			break
 		}
 	}
-	return
+	return float64(totLoss) / float64(totCw)
 }
 
 func main() {
+	gamma := flag.Float64("g", 0.02, "target loss rate")
+	drop := flag.Float64("d", 0.066, "period of artificial drop")
+	flag.Parse()
 	fmt.Println("# ms rate  loss")
-	testController(50, 0.6, 0.1, 500)
+	lossRate := testController(50, 0.6, 0.1, 500, *gamma, *drop)
+	fmt.Printf("# loss rate: %.5f\n", lossRate)
 }
