@@ -19,7 +19,7 @@ type decoder struct {
 	rxWindow []receivedCodeword
 }
 
-func testController(K int, s, rinit float64, timeout int, loss float64, drop float64) float64 {
+func testController(K int, s, rinit float64, timeout int, alpha, loss, drop float64) (float64, float64) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(K), 0.03, 0.5)
 
 	d := &decoder{ldpc.NewDecoder(experiments.TestKey, 262144), []receivedCodeword{}}
@@ -81,13 +81,13 @@ func testController(K int, s, rinit float64, timeout int, loss float64, drop flo
 			cvirt += drop
 			if cvirt < 1.0 {
 				add(dvirt, codeword)
-				r -= (loss*0.1/1000.0)
+				r -= (loss*alpha/1000.0)
 			} else {
 				cvirt -= 1.0
 			}
 		}
 		loss := scan(dvirt)
-		r += (0.1/1000.0)*float64(loss)
+		r += (alpha/1000.0)*float64(loss)
 		realLoss := scan(d)
 		l += realLoss
 		if step > 100000 {
@@ -102,14 +102,16 @@ func testController(K int, s, rinit float64, timeout int, loss float64, drop flo
 			break
 		}
 	}
-	return float64(totLoss) / float64(totCw)
+	return float64(totLoss) / float64(totCw), float64(totCw) / 400.0 / s / 1000.0
 }
 
 func main() {
 	gamma := flag.Float64("g", 0.02, "target loss rate")
 	drop := flag.Float64("d", 0.066, "period of artificial drop")
+	alpha := flag.Float64("a", 0.1, "controller alpha")
 	flag.Parse()
 	fmt.Println("# ms rate  loss")
-	lossRate := testController(50, 0.6, 0.1, 500, *gamma, *drop)
+	lossRate, cwRate := testController(50, 0.6, 0.1, 500, *alpha, *gamma, *drop)
 	fmt.Printf("# loss rate: %.5f\n", lossRate)
+	fmt.Printf("# codeword rate: %.5f\n", cwRate)
 }
