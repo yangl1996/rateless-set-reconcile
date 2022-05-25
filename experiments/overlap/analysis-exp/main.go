@@ -77,14 +77,17 @@ func main() {
 
 	total1 := 0.0
 	total2 := 0.0
-	fmt.Println("    snd1 snd2")
+	totalOverall := 0.0
+	fmt.Println("    snd1 snd2 overall")
 	for i := 0; i < *ntest; i++ {
 		cnt1, cnt2 := testOverlap(*t1, *t2, *tc, *k)
 		r1 := float64(cnt1) / float64(*t1 + *tc)
 		r2 := float64(cnt2) / float64(*t2 + *tc)
+		overall := float64(cnt1+cnt2) / float64(*t1+*t2+*tc)
 		total1 += r1
 		total2 += r2
-		fmt.Printf("    %.2f %.2f\n", r1, r2)
+		totalOverall += overall
+		fmt.Printf("    %.2f %.2f %.2f\n", r1, r2, overall)
 	}
-	fmt.Printf("avg %.2f %.2f\n", total1/float64(*ntest), total2/float64(*ntest))
+	fmt.Printf("avg %.2f %.2f %.2f\n", total1/float64(*ntest), total2/float64(*ntest), totalOverall / float64(*ntest))
 }
