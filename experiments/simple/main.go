@@ -9,8 +9,8 @@ import (
 	"flag"
 )
 
-func testOverlap(t, k, n int) int {
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(k), 0.03, 0.5)
+func testOverlap(rng *rand.Rand, t, k, n int) int {
+	dist := soliton.NewRobustSoliton(rng, uint64(k), 0.03, 0.5)
 	e := ldpc.NewEncoder(experiments.TestKey, dist, t)
 	d := ldpc.NewDecoder(experiments.TestKey, 2147483647)
 
@@ -36,6 +36,7 @@ func testOverlap(t, k, n int) int {
 }
 
 func main() {
+	rng := rand.New(rand.NewSource(100))
 	t := flag.Int("t", 50, "number of transactions")
 	m := flag.Int("m", 0, "number of transactions to fail")
 	ntest := flag.Int("ntest", 100, "number of transactions to fail")
@@ -45,7 +46,7 @@ func main() {
 
 	succ := 0
 	for i := 0; i < *ntest; i++ {
-		fail := testOverlap(*t, *k, *n)
+		fail := testOverlap(rng, *t, *k, *n)
 		if fail <= *m {
 			succ += 1
 		}
