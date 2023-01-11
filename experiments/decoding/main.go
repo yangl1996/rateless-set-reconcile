@@ -9,7 +9,7 @@ import (
 	"flag"
 )
 
-func testOverlap(rng *rand.Rand, t, k, n int) int {
+func testOverlap(rng *rand.Rand, t, k int) {
 	dist := soliton.NewRobustSoliton(rng, uint64(k), 0.03, 0.5)
 	e := ldpc.NewEncoder(experiments.TestKey, dist, t)
 	d := ldpc.NewDecoder(experiments.TestKey, 2147483647)
@@ -25,31 +25,24 @@ func testOverlap(rng *rand.Rand, t, k, n int) int {
 		}
 	}
 
-	for i := 0; i < n; i++ {
+	n := 0
+	orig := len(txset)
+	for len(txset) > 0 {
 		cw := e.ProduceCodeword()
 		_, newtx := d.AddCodeword(cw)
 		for _, tx := range newtx {
 			delete(txset, *tx.Transaction)
 		}
+		n += 1
+		fmt.Println(n, orig-len(txset))
 	}
-	return len(txset)
 }
 
 func main() {
 	rng := rand.New(rand.NewSource(100))
 	t := flag.Int("t", 50, "number of transactions")
-	m := flag.Int("m", 0, "number of transactions to fail")
-	ntest := flag.Int("ntest", 100, "number of tests to run")
-	n := flag.Int("n", 100, "number of codewords")
 	k := flag.Int("k", 50, "soliton distribution parameter")
 	flag.Parse()
 
-	succ := 0
-	for i := 0; i < *ntest; i++ {
-		fail := testOverlap(rng, *t, *k, *n)
-		if fail <= *m {
-			succ += 1
-		}
-	}
-	fmt.Printf("fail rate %.2f\n", float64(*ntest-succ) / float64(*ntest))
+	testOverlap(rng, *t, *k)
 }
