@@ -44,8 +44,8 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 		return loss
 	}
 
-	add := func(d *decoder, cw *ldpc.Codeword, step int) bool {
-		stub, _ := d.AddCodeword(cw)
+	add := func(d *decoder, cw *ldpc.Codeword, step int) (bool, int) {
+		stub, dec := d.AddCodeword(cw)
 		if stub.Decoded() {
 			d.nd += 1
 		} else {
@@ -54,9 +54,9 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 		d.rxWindow = append(d.rxWindow, receivedCodeword{stub, step})
 		if d.nd >= 20 {
 			d.nd = 0
-			return true
+			return true, len(dec)
 		} else {
-			return false
+			return false, len(dec)
 		}
 	}
 
@@ -64,6 +64,8 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 	c := 0.0	// codeword credit
 	l := 0
 	cw := 0
+	dec := 0
+	gen := 0
 
 	txQueue := []*ldpc.Transaction{}
 	moveWindow := func(e *ldpc.Encoder, q []*ldpc.Transaction, step int) []*ldpc.Transaction {
@@ -81,11 +83,13 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 	for i := 0; i < K; i++ {
 		tx := experiments.RandomTransaction()
 		e.AddTransaction(tx)
+		gen += 1
 	}
 	for step := 0; step < 500000; step += 1 {
 		if (rand.Float64() < s) {
 			tx := experiments.RandomTransaction()
 			txQueue = append(txQueue, tx)
+			gen += 1
 		}
 
 		c += r
@@ -94,7 +98,8 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 			c -= 1.0
 			cw += 1
 
-			canMove := add(d, codeword, step)
+			canMove, decoded := add(d, codeword, step)
+			dec += decoded
 			if canMove {
 				txQueue = moveWindow(e, txQueue, step)
 			}
@@ -104,7 +109,7 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 		realLoss := scan(d, step)
 		r += (alpha/1000.0)*float64(realLoss)
 		if step%1000 == 0 {
-			fmt.Println(step, r, float64(l)/float64(cw))
+			fmt.Println(step, r, float64(l)/float64(cw), dec, gen)
 			l = 0
 			cw = 0
 		}
@@ -115,6 +120,6 @@ func main() {
 	gamma := flag.Float64("g", 0.02, "target loss rate")
 	alpha := flag.Float64("a", 0.1, "controller alpha")
 	flag.Parse()
-	fmt.Println("# ms rate  loss")
+	fmt.Println("# ms  rate  loss  rcvd  gened")
 	testController(500, 0.6, 0.1, 5000, *alpha, *gamma)
 }
