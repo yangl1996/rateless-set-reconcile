@@ -64,6 +64,7 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 	c := 0.0	// codeword credit
 	l := 0
 	cw := 0
+	windowCw := 0
 	dec := 0
 	gen := 0
 
@@ -76,7 +77,7 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 		for i := 0; i < k; i++ {
 			e.AddTransaction(q[i])
 		}
-		fmt.Println(step, "adding", k, "transactions to coding window, queue length", len(q)-k)
+		fmt.Println("#", step, "adding", k, "transactions to coding window, queue length", len(q)-k)
 		return q[k:]
 	}
 
@@ -97,6 +98,7 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 			codeword := e.ProduceCodeword()
 			c -= 1.0
 			cw += 1
+			windowCw += 1
 
 			canMove, decoded := add(d, codeword, step)
 			dec += decoded
@@ -109,9 +111,9 @@ func testController(K int, s, rinit float64, timeout int, alpha, loss float64) {
 		realLoss := scan(d, step)
 		r += (alpha/1000.0)*float64(realLoss)
 		if step%1000 == 0 {
-			fmt.Println(step, r, float64(l)/float64(cw), dec, gen)
+			fmt.Println(step, r, float64(l)/float64(windowCw), cw, dec, gen)
 			l = 0
-			cw = 0
+			windowCw = 0
 		}
 	}
 }
@@ -120,6 +122,6 @@ func main() {
 	gamma := flag.Float64("g", 0.02, "target loss rate")
 	alpha := flag.Float64("a", 0.1, "controller alpha")
 	flag.Parse()
-	fmt.Println("# ms  rate  loss  rcvd  gened")
+	fmt.Println("# ms  rate  loss  cw rcvd  gened")
 	testController(500, 0.6, 0.1, 5000, *alpha, *gamma)
 }
