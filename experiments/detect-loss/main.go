@@ -71,7 +71,7 @@ func main() {
 	ntest := flag.Int("ntest", 100, "number of tests to run")
 	n := flag.Int("n", 100, "number of codewords decoded in a row to stop")
 	k := flag.Int("k", 50, "soliton distribution parameter")
-	last := flag.Bool("last", true, "look at the last n codewords")
+	last := flag.Bool("last", false, "look at the last n codewords")
 	flag.Parse()
 
 	succ := 0
