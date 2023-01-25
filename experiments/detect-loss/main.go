@@ -9,7 +9,7 @@ import (
 	"flag"
 )
 
-func testOverlap(rng *rand.Rand, t, k, n int) (int, int) {
+func testOverlap(rng *rand.Rand, t, k, n int, last bool) (int, int) {
 	dist := soliton.NewRobustSoliton(rng, uint64(k), 0.03, 0.5)
 	e := ldpc.NewEncoder(experiments.TestKey, dist, t)
 	d := ldpc.NewDecoder(experiments.TestKey, 2147483647)
@@ -27,6 +27,7 @@ func testOverlap(rng *rand.Rand, t, k, n int) (int, int) {
 
 	nd := 0
 	i := 0
+	stoppingSet := []*ldpc.PendingCodeword{}
 	for ;; {
 		i += 1
 		cw := e.ProduceCodeword()
@@ -34,15 +35,31 @@ func testOverlap(rng *rand.Rand, t, k, n int) (int, int) {
 		for _, tx := range newtx {
 			delete(txset, *tx.Transaction)
 		}
-		if stub.Decoded() {
-			nd += 1
+		if last {
+			if stub.Decoded() {
+				nd += 1
+			} else {
+				nd = 0
+			}
+			if nd >= n {
+				break
+			}
 		} else {
-			nd = 0
+			if len(stoppingSet) < n {
+				stoppingSet = append(stoppingSet, stub)
+			} else {
+				allSet := true
+				for _, v := range stoppingSet {
+					if !v.Decoded() {
+						allSet = false
+						break
+					}
+				}
+				if allSet {
+					break
+				}
+			}
 		}
-		if nd >= n {
-			break
-		}
-
 	}
 	return len(txset), i
 }
@@ -54,12 +71,13 @@ func main() {
 	ntest := flag.Int("ntest", 100, "number of tests to run")
 	n := flag.Int("n", 100, "number of codewords decoded in a row to stop")
 	k := flag.Int("k", 50, "soliton distribution parameter")
+	last := flag.Bool("last", true, "look at the last n codewords")
 	flag.Parse()
 
 	succ := 0
 	tot := 0
 	for i := 0; i < *ntest; i++ {
-		fail, cws := testOverlap(rng, *t, *k, *n)
+		fail, cws := testOverlap(rng, *t, *k, *n, *last)
 		if fail <= *m {
 			succ += 1
 		}
