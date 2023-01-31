@@ -75,5 +75,5 @@ func main() {
 		}
 		tot += cws
 	}
-	fmt.Println(*n, float64(*ntest-succ) / float64(*ntest), float64(tot)/float64(*ntest))
+	fmt.Println(*p, *n, float64(*ntest-succ) / float64(*ntest), float64(tot)/float64(*ntest))
 }
