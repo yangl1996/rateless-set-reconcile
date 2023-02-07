@@ -38,9 +38,8 @@ func testOverlap(rng *rand.Rand, t, k, n, preadd int) (int, int) {
 		for _, tx := range newtx {
 			delete(txset, *tx.Transaction)
 		}
-		if len(stoppingSet) < n {
-			stoppingSet = append(stoppingSet, stub)
-		} else {
+		stoppingSet = append(stoppingSet, stub)
+		if len(stoppingSet) > n {
 			allSet := true
 			for _, v := range stoppingSet {
 				if !v.Decoded() {

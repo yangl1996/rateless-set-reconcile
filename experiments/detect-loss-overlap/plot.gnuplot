@@ -3,7 +3,7 @@
 set term pdf size 2.6,1.8 enhanced
 set output "plot.pdf"
 
-set xlabel "Cutoff (n)"
+set xlabel "Overlap"
 set ylabel "Fail rate"
 set y2label "Overhead"
 set ytics nomirror
