@@ -105,7 +105,7 @@ func (n *node) newCodeword() codeword {
 		// update sending rate
 		thisQueueLen := len(n.buffer)
 		// TODO: remove hardcoded params
-		deltaRate := float64(thisQueueLen - n.lastQueueLen) * n.queueLenConst
+		deltaRate := float64(thisQueueLen - n.lastQueueLen) * n.queueLenConst + float64(thisQueueLen - n.targetQueueLen) * n.queueLenConst / 3.0
 		if n.sendRate + deltaRate >= n.minSendRate {
 			n.sendRate = n.sendRate + deltaRate
 		} else {
@@ -146,13 +146,15 @@ func main() {
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Int("dur", 1000, "simulation duration in seconds")
-	queueLenConst := flag.Float64("cf", 0.01, "queue length control force")
+	queueLenConst := flag.Float64("cf", 0.2, "queue length control force")
 	targetQueueLen := flag.Int("target", 1000, "target queue length")
 	minSendRate := flag.Float64("minrate", 2.0, "min codeword sending rate")
 	flag.Parse()
 
 	n1 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
 	n2 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
+	n1.sendRate = *transactionRate
+	n2.sendRate = *transactionRate
 
 	txCnt1 := 0
 	txCnt2 := 0
