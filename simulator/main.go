@@ -103,12 +103,15 @@ func (n *node) newCodeword() codeword {
 		}
 		n.buffer = n.buffer[n.blockSize:]
 		// update sending rate
-		deltaRate := float64(len(n.buffer) - n.targetQueueLen) / float64(n.targetQueueLen) * n.queueLenConst
+		thisQueueLen := len(n.buffer)
+		// TODO: remove hardcoded params
+		deltaRate := float64(thisQueueLen - n.lastQueueLen) * n.queueLenConst
 		if n.sendRate + deltaRate >= n.minSendRate {
 			n.sendRate = n.sendRate + deltaRate
 		} else {
 			n.sendRate = n.minSendRate
 		}
+		n.lastQueueLen = thisQueueLen
 	}
 	// TODO: what if the previous block is sent and we don't yet have the next block filled
 	cw.Codeword = n.Encoder.ProduceCodeword()
@@ -143,7 +146,7 @@ func main() {
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Int("dur", 1000, "simulation duration in seconds")
-	queueLenConst := flag.Float64("cf", 10.0, "queue length control force")
+	queueLenConst := flag.Float64("cf", 0.01, "queue length control force")
 	targetQueueLen := flag.Int("target", 1000, "target queue length")
 	minSendRate := flag.Float64("minrate", 2.0, "min codeword sending rate")
 	flag.Parse()
