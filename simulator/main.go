@@ -133,6 +133,7 @@ func main() {
 	durMs := *simDuration * 1000
 	newTxProbPerMs := *transactionRate / 1000.0
 	for tms := 0; tms <= durMs; tms += 1 {
+		ts := float64(tms) / 1000.0
 		if rand.Float64() < newTxProbPerMs {
 			tx := experiments.RandomTransaction()
 			n1.addTransaction(tx)
@@ -143,21 +144,21 @@ func main() {
 		}
 		cw := n1.newCodeword()
 		if cw.newBlock {
-			fmt.Println(tms, "Node 1 starting new block, queue length", len(n1.buffer))
+			fmt.Println(ts, "Node 1 starting new block, queue length", len(n1.buffer))
 			txCnt2 = 0
 		}
 		if cw.ackBlock {
-			fmt.Println(tms, "Node 1 decoded a block with", txCnt1, "txns")
+			fmt.Println(ts, "Node 1 decoded a block with", txCnt1, "txns")
 		}
 		list := n2.addCodeword(cw)
 		txCnt2 += len(list)
 		cw = n2.newCodeword()
 		if cw.newBlock {
-			fmt.Println(tms, "Node 2 starting new block, queue length", len(n2.buffer))
+			fmt.Println(ts, "Node 2 starting new block, queue length", len(n2.buffer))
 			txCnt1 = 0
 		}
 		if cw.ackBlock {
-			fmt.Println(tms, "Node 2 decoded a block with", txCnt2, "txns")
+			fmt.Println(ts, "Node 2 decoded a block with", txCnt2, "txns")
 		}
 		list = n1.addCodeword(cw)
 		txCnt1 += len(list)
