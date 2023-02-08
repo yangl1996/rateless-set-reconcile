@@ -143,7 +143,7 @@ func main() {
 		}
 		cw := n1.newCodeword()
 		if cw.newBlock {
-			fmt.Println(tms, "Node 1 starting new block")
+			fmt.Println(tms, "Node 1 starting new block, queue length", len(n1.buffer))
 			txCnt2 = 0
 		}
 		if cw.ackBlock {
@@ -153,7 +153,7 @@ func main() {
 		txCnt2 += len(list)
 		cw = n2.newCodeword()
 		if cw.newBlock {
-			fmt.Println(tms, "Node 2 starting new block")
+			fmt.Println(tms, "Node 2 starting new block, queue length", len(n2.buffer))
 			txCnt1 = 0
 		}
 		if cw.ackBlock {
