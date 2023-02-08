@@ -7,6 +7,8 @@ import (
 	"github.com/yangl1996/soliton"
 	"math/rand"
 	"flag"
+	"gonum.org/v1/gonum/stat/distuv"
+	exprand "golang.org/x/exp/rand"
 )
 
 type codeword struct {
@@ -131,16 +133,20 @@ func main() {
 	txCnt2 := 0
 
 	durMs := *simDuration * 1000
-	newTxProbPerMs := *transactionRate / 1000.0
+	txArrivalDist := distuv.Poisson{*transactionRate/1000.0, exprand.New(exprand.NewSource(1))}
 	for tms := 0; tms <= durMs; tms += 1 {
 		ts := float64(tms) / 1000.0
-		if rand.Float64() < newTxProbPerMs {
-			tx := experiments.RandomTransaction()
-			n1.addTransaction(tx)
-		}
-		if rand.Float64() < newTxProbPerMs {
-			tx := experiments.RandomTransaction()
-			n2.addTransaction(tx)
+		{
+			prand := int(txArrivalDist.Rand())
+			for i := 0; i < prand; i++ {
+				tx := experiments.RandomTransaction()
+				n1.addTransaction(tx)
+			}
+			prand = int(txArrivalDist.Rand())
+			for i := 0; i < prand; i++ {
+				tx := experiments.RandomTransaction()
+				n2.addTransaction(tx)
+			}
 		}
 		cw := n1.newCodeword()
 		if cw.newBlock {
