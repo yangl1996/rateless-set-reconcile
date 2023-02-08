@@ -28,6 +28,7 @@ type node struct {
 	// flags that affect the next codeword
 	readySendNextBlock bool
 	readyReceiveNextBlock bool
+	ackedThisBlock bool
 }
 
 func (n *node) addTransaction(tx *ldpc.Transaction) {
@@ -41,6 +42,7 @@ func (n *node) addCodeword(cw codeword) []*ldpc.Transaction {
 			c.Free()
 		}
 		n.curCodewords = n.curCodewords[:0]
+		n.ackedThisBlock = false
 	}
 	if cw.ackBlock {
 		n.readySendNextBlock = true
@@ -48,7 +50,7 @@ func (n *node) addCodeword(cw codeword) []*ldpc.Transaction {
 	stub, decoded := n.Decoder.AddCodeword(cw.Codeword)
 	n.curCodewords = append(n.curCodewords, stub)
 
-	if len(n.curCodewords) > n.detectThreshold {
+	if !n.ackedThisBlock && len(n.curCodewords) > n.detectThreshold {
 		decoded := true
 		for _, c := range n.curCodewords {
 			if !c.Decoded() {
@@ -58,6 +60,7 @@ func (n *node) addCodeword(cw codeword) []*ldpc.Transaction {
 		}
 		if decoded {
 			n.readyReceiveNextBlock = true
+			n.ackedThisBlock = true
 		}
 	}
 
@@ -107,6 +110,7 @@ func newNode(blockSize int, decoderMemory int, detectThreshold int) *node {
 		detectThreshold: detectThreshold,
 		readySendNextBlock: true,
 		readyReceiveNextBlock: false,
+		ackedThisBlock: false,
 	}
 	return n
 }
@@ -123,6 +127,9 @@ func main() {
 	n1 := newNode(*blockSize, *decoderMem, *detectThreshold)
 	n2 := newNode(*blockSize, *decoderMem, *detectThreshold)
 
+	txCnt1 := 0
+	txCnt2 := 0
+
 	durMs := *simDuration * 1000
 	newTxProbPerMs := *transactionRate / 1000.0
 	for tms := 0; tms <= durMs; tms += 1 {
@@ -136,26 +143,23 @@ func main() {
 		}
 		cw := n1.newCodeword()
 		if cw.newBlock {
-			fmt.Println("Node 1 starting new block")
+			fmt.Println(tms, "Node 1 starting new block")
+			txCnt2 = 0
 		}
 		if cw.ackBlock {
-			fmt.Println("Node 1 decoded a block")
+			fmt.Println(tms, "Node 1 decoded a block with", txCnt1, "txns")
 		}
 		list := n2.addCodeword(cw)
-		if len(list) > 0 {
-			fmt.Println("Node 2 decoded", len(list), "transactions")
-		}
+		txCnt2 += len(list)
 		cw = n2.newCodeword()
 		if cw.newBlock {
-			fmt.Println("Node 2 starting new block")
+			fmt.Println(tms, "Node 2 starting new block")
+			txCnt1 = 0
 		}
 		if cw.ackBlock {
-			fmt.Println("Node 2 decoded a block")
+			fmt.Println(tms, "Node 2 decoded a block with", txCnt2, "txns")
 		}
-
 		list = n1.addCodeword(cw)
-		if len(list) > 0 {
-			fmt.Println("Node 1 decoded", len(list), "transactions")
-		}
+		txCnt1 += len(list)
 	}
 }
