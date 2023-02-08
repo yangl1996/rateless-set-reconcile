@@ -26,11 +26,18 @@ type node struct {
 	// parameters
 	blockSize int
 	detectThreshold int
+	queueLenConst float64
+	targetQueueLen int
+	minSendRate float64
 
 	// flags that affect the next codeword
 	readySendNextBlock bool
 	readyReceiveNextBlock bool
 	ackedThisBlock bool
+
+	// rate control states
+	lastQueueLen int
+	sendRate float64
 }
 
 func (n *node) addTransaction(tx *ldpc.Transaction) {
@@ -95,13 +102,20 @@ func (n *node) newCodeword() codeword {
 			}
 		}
 		n.buffer = n.buffer[n.blockSize:]
+		// update sending rate
+		deltaRate := float64(len(n.buffer) - n.targetQueueLen) / float64(n.targetQueueLen) * n.queueLenConst
+		if n.sendRate + deltaRate >= n.minSendRate {
+			n.sendRate = n.sendRate + deltaRate
+		} else {
+			n.sendRate = n.minSendRate
+		}
 	}
 	// TODO: what if the previous block is sent and we don't yet have the next block filled
 	cw.Codeword = n.Encoder.ProduceCodeword()
 	return cw
 }
 
-func newNode(blockSize int, decoderMemory int, detectThreshold int) *node {
+func newNode(blockSize int, decoderMemory int, detectThreshold int, queueLenConst float64, targetQueueLen int, minSendRate float64) *node {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(blockSize), 0.03, 0.5)
 	n := &node{
 		Encoder: ldpc.NewEncoder(experiments.TestKey, dist, blockSize),
@@ -113,6 +127,11 @@ func newNode(blockSize int, decoderMemory int, detectThreshold int) *node {
 		readySendNextBlock: true,
 		readyReceiveNextBlock: false,
 		ackedThisBlock: false,
+		queueLenConst: queueLenConst,
+		targetQueueLen: targetQueueLen,
+		minSendRate: minSendRate,
+		lastQueueLen: 0,
+		sendRate: minSendRate,
 	}
 	return n
 }
@@ -122,15 +141,20 @@ func main() {
 	blockSize := flag.Int("k", 500, "block size")
 	decoderMem := flag.Int("mem", 1000000, "decoder memory")
 	detectThreshold := flag.Int("th", 50, "detector threshold")
-	transactionRate := flag.Float64("rate", 600.0, "per-node transaction generation per second")
+	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Int("dur", 1000, "simulation duration in seconds")
+	queueLenConst := flag.Float64("cf", 10.0, "queue length control force")
+	targetQueueLen := flag.Int("target", 1000, "target queue length")
+	minSendRate := flag.Float64("minrate", 2.0, "min codeword sending rate")
 	flag.Parse()
 
-	n1 := newNode(*blockSize, *decoderMem, *detectThreshold)
-	n2 := newNode(*blockSize, *decoderMem, *detectThreshold)
+	n1 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
+	n2 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
 
 	txCnt1 := 0
 	txCnt2 := 0
+	cwCredit1 := 0.0
+	cwCredit2 := 0.0
 
 	durMs := *simDuration * 1000
 	txArrivalDist := distuv.Poisson{*transactionRate/1000.0, exprand.New(exprand.NewSource(1))}
@@ -148,25 +172,37 @@ func main() {
 				n2.addTransaction(tx)
 			}
 		}
-		cw := n1.newCodeword()
-		if cw.newBlock {
-			fmt.Println(ts, "Node 1 starting new block, queue length", len(n1.buffer))
-			txCnt2 = 0
+		{
+			cwCredit1 += n1.sendRate / 1000.0
+			for cwCredit1 > 1.0 {
+				cwCredit1 -= 1.0
+				cw := n1.newCodeword()
+				if cw.newBlock {
+					fmt.Println(ts, "Node 1 starting new block, send rate", n1.sendRate, ", queue length", len(n1.buffer))
+					txCnt2 = 0
+				}
+				if cw.ackBlock {
+					fmt.Println(ts, "Node 1 decoded a block with", txCnt1, "txns")
+				}
+				list := n2.addCodeword(cw)
+				txCnt2 += len(list)
+			}
 		}
-		if cw.ackBlock {
-			fmt.Println(ts, "Node 1 decoded a block with", txCnt1, "txns")
+		{
+			cwCredit2 += n2.sendRate / 1000.0
+			for cwCredit2 > 1.0 {
+				cwCredit2 -= 1.0
+				cw := n2.newCodeword()
+				if cw.newBlock {
+					fmt.Println(ts, "Node 2 starting new block, send rate", n2.sendRate, ", queue length", len(n2.buffer))
+					txCnt1 = 0
+				}
+				if cw.ackBlock {
+					fmt.Println(ts, "Node 2 decoded a block with", txCnt2, "txns")
+				}
+				list := n1.addCodeword(cw)
+				txCnt1 += len(list)
+			}
 		}
-		list := n2.addCodeword(cw)
-		txCnt2 += len(list)
-		cw = n2.newCodeword()
-		if cw.newBlock {
-			fmt.Println(ts, "Node 2 starting new block, queue length", len(n2.buffer))
-			txCnt1 = 0
-		}
-		if cw.ackBlock {
-			fmt.Println(ts, "Node 2 decoded a block with", txCnt2, "txns")
-		}
-		list = n1.addCodeword(cw)
-		txCnt1 += len(list)
 	}
 }
