@@ -153,6 +153,7 @@ func main() {
 	queueTargetCoeff := flag.Float64("qtgt", 0.05, "queue length target control force")
 	targetQueueLen := flag.Int("target", 1000, "target queue length")
 	minSendRate := flag.Float64("minrate", 2.0, "min codeword sending rate")
+	initSendRate := flag.Float64("initrate", 0.0, "initial codeword sending rate, set to zero to match txgen")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -166,6 +167,13 @@ func main() {
 
 	n1 := newNode(config, *decoderMem)
 	n2 := newNode(config, *decoderMem)
+	if *initSendRate == 0.0 {
+		n1.sendRate = *transactionRate
+		n2.sendRate = *transactionRate
+	} else {
+		n1.sendRate = *initSendRate
+		n2.sendRate = *initSendRate
+	}
 
 	txCnt1 := 0
 	txCnt2 := 0
@@ -173,7 +181,8 @@ func main() {
 	cwCredit2 := 0.0
 
 	durMs := *simDuration * 1000
-	txArrivalDist := distuv.Poisson{*transactionRate/1000.0, exprand.New(exprand.NewSource(1))}
+	// distribution of block arrival per ms (simulating decoded blocks from other peers not being simulated)
+	txArrivalDist := distuv.Poisson{*transactionRate/1000.0/float64(*blockSize), exprand.New(exprand.NewSource(1))}
 	for tms := 0; tms <= durMs; tms += 1 {
 		ts := float64(tms) / 1000.0
 		if tms % 50 == 0 {
@@ -182,12 +191,12 @@ func main() {
 		}
 		{
 			prand := int(txArrivalDist.Rand())
-			for i := 0; i < prand; i++ {
+			for i := 0; i < prand * *blockSize; i++ {
 				tx := experiments.RandomTransaction()
 				n1.addTransaction(tx)
 			}
 			prand = int(txArrivalDist.Rand())
-			for i := 0; i < prand; i++ {
+			for i := 0; i < prand * *blockSize; i++ {
 				tx := experiments.RandomTransaction()
 				n2.addTransaction(tx)
 			}
