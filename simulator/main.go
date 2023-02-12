@@ -17,18 +17,22 @@ type codeword struct {
 	ackBlock bool
 }
 
+type nodeConfig struct {
+	blockSize int
+	detectThreshold int
+	queueDiffCoeff float64
+	queueTargetCoeff float64
+	targetQueueLen int
+	minSendRate float64
+}
+
 type node struct {
 	*ldpc.Encoder
 	*ldpc.Decoder
 	curCodewords []*ldpc.PendingCodeword
 	buffer []*ldpc.Transaction
 	
-	// parameters
-	blockSize int
-	detectThreshold int
-	queueLenConst float64
-	targetQueueLen int
-	minSendRate float64
+	nodeConfig
 
 	// flags that affect the next codeword
 	readySendNextBlock bool
@@ -102,39 +106,38 @@ func (n *node) newCodeword() codeword {
 			}
 		}
 		n.buffer = n.buffer[n.blockSize:]
-		// update sending rate
-		thisQueueLen := len(n.buffer)
-		// TODO: remove hardcoded params
-		deltaRate := float64(thisQueueLen - n.lastQueueLen) * n.queueLenConst + float64(thisQueueLen - n.targetQueueLen) * n.queueLenConst / 3.0
-		if n.sendRate + deltaRate >= n.minSendRate {
-			n.sendRate = n.sendRate + deltaRate
-		} else {
-			n.sendRate = n.minSendRate
-		}
-		n.lastQueueLen = thisQueueLen
 	}
 	// TODO: what if the previous block is sent and we don't yet have the next block filled
 	cw.Codeword = n.Encoder.ProduceCodeword()
 	return cw
 }
 
-func newNode(blockSize int, decoderMemory int, detectThreshold int, queueLenConst float64, targetQueueLen int, minSendRate float64) *node {
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(blockSize), 0.03, 0.5)
+// updateRate should be called every 50ms
+func (n *node) updateRate() {
+	thisQueueLen := len(n.buffer)
+	// TODO: remove hardcoded params
+	deltaRate := float64(thisQueueLen - n.lastQueueLen) / float64(n.blockSize) * n.queueDiffCoeff + float64(thisQueueLen - n.targetQueueLen) / float64(n.blockSize) * n.queueTargetCoeff
+	if n.sendRate + deltaRate >= n.minSendRate {
+		n.sendRate = n.sendRate + deltaRate
+	} else {
+		n.sendRate = n.minSendRate
+	}
+	n.lastQueueLen = thisQueueLen
+}
+
+func newNode(config nodeConfig, decoderMemory int) *node {
+	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(config.blockSize), 0.03, 0.5)
 	n := &node{
-		Encoder: ldpc.NewEncoder(experiments.TestKey, dist, blockSize),
+		Encoder: ldpc.NewEncoder(experiments.TestKey, dist, config.blockSize),
 		Decoder: ldpc.NewDecoder(experiments.TestKey, decoderMemory),
 		curCodewords: []*ldpc.PendingCodeword{},
 		buffer: []*ldpc.Transaction{},
-		blockSize: blockSize,
-		detectThreshold: detectThreshold,
+		nodeConfig: config,
 		readySendNextBlock: true,
 		readyReceiveNextBlock: false,
 		ackedThisBlock: false,
-		queueLenConst: queueLenConst,
-		targetQueueLen: targetQueueLen,
-		minSendRate: minSendRate,
 		lastQueueLen: 0,
-		sendRate: minSendRate,
+		sendRate: config.minSendRate,
 	}
 	return n
 }
@@ -146,15 +149,23 @@ func main() {
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Int("dur", 1000, "simulation duration in seconds")
-	queueLenConst := flag.Float64("cf", 0.2, "queue length control force")
+	queueDiffCoeff := flag.Float64("qdiff", 0.1, "queue length diff control force")
+	queueTargetCoeff := flag.Float64("qtgt", 0.05, "queue length target control force")
 	targetQueueLen := flag.Int("target", 1000, "target queue length")
 	minSendRate := flag.Float64("minrate", 2.0, "min codeword sending rate")
 	flag.Parse()
 
-	n1 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
-	n2 := newNode(*blockSize, *decoderMem, *detectThreshold, *queueLenConst, *targetQueueLen, *minSendRate)
-	n1.sendRate = *transactionRate
-	n2.sendRate = *transactionRate
+	config := nodeConfig{
+		blockSize: *blockSize,
+		detectThreshold: *detectThreshold,
+		queueDiffCoeff: *queueDiffCoeff,
+		queueTargetCoeff: *queueTargetCoeff,
+		targetQueueLen: *targetQueueLen,
+		minSendRate: *minSendRate,
+	}
+
+	n1 := newNode(config, *decoderMem)
+	n2 := newNode(config, *decoderMem)
 
 	txCnt1 := 0
 	txCnt2 := 0
@@ -165,6 +176,10 @@ func main() {
 	txArrivalDist := distuv.Poisson{*transactionRate/1000.0, exprand.New(exprand.NewSource(1))}
 	for tms := 0; tms <= durMs; tms += 1 {
 		ts := float64(tms) / 1000.0
+		if tms % 50 == 0 {
+			n1.updateRate()
+			n2.updateRate()
+		}
 		{
 			prand := int(txArrivalDist.Rand())
 			for i := 0; i < prand; i++ {
