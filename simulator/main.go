@@ -141,8 +141,8 @@ func main() {
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Duration("dur", 1000 * time.Second, "simulation duration")
-	initWindow := flag.Int("initcwnd", 10, "initial codeword sending window size")
-	networkDelay := flag.Duration("d", 100 * time.Millisecond, "network RTT")
+	initWindow := flag.Int("initcwnd", 100, "initial codeword sending window size")
+	networkDelay := flag.Duration("d", 100 * time.Millisecond, "network one-way propagation time")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -158,12 +158,15 @@ func main() {
 	// from other, unsimulated peers).
 	meanIntv := *transactionRate / float64(*blockSize) / float64(time.Second)
 	getIntv := func() time.Duration {
-		return time.Duration(int(rand.ExpFloat64() / meanIntv))
+		return time.Duration(rand.ExpFloat64() / meanIntv)
 	}
 	// schedule the arrival of first transactions
 	s.queueMessage(getIntv(), 0, blockArrival{})
 	s.queueMessage(getIntv(), 1, blockArrival{})
 	// main simulation loop
+	lastReport := time.Duration(0)
+	lastCodewordCount := 0
+	fmt.Println("# time(s)    codeword rate       queue")
 	for s.time <= *simDuration {
 		// deliver message
 		if s.drained() {
@@ -189,5 +192,11 @@ func main() {
 			s.queueMessage(*networkDelay, 1-dest, v)
 		}
 		nodes[dest].outbox = nodes[dest].outbox[:0]
+		// report metrics
+		for s.time - lastReport >= time.Second {
+			lastReport += time.Second
+			fmt.Println(lastReport.Seconds(), nodes[0].sentCodewords-lastCodewordCount, len(nodes[0].buffer))
+			lastCodewordCount = nodes[0].sentCodewords
+		}
 	}
 }
