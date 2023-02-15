@@ -35,6 +35,15 @@ func NewEncoder(salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder {
 	return p
 }
 
+func (e *Encoder) Reset(dist DegreeDistribution, ws int) {
+	e.degreeDist = dist
+	e.window = e.window[:0]
+	e.windowSize = ws
+	for k := range e.hashes {
+		delete(e.hashes, k)
+	}
+}
+
 func (e *Encoder) AddTransaction(t *Transaction) bool {
 	e.hasher.Reset()
 	e.hasher.Write(t.hash[:])

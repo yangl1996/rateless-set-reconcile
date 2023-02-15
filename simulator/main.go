@@ -11,8 +11,8 @@ import (
 )
 
 type nodeConfig struct {
-	blockSize int
 	detectThreshold int
+	controlOverhead float64
 }
 
 type nodeMetric struct {
@@ -36,7 +36,7 @@ type node struct {
 	inFlight int
 
 	// send/receive acking
-	currentBlockDelivered bool
+	encodingCurrentBlock bool
 	currentBlockReceived bool
 
 	// outgoing msgs
@@ -52,7 +52,20 @@ func (n *node) onTransaction(tx *ldpc.Transaction) {
 func (n *node) onAck(ack ack) {
 	n.inFlight -= 1
 	if ack.ackBlock {
-		n.currentBlockDelivered = true
+		n.encodingCurrentBlock = false
+	}
+	blockSize := int(float64(n.sendWindow) / n.controlOverhead)
+	if len(n.buffer) >= blockSize {
+		n.sendWindow += 1
+	} else {
+		n.sendWindow -= 1
+		// detectThreshold is a reasonable lower bound for sendWindow. The
+		// receiver cannot do anything without that many codewords. TODO: it
+		// may also make sense to send that many codewords when starting a new
+		// block, regardless of window usage.
+		if n.sendWindow < n.detectThreshold {
+			n.sendWindow = n.detectThreshold
+		}
 	}
 	n.tryFillSendWindow()
 }
@@ -72,18 +85,21 @@ func (n *node) tryFillSendWindow() {
 
 func (n *node) tryProduceCodeword() (codeword, bool) {
 	cw := codeword{}
-	if n.currentBlockDelivered {
-		if len(n.buffer) >= n.blockSize {
+	if !n.encodingCurrentBlock {
+		blockSize := int(float64(n.sendWindow) / n.controlOverhead)
+		if len(n.buffer) >= blockSize {
 			cw.newBlock = true
-			n.currentBlockDelivered = false
+			n.encodingCurrentBlock = true
+			dist := soliton.NewRobustSoliton(distRandSource, uint64(blockSize), 0.03, 0.5)
+			n.Encoder.Reset(dist, blockSize)
 			// move buffer into block
-			for i := 0; i < n.blockSize; i++ {
+			for i := 0; i < blockSize; i++ {
 				res := n.Encoder.AddTransaction(n.buffer[i])
 				if !res {
 					fmt.Println("Warning: duplicate transaction exists in window")
 				}
 			}
-			n.buffer = n.buffer[n.blockSize:]
+			n.buffer = n.buffer[blockSize:]
 		} else {
 			return cw, false
 		}
@@ -102,7 +118,7 @@ func (n *node) onCodeword(cw codeword) {
 		n.currentBlockReceived = false
 	}
 	stub, tx := n.Decoder.AddCodeword(cw.Codeword)
-	// TODO: add new transactions to the encoder?
+	// TODO: add new transactions to the queue?
 	n.receivedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
 
@@ -124,41 +140,41 @@ func (n *node) onCodeword(cw codeword) {
 	return
 }
 
+var distRandSource = rand.New(rand.NewSource(1))
 
-func newNode(config nodeConfig, decoderMemory int, initWindow int) *node {
-	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(1)), uint64(config.blockSize), 0.03, 0.5)
+func newNode(config nodeConfig, decoderMemory int) *node {
 	n := &node{
-		Encoder: ldpc.NewEncoder(experiments.TestKey, dist, config.blockSize),
+		Encoder: ldpc.NewEncoder(experiments.TestKey, nil, 0),
 		Decoder: ldpc.NewDecoder(experiments.TestKey, decoderMemory),
 		nodeConfig: config,
-		sendWindow: initWindow,
+		sendWindow: config.detectThreshold,
 	}
 	return n
 }
 
 
 func main() {
-	blockSize := flag.Int("k", 500, "block size")
+	arrivalBurstSize := flag.Int("b", 500, "transaction arrival burst size")
 	decoderMem := flag.Int("mem", 1000000, "decoder memory")
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Duration("dur", 1000 * time.Second, "simulation duration")
-	initWindow := flag.Int("initcwnd", 100, "initial codeword sending window size")
 	networkDelay := flag.Duration("d", 100 * time.Millisecond, "network one-way propagation time")
+	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)") 
 	flag.Parse()
 
 	config := nodeConfig{
-		blockSize: *blockSize,
 		detectThreshold: *detectThreshold,
+		controlOverhead: *controlOverhead,
 	}
 
-	nodes := []*node{newNode(config, *decoderMem, *initWindow), newNode(config, *decoderMem, *initWindow)}
+	nodes := []*node{newNode(config, *decoderMem), newNode(config, *decoderMem)}
 	s := &simulator{}
 
 	// Rate parameter for the block arrival interval distribution. Transactions
-	// arrive as blocks to simulate the burstiness in decoding (of transactions
+	// arrive in bursts to simulate the burstiness in decoding (of transactions
 	// from other, unsimulated peers).
-	meanIntv := *transactionRate / float64(*blockSize) / float64(time.Second)
+	meanIntv := *transactionRate / float64(*arrivalBurstSize) / float64(time.Second)
 	getIntv := func() time.Duration {
 		return time.Duration(rand.ExpFloat64() / meanIntv)
 	}
@@ -168,7 +184,7 @@ func main() {
 	// main simulation loop
 	lastReport := time.Duration(0)
 	lastCodewordCount := 0
-	fmt.Println("# time(s)    codeword rate       queue")
+	fmt.Println("# time(s)    codeword rate       queue      window")
 	for s.time <= *simDuration {
 		// deliver message
 		if s.drained() {
@@ -181,7 +197,7 @@ func main() {
 		case ack:
 			nodes[dest].onAck(m)
 		case blockArrival:
-			for i := 0; i < *blockSize; i++ {
+			for i := 0; i < *arrivalBurstSize; i++ {
 				tx := experiments.RandomTransaction()
 				nodes[dest].onTransaction(tx)
 			}
@@ -197,7 +213,7 @@ func main() {
 		// report metrics
 		for s.time - lastReport >= time.Second {
 			lastReport += time.Second
-			fmt.Println(lastReport.Seconds(), nodes[0].sentCodewords-lastCodewordCount, len(nodes[0].buffer))
+			fmt.Println(lastReport.Seconds(), nodes[0].sentCodewords-lastCodewordCount, len(nodes[0].buffer), nodes[0].sendWindow)
 			lastCodewordCount = nodes[0].sentCodewords
 		}
 	}
