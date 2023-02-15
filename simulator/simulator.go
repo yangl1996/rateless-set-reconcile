@@ -2,20 +2,25 @@ package main
 
 import (
 	"container/heap"
+	"time"
 )
 
 type message struct {
-	arrival int
+	arrival time.Duration
 	destination int
 	payload any
 }
 
 type simulator struct {
-	time int	//ms
+	time time.Duration
 	mq priorityQueue
 }
 
-func (s *simulator) queueMessage(delay int, dest int, msg any) {
+func (s *simulator) drained() bool {
+	return len(s.mq)==0
+}
+
+func (s *simulator) queueMessage(delay time.Duration, dest int, msg any) {
 	m := &message{s.time+delay, dest, msg}
 	heap.Push(&s.mq, m)
 }

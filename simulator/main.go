@@ -7,6 +7,7 @@ import (
 	"github.com/yangl1996/soliton"
 	"math/rand"
 	"flag"
+	"time"
 )
 
 type nodeConfig struct {
@@ -139,9 +140,9 @@ func main() {
 	decoderMem := flag.Int("mem", 1000000, "decoder memory")
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
-	simDuration := flag.Int("dur", 1000, "simulation duration in seconds")
+	simDuration := flag.Duration("dur", 1000 * time.Second, "simulation duration")
 	initWindow := flag.Int("initcwnd", 10, "initial codeword sending window size")
-	networkDelay := flag.Int("d", 100, "network RTT in milliseconds")
+	networkDelay := flag.Duration("d", 100 * time.Millisecond, "network RTT")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -152,24 +153,22 @@ func main() {
 	nodes := []*node{newNode(config, *decoderMem, *initWindow), newNode(config, *decoderMem, *initWindow)}
 	s := &simulator{}
 
-	durMs := *simDuration * 1000
 	// Rate parameter for the block arrival interval distribution. Transactions
 	// arrive as blocks to simulate the burstiness in decoding (of transactions
 	// from other, unsimulated peers).
-	meanIntv := *transactionRate / float64(*blockSize) / 1000.0
-	getIntv := func() int {
-		intv := int(rand.ExpFloat64() / meanIntv)
-		if intv < 50 {
-			panic("arrival interval too small, accuracy will be bad")
-		}
-		return intv
+	meanIntv := *transactionRate / float64(*blockSize) / float64(time.Second)
+	getIntv := func() time.Duration {
+		return time.Duration(int(rand.ExpFloat64() / meanIntv))
 	}
 	// schedule the arrival of first transactions
 	s.queueMessage(getIntv(), 0, blockArrival{})
 	s.queueMessage(getIntv(), 1, blockArrival{})
 	// main simulation loop
-	for s.time <= durMs {
+	for s.time <= *simDuration {
 		// deliver message
+		if s.drained() {
+			break
+		}
 		dest, msg := s.nextMessage()
 		switch m := msg.(type) {
 		case codeword:
@@ -181,6 +180,7 @@ func main() {
 				tx := experiments.RandomTransaction()
 				nodes[dest].onTransaction(tx)
 			}
+			s.queueMessage(getIntv(), dest, blockArrival{})
 		default:
 			panic("unknown message type")
 		}
