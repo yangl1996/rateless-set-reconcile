@@ -19,6 +19,7 @@ type nodeMetric struct {
 	receivedTransactions int
 	receivedCodewords int
 	sentCodewords int
+	queuedTransactions int
 }
 
 type node struct {
@@ -44,6 +45,7 @@ type node struct {
 
 func (n *node) onTransaction(tx *ldpc.Transaction) {
 	n.buffer = append(n.buffer, tx)
+	n.queuedTransactions += 1
 	n.tryFillSendWindow()
 }
 
@@ -199,4 +201,6 @@ func main() {
 			lastCodewordCount = nodes[0].sentCodewords
 		}
 	}
+	durs := s.time.Seconds()
+	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f, generate rate tx=%.2f\n", float64(nodes[0].receivedTransactions)/durs, float64(nodes[0].receivedCodewords)/durs, float64(nodes[0].receivedCodewords)/float64(nodes[0].receivedTransactions), float64(nodes[0].queuedTransactions)/durs)
 }
