@@ -108,7 +108,7 @@ func (n *node) tryProduceCodeword() (codeword, bool) {
 	return cw, true
 }
 
-func (n *node) onCodeword(cw codeword) {
+func (n *node) onCodeword(cw codeword) []*ldpc.Transaction {
 	n.receivedCodewords += 1
 	if cw.newBlock {
 		for _, c := range n.curCodewords {
@@ -121,6 +121,10 @@ func (n *node) onCodeword(cw codeword) {
 	// TODO: add new transactions to the queue?
 	n.receivedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
+	var res []*ldpc.Transaction
+	for _, v := range tx {
+		res = append(res, v.Transaction)
+	}
 
 	if !n.currentBlockReceived && len(n.curCodewords) > n.detectThreshold {
 		decoded := true
@@ -133,11 +137,11 @@ func (n *node) onCodeword(cw codeword) {
 		if decoded {
 			n.currentBlockReceived = true
 			n.outbox = append(n.outbox, ack{true})
-			return
+			return res
 		}
 	}
 	n.outbox = append(n.outbox, ack{false})
-	return
+	return res
 }
 
 func newNode(config nodeConfig, decoderMemory int) *node {

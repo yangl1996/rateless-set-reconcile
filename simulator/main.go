@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"flag"
 	"time"
+	"github.com/DataDog/sketches-go/ddsketch"
 )
 
 func main() {
@@ -39,6 +40,10 @@ func main() {
 	// main simulation loop
 	lastReport := time.Duration(0)
 	lastCodewordCount := 0
+	latencySketch, err := ddsketch.NewDefaultDDSketch(0.01)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("# time(s)    codeword rate       queue      window")
 	for s.time <= *simDuration {
 		// deliver message
@@ -48,7 +53,11 @@ func main() {
 		dest, msg := s.nextMessage()
 		switch m := msg.(type) {
 		case codeword:
-			nodes[dest].onCodeword(m)
+			txs := nodes[dest].onCodeword(m)
+			for _, v := range txs {
+				latency := (s.time - txgen.timestamp(v)).Seconds()
+				latencySketch.Add(latency)
+			}
 		case ack:
 			nodes[dest].onAck(m)
 		case blockArrival:
@@ -73,5 +82,11 @@ func main() {
 		}
 	}
 	durs := s.time.Seconds()
-	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f, generate rate tx=%.2f\n", float64(nodes[0].receivedTransactions)/durs, float64(nodes[0].receivedCodewords)/durs, float64(nodes[0].receivedCodewords)/float64(nodes[0].receivedTransactions), float64(nodes[0].queuedTransactions)/durs)
+	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f\n", float64(nodes[0].receivedTransactions)/durs, float64(nodes[0].receivedCodewords)/durs, float64(nodes[0].receivedCodewords)/float64(nodes[0].receivedTransactions))
+	fmt.Printf("# generate rate tx=%.2f\n", float64(nodes[0].queuedTransactions)/durs)
+	qt, err := latencySketch.GetValuesAtQuantiles([]float64{0.05, 0.5, 0.95})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("# latency seconds p5=%.3f, p50=%.3f, p95=%.3f\n", qt[0], qt[1], qt[2])
 }
