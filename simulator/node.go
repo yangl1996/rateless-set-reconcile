@@ -90,10 +90,11 @@ func (n *node) tryProduceCodeword() (codeword, bool) {
 				}
 			}
 			n.buffer = n.buffer[blockSize:]
-			// TODO: we should send detectThreshold codewords when starting a
-			// new block, regardless of window usage. Because the receiver
+			// We could send detectThreshold codewords when starting the
+			// new block, regardless of window usage, because the receiver
 			// cannot do anything (acking the block, for one and foremost)
-			// before receiving that many codewords.
+			// before receiving that many codewords. However, sending too
+			// much may lead to queuing inside the network.
 		} else {
 			return cw, false
 		}
@@ -112,7 +113,7 @@ func (n *node) onCodeword(cw codeword) []*ldpc.Transaction {
 		n.currentBlockReceived = false
 	}
 	stub, tx := n.Decoder.AddCodeword(cw.Codeword)
-	// TODO: add new transactions to the queue?
+	// TODO: add newly received transactions to the sending queue?
 	n.receivedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
 	var res []*ldpc.Transaction
@@ -147,7 +148,11 @@ func newNode(config nodeConfig, decoderMemory int) *node {
 		// init, but we adjust send window when creating a new block (setting
 		// it to blockSize*controlOverhead). We only try creating a new block
 		// when there is enough space in the window, so there is a chicken and
-		// egg problem.
+		// egg problem. Setting it to detectThreshold is a good adhoc fix
+		// though, since it does not alter the behavior of the system (sending
+		// will only start when the first block is filled, whose size is not
+		// controlled by sendWindow anyway), and sendWindow will never go below
+		// detectThreshold.
 		sendWindow: config.detectThreshold,
 	}
 	return n
