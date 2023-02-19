@@ -54,19 +54,6 @@ func (n *node) onAck(ack ack) {
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
 	}
-	blockSize := int(float64(n.sendWindow) / n.controlOverhead)
-	if len(n.buffer) >= blockSize {
-		n.sendWindow += 1
-	} else {
-		n.sendWindow -= 1
-		// detectThreshold is a reasonable lower bound for sendWindow. The
-		// receiver cannot do anything without that many codewords. TODO: it
-		// may also make sense to send that many codewords when starting a new
-		// block, regardless of window usage.
-		if n.sendWindow < n.detectThreshold {
-			n.sendWindow = n.detectThreshold
-		}
-	}
 	n.tryFillSendWindow()
 }
 
@@ -86,8 +73,11 @@ func (n *node) tryFillSendWindow() {
 func (n *node) tryProduceCodeword() (codeword, bool) {
 	cw := codeword{}
 	if !n.encodingCurrentBlock {
-		blockSize := int(float64(n.sendWindow) / n.controlOverhead)
-		if len(n.buffer) >= blockSize {
+		minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
+		if len(n.buffer) >= minBlockSize {
+			// move to the next block
+			blockSize := len(n.buffer)
+			n.sendWindow = int(float64(blockSize) * n.controlOverhead)
 			cw.newBlock = true
 			n.encodingCurrentBlock = true
 			dist := soliton.NewRobustSoliton(distRandSource, uint64(blockSize), 0.03, 0.5)
@@ -100,6 +90,10 @@ func (n *node) tryProduceCodeword() (codeword, bool) {
 				}
 			}
 			n.buffer = n.buffer[blockSize:]
+			// TODO: we should send detectThreshold codewords when starting a
+			// new block, regardless of window usage. Because the receiver
+			// cannot do anything (acking the block, for one and foremost)
+			// before receiving that many codewords.
 		} else {
 			return cw, false
 		}
@@ -149,6 +143,11 @@ func newNode(config nodeConfig, decoderMemory int) *node {
 		Encoder: ldpc.NewEncoder(testKey, nil, 0),
 		Decoder: ldpc.NewDecoder(testKey, decoderMemory),
 		nodeConfig: config,
+		// TODO: we would like to be able to leave sendWindow as zero during
+		// init, but we adjust send window when creating a new block (setting
+		// it to blockSize*controlOverhead). We only try creating a new block
+		// when there is enough space in the window, so there is a chicken and
+		// egg problem.
 		sendWindow: config.detectThreshold,
 	}
 	return n
