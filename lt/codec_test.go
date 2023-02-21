@@ -50,7 +50,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 		e.AddTransaction(tx)
 	}
-	dec := NewDecoder[*simpleData](testSalt, 1000)
+	dec := NewDecoder[*simpleData](testSalt, 100000)
 	ncw := 0
 	ndec := 0
 	for ndec < 500 {

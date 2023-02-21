@@ -3,16 +3,7 @@ package lt
 import (
 	"github.com/dchest/siphash"
 	"hash"
-	//"sync"
 )
-
-/*
-var pendingTransactionPool = sync.Pool{
-	New: func() interface{} {
-		return &pendingTransaction{}
-	},
-}
-*/
 
 type pendingTransaction[T TransactionData[T]] struct {
 	saltedHash uint32
