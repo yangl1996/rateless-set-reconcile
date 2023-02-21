@@ -14,7 +14,7 @@ var pendingTransactionPool = sync.Pool{
 }
 */
 
-type pendingTransaction[T TransactionData] struct {
+type pendingTransaction[T TransactionData[T]] struct {
 	saltedHash uint32
 	blocking   []*PendingCodeword[T]
 }
@@ -41,7 +41,7 @@ func (tx *pendingTransaction[T]) markDecoded(data T, decodableCws []*PendingCode
 	return decodableCws
 }
 
-type PendingCodeword[T TransactionData] struct {
+type PendingCodeword[T TransactionData[T]] struct {
 	symbol  T 
 	members []*pendingTransaction[T]
 	queued  bool
@@ -96,14 +96,14 @@ func (peelable *PendingCodeword[T]) peelTransaction(stub *pendingTransaction[T],
 			peelable.members[idx] = peelable.members[l-1]
 			peelable.members[l-1] = nil
 			peelable.members = peelable.members[:l-1]
-			peelable.symbol.XOR(data)
+			peelable.symbol = peelable.symbol.XOR(data)
 			return
 		}
 	}
 	panic("unable to peel decoded transaction from codeword pointing to it")
 }
 
-type Decoder[T TransactionData] struct {
+type Decoder[T TransactionData[T]] struct {
 	receivedTransactions map[uint32]Transaction[T]
 	recentTransactions []saltedTransaction[T]
 	pendingTransactions  map[uint32]*pendingTransaction[T]
@@ -111,7 +111,7 @@ type Decoder[T TransactionData] struct {
 	memory int
 }
 
-func NewDecoder[T TransactionData](salt [SaltSize]byte, memory int) *Decoder[T] {
+func NewDecoder[T TransactionData[T]](salt [SaltSize]byte, memory int) *Decoder[T] {
 	p := &Decoder[T]{
 		receivedTransactions: make(map[uint32]Transaction[T]),
 		pendingTransactions:  make(map[uint32]*pendingTransaction[T]),
@@ -156,7 +156,7 @@ func (p *Decoder[T]) AddCodeword(rawCodeword Codeword[T]) (*PendingCodeword[T], 
 			// sanity check
 			if !pendingExists {
 				// peel the transaction
-				cw.symbol.XOR(received.data)
+				cw.symbol = cw.symbol.XOR(received.data)
 			} else {
 				panic("transaction is marked both received and pending")
 			}

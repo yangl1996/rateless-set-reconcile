@@ -7,7 +7,7 @@ import (
 	"math/rand"
 )
 
-type Codeword[T TransactionData] struct {
+type Codeword[T TransactionData[T]] struct {
     symbol T
     members []uint32
 }
@@ -18,12 +18,12 @@ type DegreeDistribution interface {
 	Uint64() uint64
 }
 
-type saltedTransaction[T TransactionData] struct {
+type saltedTransaction[T TransactionData[T]] struct {
 	saltedHash uint32
 	Transaction[T]
 }
 
-type Encoder[T TransactionData] struct {
+type Encoder[T TransactionData[T]] struct {
 	window     []saltedTransaction[T]
 	hasher     hash.Hash64
 	degreeDist DegreeDistribution
@@ -33,7 +33,7 @@ type Encoder[T TransactionData] struct {
 	codewordBuilder []saltedTransaction[T]
 }
 
-func NewEncoder[T TransactionData](salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
+func NewEncoder[T TransactionData[T]](salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
 	p := &Encoder[T]{
 		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
@@ -103,7 +103,7 @@ func (e *Encoder[T]) produceCodeword(deg int) Codeword[T] {
 	}
 	for idx, item := range e.codewordBuilder {
 		c.members[idx] = item.saltedHash
-		c.symbol.XOR(item.Transaction.data)
+		c.symbol = c.symbol.XOR(item.Transaction.data)
 	}
 	return c
 }

@@ -1,17 +1,17 @@
 package lt
 
-type TransactionData interface {
-	XOR(t2 TransactionData)
-	Equals(t2 TransactionData) bool
+type TransactionData[T any] interface {
+	XOR(t2 T) T	// XOR is allowed to modify the method receiver
+	Equals(t2 T) bool
 	Hash() []byte
 }
 
-type Transaction[T TransactionData] struct {
+type Transaction[T TransactionData[T]] struct {
 	data T
 	hash []byte
 }
 
-func NewTransaction[T TransactionData](data T) Transaction[T] {
+func NewTransaction[T TransactionData[T]](data T) Transaction[T] {
 	return Transaction[T]{data, data.Hash()}
 }
 
