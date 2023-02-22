@@ -5,6 +5,7 @@ import (
 	"testing"
 	"math/rand"
 	"bytes"
+	"fmt"
 )
 
 
@@ -137,5 +138,43 @@ func TestProduceCodeword(t *testing.T) {
 		if !bytes.Equal(sum[:], cw.symbol[:]) {
 			t.Error("codeword with degree", d, "has incorrect symbol")
 		}
+	}
+}
+
+func BenchmarkAddTransaction(b *testing.B) {
+    e := NewEncoder[*simpleData](testSalt, nil, b.N)
+    txs := []Transaction[*simpleData]{}
+    for i := 0; i < b.N; i++ {
+        tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
+        txs = append(txs, tx)
+    }
+    b.ReportAllocs()
+    b.SetBytes(simpleDataSize)
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        e.AddTransaction(txs[i])
+    }
+}
+
+func BenchmarkProduceCodeword(b *testing.B) {
+	ks := []int{500, 1000, 2000}
+	genrun := func(k int) func(b *testing.B) {
+		return func(b *testing.B) {
+			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), uint64(k), 0.03, 0.5)
+			e := NewEncoder[*simpleData](testSalt, dist, k)
+			for i := 0; i < k; i++ {
+				tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
+				e.AddTransaction(tx)
+			}
+			b.ReportAllocs()
+			b.SetBytes(simpleDataSize)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				e.ProduceCodeword()
+			}
+		}
+	}
+	for _, k := range ks {
+		b.Run(fmt.Sprintf("k=%d", k), genrun(k))
 	}
 }

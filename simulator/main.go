@@ -34,9 +34,8 @@ func main() {
 	getIntv := func() time.Duration {
 		return time.Duration(rand.ExpFloat64() / meanIntv)
 	}
-	// schedule the arrival of first transactions
+	// schedule the arrival of first transactions (transactions flow from 0 to 1)
 	s.queueMessage(getIntv(), 0, blockArrival{})
-	s.queueMessage(getIntv(), 1, blockArrival{})
 	// main simulation loop
 	lastReport := time.Duration(0)
 	lastCodewordCount := 0

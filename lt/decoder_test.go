@@ -3,6 +3,9 @@ package lt
 import (
 	"testing"
 	"bytes"
+	"github.com/yangl1996/soliton"
+	"math/rand"
+	"fmt"
 )
 
 type testTransactionState struct {
@@ -46,7 +49,7 @@ func (cw *testCodewordState) intoPendingCodeword() *PendingCodeword[*simpleData]
 	return (*PendingCodeword[*simpleData])(cw)
 }
 
-func testMarkDecodedAndPeelTransaction(t *testing.T) {
+func TestMarkDecodedAndPeelTransaction(t *testing.T) {
 	// create transactions tx1, 2, 3
 	tx1 := newTestTransactionState(1)
 	tx2 := newTestTransactionState(2)
@@ -83,7 +86,7 @@ func testMarkDecodedAndPeelTransaction(t *testing.T) {
 	}
 }
 
-func testFailToDecode(t *testing.T) {
+func TestFailToDecode(t *testing.T) {
 	// tx1 is blocking cw1, 2
 	tx1 := newTestTransactionState(1)
 	var cw1, cw2 *testCodewordState
@@ -110,5 +113,45 @@ func testFailToDecode(t *testing.T) {
 	}
 	if saltedHash != tx2.saltedHash {
 		t.Error("incorrect salted hash of freeable transaction")
+	}
+}
+
+func BenchmarkDecode(b *testing.B) {
+	ks := []int{500, 1000, 2000}
+	genrun := func(k int) func(b *testing.B) {
+		return func(b *testing.B) {
+			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), uint64(k), 0.03, 0.5)
+			e := NewEncoder[*simpleData](testSalt, dist, k)
+			for i := 0; i < k; i++ {
+				tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
+				e.AddTransaction(tx)
+			}
+			cws := []Codeword[*simpleData]{}
+			// ensure there are enough codewords for decoding
+			for i := 0; i < k*2; i++ {
+				cws = append(cws, e.ProduceCodeword())
+			}
+			
+			decs := []*Decoder[*simpleData]{}
+			for i := 0; i < b.N; i++ {
+				decs = append(decs, NewDecoder[*simpleData](testSalt, k*2))
+			}
+			b.ReportAllocs()
+			b.SetBytes(int64(simpleDataSize * k))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				decoded := 0
+				for _, cw := range cws {
+					_, txs := decs[i].AddCodeword(cw)
+					decoded += len(txs)
+					if decoded == k {
+						break
+					}
+				}
+			}
+		}
+	}
+	for _, k := range ks {
+		b.Run(fmt.Sprintf("k=%d", k), genrun(k))
 	}
 }
