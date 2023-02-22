@@ -1,35 +1,45 @@
 package main
 
 import (
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
-    "math/rand"
 	"time"
-	"hash/maphash"
+	"encoding/binary"
+	"github.com/yangl1996/rateless-set-reconcile/lt"
 )
 
+type transaction uint64
+
+func (d transaction) XOR(t2 transaction) transaction {
+	return d ^ t2
+}
+
+func (d transaction) Hash() []byte {
+	res := make([]byte, 8)
+	binary.LittleEndian.PutUint64(res, uint64(d))
+	return res
+}
+
+func (d transaction) Equals(t2 transaction) bool {
+	return d == t2
+}
+
 type transactionGenerator struct {
-	ts map[uint64]time.Duration
-	seed maphash.Seed
+	next uint64
+	ts map[transaction]time.Duration
 }
 
 func newTransactionGenerator() *transactionGenerator {
 	return &transactionGenerator{
-		ts: make(map[uint64]time.Duration),
-		seed: maphash.MakeSeed(),
+		ts: make(map[transaction]time.Duration),
 	}
 }
 
-func (t *transactionGenerator) generate(at time.Duration) *ldpc.Transaction {
-	d := ldpc.TransactionData{}
-	rand.Read(d[:])
-	h := maphash.Bytes(t.seed, d[:])
-	t.ts[h] = at
-	tx := &ldpc.Transaction{}
-	tx.UnmarshalBinary(d[:])
-	return tx
+func (t *transactionGenerator) generate(at time.Duration) lt.Transaction[transaction] {
+	tx := transaction(t.next)
+	t.ts[tx] = at
+	t.next += 1
+	return lt.NewTransaction[transaction](tx)
 }
 
-func (t *transactionGenerator) timestamp(tx *ldpc.Transaction) time.Duration {
-	h := maphash.Bytes(t.seed, tx.Serialized())
-	return t.ts[h]
+func (t *transactionGenerator) timestamp(tx transaction) time.Duration {
+	return t.ts[tx]
 }

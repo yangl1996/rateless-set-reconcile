@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
+	"github.com/yangl1996/rateless-set-reconcile/lt"
 	"github.com/yangl1996/soliton"
 	"math/rand"
 )
 
-var testKey = [ldpc.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+var testKey = [lt.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 var distRandSource = rand.New(rand.NewSource(1))
 
 type nodeConfig struct {
@@ -23,10 +23,10 @@ type nodeMetric struct {
 }
 
 type node struct {
-	*ldpc.Encoder
-	*ldpc.Decoder
-	curCodewords []*ldpc.PendingCodeword
-	buffer []*ldpc.Transaction
+	*lt.Encoder[transaction]
+	*lt.Decoder[transaction]
+	curCodewords []*lt.PendingCodeword[transaction]
+	buffer []lt.Transaction[transaction]
 	
 	nodeConfig
 	nodeMetric
@@ -43,7 +43,7 @@ type node struct {
 	outbox []any
 }
 
-func (n *node) onTransaction(tx *ldpc.Transaction) {
+func (n *node) onTransaction(tx lt.Transaction[transaction]) {
 	n.buffer = append(n.buffer, tx)
 	n.queuedTransactions += 1
 	n.tryFillSendWindow()
@@ -103,12 +103,9 @@ func (n *node) tryProduceCodeword() (codeword, bool) {
 	return cw, true
 }
 
-func (n *node) onCodeword(cw codeword) []*ldpc.Transaction {
+func (n *node) onCodeword(cw codeword) []lt.Transaction[transaction] {
 	n.receivedCodewords += 1
 	if cw.newBlock {
-		for _, c := range n.curCodewords {
-			c.Free()
-		}
 		n.curCodewords = n.curCodewords[:0]
 		n.currentBlockReceived = false
 	}
@@ -116,9 +113,9 @@ func (n *node) onCodeword(cw codeword) []*ldpc.Transaction {
 	// TODO: add newly received transactions to the sending queue?
 	n.receivedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
-	var res []*ldpc.Transaction
+	var res []lt.Transaction[transaction]
 	for _, v := range tx {
-		res = append(res, v.Transaction)
+		res = append(res, v)
 	}
 
 	if !n.currentBlockReceived && len(n.curCodewords) > n.detectThreshold {
@@ -141,8 +138,8 @@ func (n *node) onCodeword(cw codeword) []*ldpc.Transaction {
 
 func newNode(config nodeConfig, decoderMemory int) *node {
 	n := &node{
-		Encoder: ldpc.NewEncoder(testKey, nil, 0),
-		Decoder: ldpc.NewDecoder(testKey, decoderMemory),
+		Encoder: lt.NewEncoder[transaction](testKey, nil, 0),
+		Decoder: lt.NewDecoder[transaction](testKey, decoderMemory),
 		nodeConfig: config,
 		// TODO: we would like to be able to leave sendWindow as zero during
 		// init, but we adjust send window when creating a new block (setting

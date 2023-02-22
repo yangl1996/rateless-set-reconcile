@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/yangl1996/rateless-set-reconcile/ldpc"
+	"github.com/yangl1996/rateless-set-reconcile/lt"
 )
 
 type codeword struct {
-    *ldpc.Codeword
+    lt.Codeword[transaction]
     newBlock bool
 }
 

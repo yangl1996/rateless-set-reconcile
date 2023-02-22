@@ -55,7 +55,7 @@ func main() {
 		case codeword:
 			txs := nodes[dest].onCodeword(m)
 			for _, v := range txs {
-				latency := (s.time - txgen.timestamp(v)).Seconds()
+				latency := (s.time - txgen.timestamp(v.Data())).Seconds()
 				latencySketch.Add(latency)
 			}
 		case ack:
