@@ -42,6 +42,10 @@ func (cw *testCodewordState) contains(tx testTransactionState) bool {
 	return false
 }
 
+func (cw *testCodewordState) intoPendingCodeword() *PendingCodeword[*simpleData] {
+	return (*PendingCodeword[*simpleData])(cw)
+}
+
 func testMarkDecodedAndPeelTransaction(t *testing.T) {
 	// create transactions tx1, 2, 3
 	tx1 := newTestTransactionState(1)
@@ -80,4 +84,31 @@ func testMarkDecodedAndPeelTransaction(t *testing.T) {
 }
 
 func testFailToDecode(t *testing.T) {
+	// tx1 is blocking cw1, 2
+	tx1 := newTestTransactionState(1)
+	var cw1, cw2 *testCodewordState
+	cw1 = cw1.xor(tx1) 
+	cw2 = cw2.xor(tx1)
+	_, _, txFailed := cw1.intoPendingCodeword().failToDecode()
+	if txFailed {
+		t.Error("incorrectly reporting the pending transaction can be freed")
+	}
+	if len(tx1.pendingTransaction.blocking) != 1 {
+		t.Error("incorrect number of blocked codewords")
+	}
+	if tx1.pendingTransaction.blocking[0] != cw2.intoPendingCodeword() {
+		t.Error("incorrect list of blocked codewords")
+	}
+
+	// tx2 is blocking cw3 only
+	tx2 := newTestTransactionState(2)
+	var cw3 *testCodewordState
+	cw3 = cw3.xor(tx2)
+	saltedHash, _, txFailed := cw3.intoPendingCodeword().failToDecode()
+	if !txFailed {
+		t.Error("not reporting the pending transaction can be freed")
+	}
+	if saltedHash != tx2.saltedHash {
+		t.Error("incorrect salted hash of freeable transaction")
+	}
 }
