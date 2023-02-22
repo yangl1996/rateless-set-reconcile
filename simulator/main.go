@@ -81,7 +81,7 @@ func main() {
 		}
 	}
 	durs := s.time.Seconds()
-	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f\n", float64(nodes[0].receivedTransactions)/durs, float64(nodes[0].receivedCodewords)/durs, float64(nodes[0].receivedCodewords)/float64(nodes[0].receivedTransactions))
+	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f\n", float64(nodes[1].receivedTransactions)/durs, float64(nodes[1].receivedCodewords)/durs, float64(nodes[1].receivedCodewords)/float64(nodes[1].receivedTransactions))
 	fmt.Printf("# generate rate tx=%.2f\n", float64(nodes[0].queuedTransactions)/durs)
 	qt, err := latencySketch.GetValuesAtQuantiles([]float64{0.05, 0.5, 0.95})
 	if err != nil {
