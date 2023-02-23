@@ -1,6 +1,6 @@
 module github.com/yangl1996/rateless-set-reconcile
 
-go 1.19
+go 1.20
 
 require (
 	github.com/DataDog/sketches-go v1.4.1

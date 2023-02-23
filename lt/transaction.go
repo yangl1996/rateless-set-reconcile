@@ -2,8 +2,8 @@ package lt
 
 type TransactionData[T any] interface {
 	XOR(t2 T) T	// XOR is allowed to modify the method receiver
-	Equals(t2 T) bool
 	Hash() []byte
+	comparable
 }
 
 type Transaction[T TransactionData[T]] struct {

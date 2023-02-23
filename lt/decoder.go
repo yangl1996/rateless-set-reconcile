@@ -3,6 +3,7 @@ package lt
 import (
 	"github.com/dchest/siphash"
 	"hash"
+	"bytes"
 )
 
 type pendingTransaction[T TransactionData[T]] struct {
@@ -120,7 +121,7 @@ func (p *Decoder[T]) storeNewTransaction(saltedHash uint32, t Transaction[T]) {
 		// FIXME: the comparison of the hashes is a hack. It is a shallow comparison, but currently it is fine because
 		// Transaction values in receivedTransactions and recentTransactions have the same origin. The shallow comparison
 		// has the same effect as a pointer comparison.
-		if e := p.receivedTransactions[p.recentTransactions[0].saltedHash]; &e.hash[0] == &p.recentTransactions[0].Transaction.hash[0] {
+		if e := p.receivedTransactions[p.recentTransactions[0].saltedHash]; e.data == p.recentTransactions[0].Transaction.data {
 			delete(p.receivedTransactions, p.recentTransactions[0].saltedHash)
 		}
 		p.recentTransactions = p.recentTransactions[1:]
@@ -181,7 +182,7 @@ func (p *Decoder[T]) AddTransaction(t Transaction[T]) []Transaction[T] {
 			return nil
 		}
 	} else {
-		if existing.data.Equals(t.data) {
+		if bytes.Equal(existing.hash, t.hash) {
 			// something that we already know; do not do anything
 			return nil
 		} else {
