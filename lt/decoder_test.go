@@ -121,7 +121,7 @@ func BenchmarkDecode(b *testing.B) {
 	genrun := func(k int) func(b *testing.B) {
 		return func(b *testing.B) {
 			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), uint64(k), 0.03, 0.5)
-			e := NewEncoder[*simpleData](testSalt, dist, k)
+			e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist, k)
 			for i := 0; i < k; i++ {
 				tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 				e.AddTransaction(tx)

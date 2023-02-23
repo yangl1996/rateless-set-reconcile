@@ -11,7 +11,7 @@ import (
 func TestReset(t *testing.T) {
 	dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 500, 0.03, 0.5)
 	dist2 := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 600, 0.03, 0.5)
-	e := NewEncoder[*simpleData](testSalt, dist1, 500)
+	e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist1, 500)
 	for i := 0; i < 500; i++ {
 		tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 		e.AddTransaction(tx)
@@ -33,7 +33,7 @@ func TestReset(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 50, 0.03, 0.5)
-	e := NewEncoder[*simpleData](testSalt, dist, 50)
+	e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist, 50)
 	tx := NewTransaction[*simpleData](newSimpleData(uint64(1)))
 	if !e.AddTransaction(tx) {
 		t.Error("failed to add transaction when there is no conflict")
@@ -102,7 +102,7 @@ func TestAddTransaction(t *testing.T) {
 
 func TestProduceCodeword(t *testing.T) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 50, 0.03, 0.5)
-	e := NewEncoder[*simpleData](testSalt, dist, 50)
+	e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist, 50)
 	for i := 0; i < 50; i++ {
 		tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 		e.AddTransaction(tx)
@@ -141,7 +141,7 @@ func TestProduceCodeword(t *testing.T) {
 }
 
 func BenchmarkAddTransaction(b *testing.B) {
-    e := NewEncoder[*simpleData](testSalt, nil, b.N)
+    e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, nil, b.N)
     txs := []Transaction[*simpleData]{}
     for i := 0; i < b.N; i++ {
         tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
@@ -160,7 +160,7 @@ func BenchmarkProduceCodeword(b *testing.B) {
 	genrun := func(k int) func(b *testing.B) {
 		return func(b *testing.B) {
 			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), uint64(k), 0.03, 0.5)
-			e := NewEncoder[*simpleData](testSalt, dist, k)
+			e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist, k)
 			for i := 0; i < k; i++ {
 				tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 				e.AddTransaction(tx)

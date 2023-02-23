@@ -23,6 +23,7 @@ type saltedTransaction[T TransactionData[T]] struct {
 }
 
 type Encoder[T TransactionData[T]] struct {
+	r *rand.Rand
 	window     []saltedTransaction[T]
 	hasher     hash.Hash64
 	degreeDist DegreeDistribution
@@ -32,8 +33,9 @@ type Encoder[T TransactionData[T]] struct {
 	shuffleHistory []int
 }
 
-func NewEncoder[T TransactionData[T]](salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
+func NewEncoder[T TransactionData[T]](r *rand.Rand, salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
 	p := &Encoder[T]{
+		r: r,
 		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
 		windowSize: ws,
@@ -92,7 +94,7 @@ func (e *Encoder[T]) produceCodeword(deg int) Codeword[T] {
 	for i := 0; i < deg; i++ {
 		// randomly shuffle with any item with idx i, i+1, ..., n-1, i.e.,
 		// items not yet selected
-		r := rand.Intn(n-i)+i
+		r := e.r.Intn(n-i)+i
 		e.shuffleHistory = append(e.shuffleHistory, r)
 		e.window[i], e.window[r] = e.window[r], e.window[i]
 		// this is now the selected item, add it to codeword

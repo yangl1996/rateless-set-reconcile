@@ -136,9 +136,9 @@ func (n *node) onCodeword(cw codeword) []lt.Transaction[transaction] {
 	return res
 }
 
-func newNode(config nodeConfig, decoderMemory int) *node {
+func newNode(seed int64, config nodeConfig, decoderMemory int) *node {
 	n := &node{
-		Encoder: lt.NewEncoder[transaction](testKey, nil, 0),
+		Encoder: lt.NewEncoder[transaction](rand.New(rand.NewSource(seed)), testKey, nil, 0),
 		Decoder: lt.NewDecoder[transaction](testKey, decoderMemory),
 		nodeConfig: config,
 		// TODO: we would like to be able to leave sendWindow as zero during

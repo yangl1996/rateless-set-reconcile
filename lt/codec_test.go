@@ -45,7 +45,7 @@ func newSimpleData(i uint64) *simpleData {
 
 func TestEncodeAndDecode(t *testing.T) {
 	dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 500, 0.03, 0.5)
-	e := NewEncoder[*simpleData](testSalt, dist, 500)
+	e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, dist, 500)
 	for i := 0; i < 500; i++ {
 		tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
 		e.AddTransaction(tx)

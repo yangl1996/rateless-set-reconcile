@@ -23,7 +23,7 @@ func main() {
 		controlOverhead: *controlOverhead,
 	}
 
-	nodes := []*node{newNode(config, *decoderMem), newNode(config, *decoderMem)}
+	nodes := []*node{newNode(0, config, *decoderMem), newNode(1, config, *decoderMem)}
 	s := &simulator{}
 	txgen := newTransactionGenerator()
 
