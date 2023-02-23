@@ -36,14 +36,18 @@ func main() {
 	}
 	// schedule the arrival of first transactions (transactions flow from 0 to 1)
 	s.queueMessage(getIntv(), 0, blockArrival{})
-	// main simulation loop
+	// metric recording
 	lastReport := time.Duration(0)
-	lastCodewordCount := 0
 	latencySketch, err := ddsketch.NewDefaultDDSketch(0.01)
+	queueLen := maximum[int]{}
+	sendWindow := maximum[int]{}
+	sentCodeword := difference[int]{}
+
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("# time(s)    codeword rate       queue      window")
+	// main simulation loop
 	for s.time <= *simDuration {
 		// deliver message
 		if s.drained() {
@@ -73,11 +77,13 @@ func main() {
 			s.queueMessage(*networkDelay, 1-dest, v)
 		}
 		nodes[dest].outbox = nodes[dest].outbox[:0]
-		// report metrics
+		// record and report metrics
+		queueLen.record(len(nodes[0].buffer))
+		sendWindow.record(nodes[0].sendWindow)
+		sentCodeword.record(nodes[0].sentCodewords)
 		for s.time - lastReport >= time.Second {
 			lastReport += time.Second
-			fmt.Println(lastReport.Seconds(), nodes[0].sentCodewords-lastCodewordCount, len(nodes[0].buffer), nodes[0].sendWindow)
-			lastCodewordCount = nodes[0].sentCodewords
+			fmt.Println(lastReport.Seconds(), sentCodeword.get(), queueLen.get(), sendWindow.get())
 		}
 	}
 	durs := s.time.Seconds()
