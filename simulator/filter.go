@@ -16,7 +16,9 @@ func (m *maximum[T]) record(val T) {
 }
 
 func (m *maximum[T]) get() T {
-	return m.max
+	res := m.max
+	m.max = 0
+	return res
 }
 
 func (m *maximum[T]) reset() {
