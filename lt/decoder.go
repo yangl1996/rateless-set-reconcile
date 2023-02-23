@@ -1,9 +1,9 @@
 package lt
 
 import (
+	"bytes"
 	"github.com/dchest/siphash"
 	"hash"
-	"bytes"
 )
 
 type pendingTransaction[T TransactionData[T]] struct {
@@ -34,7 +34,7 @@ func (tx *pendingTransaction[T]) markDecoded(data T, decodableCws []*PendingCode
 }
 
 type PendingCodeword[T TransactionData[T]] struct {
-	symbol  T 
+	symbol  T
 	members []*pendingTransaction[T]
 	queued  bool
 	decoded bool
@@ -45,7 +45,7 @@ func (cw *PendingCodeword[T]) Decoded() bool {
 }
 
 // failToDecode marks that cw cannot be decoded, probably because of hash conflicts.
-// It returns the hash of and the pointer to the blocking pending transaction along with 
+// It returns the hash of and the pointer to the blocking pending transaction along with
 // true when the blocking pending transaction cannot be decoded and can be freed, and
 // false if otherwise.
 // TODO: can we record the history of decoding (which transactions get peeled), and
@@ -97,10 +97,10 @@ func (peelable *PendingCodeword[T]) peelTransaction(stub *pendingTransaction[T],
 
 type Decoder[T TransactionData[T]] struct {
 	receivedTransactions map[uint32]Transaction[T]
-	recentTransactions []saltedTransaction[T]
+	recentTransactions   []saltedTransaction[T]
 	pendingTransactions  map[uint32]*pendingTransaction[T]
 	hasher               hash.Hash64
-	memory int
+	memory               int
 }
 
 func NewDecoder[T TransactionData[T]](salt [SaltSize]byte, memory int) *Decoder[T] {
@@ -108,7 +108,7 @@ func NewDecoder[T TransactionData[T]](salt [SaltSize]byte, memory int) *Decoder[
 		receivedTransactions: make(map[uint32]Transaction[T]),
 		pendingTransactions:  make(map[uint32]*pendingTransaction[T]),
 		hasher:               siphash.New(salt[:]),
-		memory: memory,
+		memory:               memory,
 	}
 	return p
 }
@@ -252,4 +252,3 @@ func (p *Decoder[T]) decodeCodewords(queue []*PendingCodeword[T]) []Transaction[
 	}
 	return newTx
 }
-

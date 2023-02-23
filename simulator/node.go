@@ -17,23 +17,23 @@ type nodeConfig struct {
 
 type nodeMetric struct {
 	receivedTransactions int
-	receivedCodewords int
-	sentCodewords int
-	queuedTransactions int
+	receivedCodewords    int
+	sentCodewords        int
+	queuedTransactions   int
 }
 
 type node struct {
 	*lt.Encoder[transaction]
 	*lt.Decoder[transaction]
 	curCodewords []*lt.PendingCodeword[transaction]
-	buffer []lt.Transaction[transaction]
-	
+	buffer       []lt.Transaction[transaction]
+
 	nodeConfig
 	nodeMetric
 
 	// send window
 	sendWindow int
-	inFlight int
+	inFlight   int
 
 	// send/receive acking
 	encodingCurrentBlock bool
@@ -138,8 +138,8 @@ func (n *node) onCodeword(cw codeword) []lt.Transaction[transaction] {
 
 func newNode(seed int64, config nodeConfig, decoderMemory int) *node {
 	n := &node{
-		Encoder: lt.NewEncoder[transaction](rand.New(rand.NewSource(seed)), testKey, nil, 0),
-		Decoder: lt.NewDecoder[transaction](testKey, decoderMemory),
+		Encoder:    lt.NewEncoder[transaction](rand.New(rand.NewSource(seed)), testKey, nil, 0),
+		Decoder:    lt.NewDecoder[transaction](testKey, decoderMemory),
 		nodeConfig: config,
 		// TODO: we would like to be able to leave sendWindow as zero during
 		// init, but we adjust send window when creating a new block (setting

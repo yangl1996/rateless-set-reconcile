@@ -7,8 +7,8 @@ import (
 )
 
 type Codeword[T TransactionData[T]] struct {
-    symbol T
-    members []uint32
+	symbol  T
+	members []uint32
 }
 
 const SaltSize = 16
@@ -23,11 +23,11 @@ type saltedTransaction[T TransactionData[T]] struct {
 }
 
 type Encoder[T TransactionData[T]] struct {
-	r *rand.Rand
+	r          *rand.Rand
 	window     []saltedTransaction[T]
 	hasher     hash.Hash64
 	degreeDist DegreeDistribution
-	hashes map[uint32]struct{}	// transactions already in the window
+	hashes     map[uint32]struct{} // transactions already in the window
 	windowSize int
 
 	shuffleHistory []int
@@ -35,11 +35,11 @@ type Encoder[T TransactionData[T]] struct {
 
 func NewEncoder[T TransactionData[T]](r *rand.Rand, salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
 	p := &Encoder[T]{
-		r: r,
+		r:          r,
 		hasher:     siphash.New(salt[:]),
 		degreeDist: dist,
 		windowSize: ws,
-		hashes: make(map[uint32]struct{}),
+		hashes:     make(map[uint32]struct{}),
 	}
 	return p
 }
@@ -94,7 +94,7 @@ func (e *Encoder[T]) produceCodeword(deg int) Codeword[T] {
 	for i := 0; i < deg; i++ {
 		// randomly shuffle with any item with idx i, i+1, ..., n-1, i.e.,
 		// items not yet selected
-		r := e.r.Intn(n-i)+i
+		r := e.r.Intn(n-i) + i
 		e.shuffleHistory = append(e.shuffleHistory, r)
 		e.window[i], e.window[r] = e.window[r], e.window[i]
 		// this is now the selected item, add it to codeword
@@ -102,7 +102,7 @@ func (e *Encoder[T]) produceCodeword(deg int) Codeword[T] {
 		c.members[i] = e.window[i].saltedHash
 	}
 	// revert the shuffling
-	for i := deg-1; i >= 0; i-- {
+	for i := deg - 1; i >= 0; i-- {
 		e.window[i], e.window[e.shuffleHistory[i]] = e.window[e.shuffleHistory[i]], e.window[i]
 	}
 	return c

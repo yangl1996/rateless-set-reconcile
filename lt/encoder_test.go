@@ -1,11 +1,11 @@
 package lt
 
 import (
-	"github.com/yangl1996/soliton"
-	"testing"
-	"math/rand"
 	"bytes"
 	"fmt"
+	"github.com/yangl1996/soliton"
+	"math/rand"
+	"testing"
 )
 
 func TestReset(t *testing.T) {
@@ -141,18 +141,18 @@ func TestProduceCodeword(t *testing.T) {
 }
 
 func BenchmarkAddTransaction(b *testing.B) {
-    e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, nil, b.N)
-    txs := []Transaction[*simpleData]{}
-    for i := 0; i < b.N; i++ {
-        tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
-        txs = append(txs, tx)
-    }
-    b.ReportAllocs()
-    b.SetBytes(simpleDataSize)
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        e.AddTransaction(txs[i])
-    }
+	e := NewEncoder[*simpleData](rand.New(rand.NewSource(0)), testSalt, nil, b.N)
+	txs := []Transaction[*simpleData]{}
+	for i := 0; i < b.N; i++ {
+		tx := NewTransaction[*simpleData](newSimpleData(uint64(i)))
+		txs = append(txs, tx)
+	}
+	b.ReportAllocs()
+	b.SetBytes(simpleDataSize)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		e.AddTransaction(txs[i])
+	}
 }
 
 func BenchmarkProduceCodeword(b *testing.B) {

@@ -5,12 +5,12 @@ import (
 )
 
 type codeword struct {
-    lt.Codeword[transaction]
-    newBlock bool
+	lt.Codeword[transaction]
+	newBlock bool
 }
 
 type ack struct {
-    ackBlock bool
+	ackBlock bool
 }
 
-type blockArrival struct {}
+type blockArrival struct{}

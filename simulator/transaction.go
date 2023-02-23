@@ -1,9 +1,9 @@
 package main
 
 import (
-	"time"
 	"encoding/binary"
 	"github.com/yangl1996/rateless-set-reconcile/lt"
+	"time"
 )
 
 type transaction uint64
@@ -24,7 +24,7 @@ func (d transaction) Equals(t2 transaction) bool {
 
 type transactionGenerator struct {
 	next uint64
-	ts map[transaction]time.Duration
+	ts   map[transaction]time.Duration
 }
 
 func newTransactionGenerator() *transactionGenerator {

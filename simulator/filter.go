@@ -1,7 +1,7 @@
 package main
 
 type datapoint interface {
-	~int|~float32|~float64|~int32|~int64|~uint32|~uint64
+	~int | ~float32 | ~float64 | ~int32 | ~int64 | ~uint32 | ~uint64
 }
 
 type maximum[T datapoint] struct {
@@ -27,7 +27,7 @@ func (m *maximum[T]) reset() {
 
 type difference[T datapoint] struct {
 	lastRead T
-	current T
+	current  T
 }
 
 func (d *difference[T]) record(val T) {

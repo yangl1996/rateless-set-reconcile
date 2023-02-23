@@ -1,20 +1,21 @@
 package lt
 
 import (
-	"github.com/yangl1996/soliton"
-	"github.com/dchest/siphash"
-	"testing"
 	"encoding/binary"
+	"github.com/dchest/siphash"
+	"github.com/yangl1996/soliton"
 	"math/rand"
+	"testing"
 )
 
 var testSalt = [SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 var hasher = siphash.New(testSalt[:])
 
 const simpleDataSize = 128
+
 type simpleData [simpleDataSize]byte
 
-func (d *simpleData) XOR(t2 *simpleData) *simpleData{
+func (d *simpleData) XOR(t2 *simpleData) *simpleData {
 	if d == nil {
 		d = &simpleData{}
 	}
@@ -67,4 +68,3 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
-

@@ -6,22 +6,22 @@ import (
 )
 
 type message struct {
-	arrival time.Duration
+	arrival     time.Duration
 	destination int
-	payload any
+	payload     any
 }
 
 type simulator struct {
 	time time.Duration
-	mq priorityQueue
+	mq   priorityQueue
 }
 
 func (s *simulator) drained() bool {
-	return len(s.mq)==0
+	return len(s.mq) == 0
 }
 
 func (s *simulator) queueMessage(delay time.Duration, dest int, msg any) {
-	m := &message{s.time+delay, dest, msg}
+	m := &message{s.time + delay, dest, msg}
 	heap.Push(&s.mq, m)
 }
 
@@ -53,10 +53,9 @@ func (pq *priorityQueue) Push(x any) {
 }
 
 func (pq *priorityQueue) Pop() any {
-	idx := len(*pq)-1
+	idx := len(*pq) - 1
 	res := (*pq)[idx]
 	(*pq)[idx] = nil
 	*pq = (*pq)[0:idx]
 	return res
 }
-

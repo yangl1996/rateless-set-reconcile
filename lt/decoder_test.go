@@ -1,11 +1,11 @@
 package lt
 
 import (
-	"testing"
 	"bytes"
+	"fmt"
 	"github.com/yangl1996/soliton"
 	"math/rand"
-	"fmt"
+	"testing"
 )
 
 type testTransactionState struct {
@@ -56,8 +56,8 @@ func TestMarkDecodedAndPeelTransaction(t *testing.T) {
 	tx3 := newTestTransactionState(3)
 	// create three pending codewords cw1, 2
 	var cw1, cw2, cw3 *testCodewordState
-	cw1 = cw1.xor(tx1) // cw1 blocked by tx1
-	cw2 = cw2.xor(tx1).xor(tx2) // cw2 blocked by tx1, 2
+	cw1 = cw1.xor(tx1)                   // cw1 blocked by tx1
+	cw2 = cw2.xor(tx1).xor(tx2)          // cw2 blocked by tx1, 2
 	cw3 = cw3.xor(tx1).xor(tx2).xor(tx3) // cw3 blocked by tx1, 2, 3
 	// try peeling
 	queued := tx1.markDecoded(tx1.data, nil)
@@ -90,7 +90,7 @@ func TestFailToDecode(t *testing.T) {
 	// tx1 is blocking cw1, 2
 	tx1 := newTestTransactionState(1)
 	var cw1, cw2 *testCodewordState
-	cw1 = cw1.xor(tx1) 
+	cw1 = cw1.xor(tx1)
 	cw2 = cw2.xor(tx1)
 	_, _, txFailed := cw1.intoPendingCodeword().failToDecode()
 	if txFailed {
@@ -131,7 +131,7 @@ func BenchmarkDecode(b *testing.B) {
 			for i := 0; i < k*2; i++ {
 				cws = append(cws, e.ProduceCodeword())
 			}
-			
+
 			decs := []*Decoder[*simpleData]{}
 			for i := 0; i < b.N; i++ {
 				decs = append(decs, NewDecoder[*simpleData](testSalt, k*2))

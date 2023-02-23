@@ -1,7 +1,7 @@
 package lt
 
 type TransactionData[T any] interface {
-	XOR(t2 T) T	// XOR is allowed to modify the method receiver
+	XOR(t2 T) T // XOR is allowed to modify the method receiver
 	Hash() []byte
 	comparable
 }

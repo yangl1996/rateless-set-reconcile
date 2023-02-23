@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
 	"flag"
-	"time"
+	"fmt"
 	"github.com/DataDog/sketches-go/ddsketch"
+	"math/rand"
+	"time"
 )
 
 func main() {
@@ -13,9 +13,9 @@ func main() {
 	decoderMem := flag.Int("mem", 1000000, "decoder memory")
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
-	simDuration := flag.Duration("dur", 1000 * time.Second, "simulation duration")
-	networkDelay := flag.Duration("d", 100 * time.Millisecond, "network one-way propagation time")
-	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)") 
+	simDuration := flag.Duration("dur", 1000*time.Second, "simulation duration")
+	networkDelay := flag.Duration("d", 100*time.Millisecond, "network one-way propagation time")
+	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -81,7 +81,7 @@ func main() {
 		queueLen.record(len(nodes[0].buffer))
 		sendWindow.record(nodes[0].sendWindow)
 		sentCodeword.record(nodes[0].sentCodewords)
-		for s.time - lastReport >= time.Second {
+		for s.time-lastReport >= time.Second {
 			lastReport += time.Second
 			fmt.Println(lastReport.Seconds(), sentCodeword.get(), queueLen.get(), sendWindow.get())
 		}
