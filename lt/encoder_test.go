@@ -8,7 +8,6 @@ import (
 	"fmt"
 )
 
-
 func TestReset(t *testing.T) {
 	dist1 := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 500, 0.03, 0.5)
 	dist2 := soliton.NewRobustSoliton(rand.New(rand.NewSource(0)), 600, 0.03, 0.5)

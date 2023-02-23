@@ -1,0 +1,5 @@
+lt:          latest implementation utilizing Go 1.18 generics
+ldpc:        old implementation
+simulator:   event-based simulation using the lt package
+node:        node running on TCP using the ldpc package
+experiments: various quick experiments using the ldpc package

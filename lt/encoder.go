@@ -3,7 +3,6 @@ package lt
 import (
 	"github.com/dchest/siphash"
 	"hash"
-	"math"
 	"math/rand"
 )
 
@@ -30,7 +29,7 @@ type Encoder[T TransactionData[T]] struct {
 	hashes map[uint32]struct{}	// transactions already in the window
 	windowSize int
 
-	codewordBuilder []saltedTransaction[T]
+	shuffleHistory []int
 }
 
 func NewEncoder[T TransactionData[T]](salt [SaltSize]byte, dist DegreeDistribution, ws int) *Encoder[T] {
@@ -85,25 +84,24 @@ func (e *Encoder[T]) produceCodeword(deg int) Codeword[T] {
 	}
 	c.members = make([]uint32, deg)
 
-	// reservoir sampling
-	e.codewordBuilder = e.codewordBuilder[:0]
-	for idx := 0; idx < deg; idx++ {
-		e.codewordBuilder = append(e.codewordBuilder, e.window[idx])
+	// sample without replacement
+	n := len(e.window)
+	// record shuffle history so that we don't destory the ordering of items in
+	// the window
+	e.shuffleHistory = e.shuffleHistory[:0]
+	for i := 0; i < deg; i++ {
+		// randomly shuffle with any item with idx i, i+1, ..., n-1, i.e.,
+		// items not yet selected
+		r := rand.Intn(n-i)+i
+		e.shuffleHistory = append(e.shuffleHistory, r)
+		e.window[i], e.window[r] = e.window[r], e.window[i]
+		// this is now the selected item, add it to codeword
+		c.symbol = c.symbol.XOR(e.window[i].Transaction.data)
+		c.members[i] = e.window[i].saltedHash
 	}
-	d := float64(deg)
-	var W float64
-	W = math.Exp(math.Log(rand.Float64()) / d)
-	midx := deg
-	for midx < len(e.window) {
-		midx += (int)(math.Floor(math.Log(rand.Float64())/math.Log(1.0-W))) + 1
-		if midx < len(e.window) {
-			e.codewordBuilder[rand.Intn(deg)] = e.window[midx]
-			W = W * math.Exp(math.Log(rand.Float64())/d)
-		}
-	}
-	for idx, item := range e.codewordBuilder {
-		c.members[idx] = item.saltedHash
-		c.symbol = c.symbol.XOR(item.Transaction.data)
+	// revert the shuffling
+	for i := deg-1; i >= 0; i-- {
+		e.window[i], e.window[e.shuffleHistory[i]] = e.window[e.shuffleHistory[i]], e.window[i]
 	}
 	return c
 }
