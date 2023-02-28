@@ -31,8 +31,9 @@ func main() {
 	// arrive in bursts to simulate the burstiness in decoding (of transactions
 	// from other, unsimulated peers).
 	meanIntv := *transactionRate / float64(*arrivalBurstSize) / float64(time.Second)
+	intvRand := rand.New(rand.NewSource(1))
 	getIntv := func() time.Duration {
-		return time.Duration(rand.ExpFloat64() / meanIntv)
+		return time.Duration(intvRand.ExpFloat64() / meanIntv)
 	}
 	// schedule the arrival of first transactions (transactions flow from 0 to 1)
 	s.queueMessage(getIntv(), 0, blockArrival{})
