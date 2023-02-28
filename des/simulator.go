@@ -25,6 +25,12 @@ type queuedMessage struct {
 type Simulator struct {
 	time time.Duration
 	mq   priorityQueue
+
+	defaultDelay time.Duration
+}
+
+func (s *Simulator) SetDefaultDelay(d time.Duration) {
+	s.defaultDelay = d
 }
 
 func (s *Simulator) Drained() bool {
@@ -35,6 +41,12 @@ func (s *Simulator) Time() time.Duration {
 	return s.time
 }
 
+func (s *Simulator) RunUntil(t time.Duration) {
+	for !s.Drained() && s.time <= t {
+		s.deliverNextMessage()
+	}
+}
+
 func (s *Simulator) Run() {
 	for !s.Drained() {
 		s.deliverNextMessage()
@@ -42,8 +54,13 @@ func (s *Simulator) Run() {
 }
 
 func (s *Simulator) ScheduleMessage(msg OutgoingMessage, from Module) {
-	m := queuedMessage{s.time + msg.Delay, from, msg.To, msg.Payload}
-	heap.Push(&s.mq, m)
+	if msg.To == nil {
+		m := queuedMessage{s.time + msg.Delay, from, from, msg.Payload}
+		heap.Push(&s.mq, m)
+	} else {
+		m := queuedMessage{s.time + msg.Delay + s.defaultDelay, from, msg.To, msg.Payload}
+		heap.Push(&s.mq, m)
+	}
 }
 
 func (s *Simulator) deliverNextMessage() {

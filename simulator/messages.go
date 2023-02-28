@@ -13,4 +13,6 @@ type ack struct {
 	ackBlock bool
 }
 
-type blockArrival struct{}
+type blockArrival struct{
+	n int
+}

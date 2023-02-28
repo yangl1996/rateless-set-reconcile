@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/DataDog/sketches-go/ddsketch"
-	"math/rand"
+	//"github.com/DataDog/sketches-go/ddsketch"
+	"github.com/yangl1996/rateless-set-reconcile/des"
 	"time"
 )
+
+
+var txgen = newTransactionGenerator()
 
 func main() {
 	arrivalBurstSize := flag.Int("b", 500, "transaction arrival burst size")
@@ -23,76 +25,18 @@ func main() {
 		controlOverhead: *controlOverhead,
 	}
 
-	nodes := []*node{newNode(0, config, *decoderMem), newNode(1, config, *decoderMem)}
-	s := &simulator{}
-	txgen := newTransactionGenerator()
+	s := &des.Simulator{}
+	s.SetDefaultDelay(*networkDelay)
+	servers := newServers(s, 2, 1, serverConfig{
+		// Rate parameter for the block arrival interval distribution.
+		// Transactions arrive in bursts to simulate the burstiness in decoding
+		// (of transactions from other, unsimulated peers).
+		blockArrivalIntv: *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
+		blockArrivalBurst: *arrivalBurstSize,
+		nodeConfig: config,
+		decoderMemory: *decoderMem,
+	})
+	connectServers(servers[0], servers[1])
 
-	// Rate parameter for the block arrival interval distribution. Transactions
-	// arrive in bursts to simulate the burstiness in decoding (of transactions
-	// from other, unsimulated peers).
-	meanIntv := *transactionRate / float64(*arrivalBurstSize) / float64(time.Second)
-	intvRand := rand.New(rand.NewSource(1))
-	getIntv := func() time.Duration {
-		return time.Duration(intvRand.ExpFloat64() / meanIntv)
-	}
-	// schedule the arrival of first transactions (transactions flow from 0 to 1)
-	s.queueMessage(getIntv(), 0, blockArrival{})
-	// metric recording
-	lastReport := time.Duration(0)
-	latencySketch, err := ddsketch.NewDefaultDDSketch(0.01)
-	queueLen := maximum[int]{}
-	sendWindow := maximum[int]{}
-	sentCodeword := difference[int]{}
-
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("# time(s)    codeword rate       queue      window")
-	// main simulation loop
-	for s.time <= *simDuration {
-		// deliver message
-		if s.drained() {
-			break
-		}
-		dest, msg := s.nextMessage()
-		switch m := msg.(type) {
-		case codeword:
-			txs := nodes[dest].onCodeword(m)
-			for _, v := range txs {
-				latency := (s.time - txgen.timestamp(v.Data())).Seconds()
-				latencySketch.Add(latency)
-			}
-		case ack:
-			nodes[dest].onAck(m)
-		case blockArrival:
-			for i := 0; i < *arrivalBurstSize; i++ {
-				tx := txgen.generate(s.time)
-				nodes[dest].onTransaction(tx)
-			}
-			s.queueMessage(getIntv(), dest, blockArrival{})
-		default:
-			panic("unknown message type")
-		}
-		// deliver message
-		for _, v := range nodes[dest].outbox {
-			s.queueMessage(*networkDelay, 1-dest, v)
-		}
-		nodes[dest].outbox = nodes[dest].outbox[:0]
-		// record and report metrics
-		queueLen.record(len(nodes[0].buffer))
-		sendWindow.record(nodes[0].sendWindow)
-		sentCodeword.record(nodes[0].sentCodewords)
-		for s.time-lastReport >= time.Second {
-			lastReport += time.Second
-			fmt.Println(lastReport.Seconds(), sentCodeword.get(), queueLen.get(), sendWindow.get())
-		}
-	}
-	durs := s.time.Seconds()
-	fmt.Printf("# received rate tx=%.2f, cw=%.2f, overhead=%.2f\n", float64(nodes[1].receivedTransactions)/durs, float64(nodes[1].receivedCodewords)/durs, float64(nodes[1].receivedCodewords)/float64(nodes[1].receivedTransactions))
-	fmt.Printf("# generate rate tx=%.2f\n", float64(nodes[0].queuedTransactions)/durs)
-	qt, err := latencySketch.GetValuesAtQuantiles([]float64{0.05, 0.5, 0.95})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("# latency seconds p5=%.3f, p50=%.3f, p95=%.3f\n", qt[0], qt[1], qt[2])
+	s.RunUntil(*simDuration)
 }
