@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/des"
 	"time"
+	"math/rand"
 )
 
 
@@ -28,7 +29,7 @@ func main() {
 
 	s := &des.Simulator{}
 	s.SetDefaultDelay(*networkDelay)
-	servers := newServers(s, 2, 1, serverConfig{
+	servers := newServers(s, 100, 1, serverConfig{
 		// Rate parameter for the block arrival interval distribution.
 		// Transactions arrive in bursts to simulate the burstiness in decoding
 		// (of transactions from other, unsimulated peers).
@@ -37,8 +38,28 @@ func main() {
 		nodeConfig: config,
 		decoderMemory: *decoderMem,
 	})
+	connected := make(map[struct{from, to int}]struct{})
+	for i := 0; i < 100*8; i++ {
+		for {
+			from := rand.Intn(100)
+			to := rand.Intn(100)
+			if from == to {
+				continue
+			}
+			pair1 := struct{from, to int}{from, to}
+			pair2 := struct{from, to int}{to, from}
+			if _, there := connected[pair1]; there {
+				continue
+			}
+			if _, there := connected[pair2]; there {
+				continue
+			}
+			connected[pair1] = struct{}{}
+			connectServers(servers[from], servers[to])
+			break
+		}
+	}
 	servers[0].latencySketch = newTransactionLatencySketch()
-	connectServers(servers[0], servers[1])
 
 	receivedCodewordRate := difference[int]{}
 	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {

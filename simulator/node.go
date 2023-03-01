@@ -3,135 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/lt"
-	"github.com/yangl1996/rateless-set-reconcile/des"
 	"github.com/yangl1996/soliton"
 	"math/rand"
-	"time"
 )
 
 var testKey = [lt.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 var distRandSource = rand.New(rand.NewSource(1))
-
-type handler struct {
-	*node
-	ingressBuffer []lt.Transaction[transaction]
-}
-
-type server struct {
-	handlers map[des.Module]*handler
-
-	rng *rand.Rand
-	serverConfig
-
-	latencySketch *transactionLatencySketch
-}
-
-type serverConfig struct {
-	blockArrivalIntv float64
-	blockArrivalBurst int
-
-	nodeConfig
-	decoderMemory int
-}
-
-func connectServers(a, b *server) {
-	ha := &handler{
-		node: newNode(a.rng, a.nodeConfig, a.decoderMemory),
-	}
-	hb := &handler{
-		node: newNode(b.rng, b.nodeConfig, b.decoderMemory),
-	}
-	a.handlers[b] = ha
-	b.handlers[a] = hb
-}
-
-func newServers(simulator *des.Simulator, n int, startingSeed int64, config serverConfig) []*server {
-	res := []*server{}
-	for i := 0; i < n; i++ {
-		s := &server {
-			handlers: make(map[des.Module]*handler),
-			rng: rand.New(rand.NewSource(startingSeed+int64(i))),
-			serverConfig: config,
-		}
-		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
-		newBa := blockArrival{s.blockArrivalBurst}
-		simulator.ScheduleMessage(des.OutgoingMessage{newBa, nil, intv}, s)
-		res = append(res, s)
-	}
-	return res
-}
-
-func (s *server) collectOutgoingMessages() []des.OutgoingMessage {
-	outbox := []des.OutgoingMessage{}
-	for peer, handler := range s.handlers {
-		for _, msg := range handler.outbox {
-			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
-		}
-		handler.outbox = handler.outbox[:0]
-	}
-	return outbox
-}
-
-func (s *server) forwardTransactions(from *handler, txs []lt.Transaction[transaction]) {
-	for _, handler := range s.handlers {
-		if from != handler {
-			handler.ingressBuffer = append(handler.ingressBuffer, txs...)
-		}
-	}
-}
-
-func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Duration) []des.OutgoingMessage {
-	if ba, isBa := payload.(blockArrival); isBa {
-		for i := 0; i < ba.n; i++ {
-			tx := txgen.generate(timestamp)
-			for _, handler := range s.handlers {
-				// freshly generated transactions, guaranteed not to cause any decoding, so we can be sure
-				// the returned decoded transactions is empty
-				handler.onTransaction(tx)
-			}
-		}
-		outbox := s.collectOutgoingMessages()
-		// schedule itself the next block arrival
-		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
-		newBa := blockArrival{s.blockArrivalBurst}
-		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
-		return outbox
-	} else {
-		n := s.handlers[from]
-		switch m := payload.(type) {
-		case codeword:
-			buf := n.onCodeword(m)
-			for _, val := range buf {
-				s.latencySketch.record(val.Data(), timestamp)
-			}
-			s.forwardTransactions(n, buf)
-			// forward the decoded transactions to others,
-			// handling the chain reaction (this is so painful)
-			for {
-				acted := false
-				for _, handler := range(s.handlers) {
-					for _, t := range handler.ingressBuffer {
-						acted = true
-						buf = handler.onTransaction(t)
-						for _, val := range buf {
-							s.latencySketch.record(val.Data(), timestamp)
-						}
-						s.forwardTransactions(handler, buf)
-					}
-					handler.ingressBuffer = handler.ingressBuffer[:0]
-				}
-				if !acted {
-					break
-				}
-			}
-		case ack:
-			n.onAck(m)
-		default:
-			panic("unknown message type")
-		}
-		return s.collectOutgoingMessages()
-	}
-}
 
 type nodeConfig struct {
 	detectThreshold int
@@ -150,6 +27,7 @@ type node struct {
 	*lt.Decoder[transaction]
 	curCodewords []*lt.PendingCodeword[transaction]
 	buffer       []lt.Transaction[transaction]
+	bufferIdentity map[transaction]struct{}
 
 	nodeConfig
 	nodeMetric
@@ -168,9 +46,12 @@ type node struct {
 }
 
 func (n *node) onTransaction(tx lt.Transaction[transaction]) []lt.Transaction[transaction] {
-	n.buffer = append(n.buffer, tx)
-	n.queuedTransactions += 1
-	n.tryFillSendWindow()
+	if _, there := n.bufferIdentity[tx.Data()]; !there {
+		n.buffer = append(n.buffer, tx)
+		n.bufferIdentity[tx.Data()] = struct{}{}
+		n.queuedTransactions += 1
+		n.tryFillSendWindow()
+	}
 	return n.Decoder.AddTransaction(tx)
 }
 
@@ -198,7 +79,8 @@ func (n *node) tryFillSendWindow() {
 func (n *node) tryProduceCodeword() (codeword, bool) {
 	cw := codeword{}
 	if !n.encodingCurrentBlock {
-		minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
+		minBlockSize := int(2/n.controlOverhead)
+		//minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
 		if len(n.buffer) >= minBlockSize {
 			// move to the next block
 			blockSize := len(n.buffer)
@@ -210,6 +92,7 @@ func (n *node) tryProduceCodeword() (codeword, bool) {
 			// move buffer into block
 			for i := 0; i < blockSize; i++ {
 				res := n.Encoder.AddTransaction(n.buffer[i])
+				delete(n.bufferIdentity, n.buffer[i].Data())
 				if !res {
 					fmt.Println("Warning: duplicate transaction exists in window")
 				}
@@ -266,6 +149,7 @@ func newNode(rng *rand.Rand, config nodeConfig, decoderMemory int) *node {
 		Encoder:    lt.NewEncoder[transaction](rng, testKey, nil, 0),
 		Decoder:    lt.NewDecoder[transaction](testKey, decoderMemory),
 		nodeConfig: config,
+		bufferIdentity: make(map[transaction]struct{}),
 		// TODO: we would like to be able to leave sendWindow as zero during
 		// init, but we adjust send window when creating a new block (setting
 		// it to blockSize*controlOverhead). We only try creating a new block
