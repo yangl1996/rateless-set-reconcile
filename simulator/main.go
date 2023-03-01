@@ -70,20 +70,12 @@ func main() {
 	receivedCodewordRate := difference[int]{}
 	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
 		s.RunUntil(cur)
-		r := 0
-		for _, h := range servers[0].handlers {
-			r += h.receivedCodewords
-		}
-		receivedCodewordRate.record(r)
+		receivedCodewordRate.record(servers[0].receivedCodewords)
 		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
 	}
 
-	d := 0
-	r := 0
-	for _, h := range servers[0].handlers {
-		d += h.decodedTransactions
-		r += h.receivedCodewords
-	}
+	d := servers[0].decodedTransactions
+	r := servers[0].receivedCodewords
 	fmt.Println("# received rate transaction", float64(d)/s.Time().Seconds())
 	fmt.Println("# overhead", float64(r)/float64(d))
 	qts := servers[0].latencySketch.getQuantiles([]float64{0.05, 0.50, 0.95})

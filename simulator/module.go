@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+type serverMetric struct {
+       decodedTransactions int
+       receivedCodewords    int
+}
+
 type serverConfig struct {
 	blockArrivalIntv float64
 	blockArrivalBurst int
@@ -30,6 +35,7 @@ type server struct {
 	serverConfig
 
 	latencySketch *transactionLatencySketch
+	serverMetric
 }
 
 func (a *server) newHandler() *handler {
@@ -115,8 +121,12 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		switch m := payload.(type) {
 		case codeword:
 			buf := n.onCodeword(m)
-			for _, val := range buf {
-				s.latencySketch.record(val.Data(), timestamp)
+			if timestamp > 50*time.Second {
+				for _, val := range buf {
+					s.latencySketch.record(val.Data(), timestamp)
+				}
+				s.decodedTransactions += len(buf)
+				s.receivedCodewords += 1
 			}
 			s.forwardTransactions(buf)
 		case ack:

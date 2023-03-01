@@ -14,11 +14,6 @@ type senderConfig struct {
 	detectThreshold int
 }
 
-type senderMetric struct {
-	sentCodewords        int
-	queuedTransactions   int
-}
-
 type sender struct {
 	buffer       []lt.Transaction[transaction]
 	*lt.Encoder[transaction]
@@ -32,7 +27,6 @@ type sender struct {
 	// outgoing msgs
 	outbox []any
 
-	senderMetric
 	senderConfig
 }
 
@@ -46,7 +40,6 @@ func (n *sender) onAck(ack ack) {
 
 func (n *sender) onTransaction(tx lt.Transaction[transaction]) {
 	n.buffer = append(n.buffer, tx)
-	n.queuedTransactions += 1
 	n.tryFillSendWindow()
 }
 
@@ -57,7 +50,6 @@ func (n *sender) tryFillSendWindow() {
 			return
 		}
 		n.outbox = append(n.outbox, cw)
-		n.sentCodewords += 1
 		n.inFlight += 1
 	}
 	return
@@ -66,7 +58,8 @@ func (n *sender) tryFillSendWindow() {
 func (n *sender) tryProduceCodeword() (codeword, bool) {
 	cw := codeword{}
 	if !n.encodingCurrentBlock {
-		minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
+		minBlockSize := int(2 / n.controlOverhead)
+		//minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
 		if len(n.buffer) >= minBlockSize {
 			// move to the next block
 			blockSize := len(n.buffer)
@@ -100,11 +93,6 @@ type receiverConfig struct {
 	detectThreshold int
 }
 
-type receiverMetric struct {
-	decodedTransactions int
-	receivedCodewords    int
-}
-
 type receiver struct {
 	*lt.Decoder[transaction]
 	curCodewords []*lt.PendingCodeword[transaction]
@@ -114,18 +102,15 @@ type receiver struct {
 	// outgoing msgs
 	outbox []any
 
-	receiverMetric
 	receiverConfig
 }
 
 func (n *receiver) onCodeword(cw codeword) []lt.Transaction[transaction] {
-	n.receivedCodewords += 1
 	if cw.newBlock {
 		n.curCodewords = n.curCodewords[:0]
 		n.currentBlockReceived = false
 	}
 	stub, tx := n.Decoder.AddCodeword(cw.Codeword)
-	n.decodedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
 
 	if !n.currentBlockReceived && len(n.curCodewords) > n.detectThreshold {
