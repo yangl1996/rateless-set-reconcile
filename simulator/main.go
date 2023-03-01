@@ -13,7 +13,7 @@ var txgen = newTransactionGenerator()
 
 func main() {
 	arrivalBurstSize := flag.Int("b", 500, "transaction arrival burst size")
-	decoderMem := flag.Int("mem", 1000000, "decoder memory")
+	decoderMem := flag.Int("mem", 50000, "decoder memory")
 	detectThreshold := flag.Int("th", 50, "detector threshold")
 	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
 	simDuration := flag.Duration("dur", 1000*time.Second, "simulation duration")

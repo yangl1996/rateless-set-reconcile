@@ -79,8 +79,8 @@ func (n *node) tryFillSendWindow() {
 func (n *node) tryProduceCodeword() (codeword, bool) {
 	cw := codeword{}
 	if !n.encodingCurrentBlock {
-		minBlockSize := int(2/n.controlOverhead)
-		//minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
+		//minBlockSize := int(2/n.controlOverhead)
+		minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
 		if len(n.buffer) >= minBlockSize {
 			// move to the next block
 			blockSize := len(n.buffer)
