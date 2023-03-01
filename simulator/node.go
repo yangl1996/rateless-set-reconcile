@@ -22,6 +22,8 @@ type server struct {
 
 	rng *rand.Rand
 	serverConfig
+
+	latencySketch *transactionLatencySketch
 }
 
 type serverConfig struct {
@@ -99,6 +101,9 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		switch m := payload.(type) {
 		case codeword:
 			buf := n.onCodeword(m)
+			for _, val := range buf {
+				s.latencySketch.record(val.Data(), timestamp)
+			}
 			s.forwardTransactions(n, buf)
 			// forward the decoded transactions to others,
 			// handling the chain reaction (this is so painful)
@@ -107,7 +112,11 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 				for _, handler := range(s.handlers) {
 					for _, t := range handler.ingressBuffer {
 						acted = true
-						s.forwardTransactions(handler, handler.onTransaction(t))
+						buf = handler.onTransaction(t)
+						for _, val := range buf {
+							s.latencySketch.record(val.Data(), timestamp)
+						}
+						s.forwardTransactions(handler, buf)
 					}
 					handler.ingressBuffer = handler.ingressBuffer[:0]
 				}
@@ -130,7 +139,7 @@ type nodeConfig struct {
 }
 
 type nodeMetric struct {
-	receivedTransactions int
+	decodedTransactions int
 	receivedCodewords    int
 	sentCodewords        int
 	queuedTransactions   int
@@ -227,7 +236,7 @@ func (n *node) onCodeword(cw codeword) []lt.Transaction[transaction] {
 	}
 	stub, tx := n.Decoder.AddCodeword(cw.Codeword)
 	// TODO: add newly received transactions to the sending queue?
-	n.receivedTransactions += len(tx)
+	n.decodedTransactions += len(tx)
 	n.curCodewords = append(n.curCodewords, stub)
 	var res []lt.Transaction[transaction]
 	for _, v := range tx {

@@ -21,10 +21,6 @@ func (m *maximum[T]) get() T {
 	return res
 }
 
-func (m *maximum[T]) reset() {
-	m.max = 0
-}
-
 type difference[T datapoint] struct {
 	lastRead T
 	current  T
@@ -40,7 +36,3 @@ func (d *difference[T]) get() T {
 	return diff
 }
 
-func (d *difference[T]) reset() {
-	d.lastRead = 0
-	d.current = 0
-}

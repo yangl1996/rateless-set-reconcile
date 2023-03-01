@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	//"github.com/DataDog/sketches-go/ddsketch"
+	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/des"
 	"time"
 )
@@ -18,6 +18,7 @@ func main() {
 	simDuration := flag.Duration("dur", 1000*time.Second, "simulation duration")
 	networkDelay := flag.Duration("d", 100*time.Millisecond, "network one-way propagation time")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
+	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -36,7 +37,28 @@ func main() {
 		nodeConfig: config,
 		decoderMemory: *decoderMem,
 	})
+	servers[0].latencySketch = newTransactionLatencySketch()
 	connectServers(servers[0], servers[1])
 
-	s.RunUntil(*simDuration)
+	receivedCodewordRate := difference[int]{}
+	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
+		s.RunUntil(cur)
+		r := 0
+		for _, h := range servers[0].handlers {
+			r += h.receivedCodewords
+		}
+		receivedCodewordRate.record(r)
+		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
+	}
+
+	d := 0
+	r := 0
+	for _, h := range servers[0].handlers {
+		d += h.decodedTransactions
+		r += h.receivedCodewords
+	}
+	fmt.Println("# received rate transaction", float64(d)/s.Time().Seconds())
+	fmt.Println("# overhead", float64(r)/float64(d))
+	qts := servers[0].latencySketch.getQuantiles([]float64{0.05, 0.50, 0.95})
+	fmt.Println("# latency p5", qts[0], "p50", qts[1], "p95", qts[2])
 }
