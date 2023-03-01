@@ -23,23 +23,26 @@ func main() {
 	mainSeed := flag.Int64("seed", 1, "randomness seed")
 	flag.Parse()
 
-	config := nodeConfig{
-		detectThreshold: *detectThreshold,
-		controlOverhead: *controlOverhead,
-	}
-
-	mainRNG := rand.New(rand.NewSource(*mainSeed))
-	s := &des.Simulator{}
-	s.SetDefaultDelay(*networkDelay)
-	servers := newServers(s, 100, *mainSeed, serverConfig{
+	config := serverConfig {
 		// Rate parameter for the block arrival interval distribution.
 		// Transactions arrive in bursts to simulate the burstiness in decoding
 		// (of transactions from other, unsimulated peers).
 		blockArrivalIntv: *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
 		blockArrivalBurst: *arrivalBurstSize,
-		nodeConfig: config,
 		decoderMemory: *decoderMem,
-	})
+		senderConfig: senderConfig{
+			detectThreshold: *detectThreshold,
+			controlOverhead: *controlOverhead,
+		},
+		receiverConfig: receiverConfig{
+			detectThreshold: *detectThreshold,
+		},
+	}
+
+	mainRNG := rand.New(rand.NewSource(*mainSeed))
+	s := &des.Simulator{}
+	s.SetDefaultDelay(*networkDelay)
+	servers := newServers(s, 100, *mainSeed, config)
 	connected := make(map[struct{from, to int}]struct{})
 	for i := 0; i < 100*8; i++ {
 		for {

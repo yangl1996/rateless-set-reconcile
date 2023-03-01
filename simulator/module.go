@@ -7,13 +7,24 @@ import (
 	"time"
 )
 
+type serverConfig struct {
+	blockArrivalIntv float64
+	blockArrivalBurst int
+
+	decoderMemory int
+
+	senderConfig
+	receiverConfig
+}
+
 type handler struct {
-	*node
-	ingressBuffer []lt.Transaction[transaction]
+	*sender
+	*receiver
 }
 
 type server struct {
 	handlers map[des.Module]*handler
+	decoder *lt.Decoder[transaction]
 
 	rng *rand.Rand
 	serverConfig
@@ -21,23 +32,24 @@ type server struct {
 	latencySketch *transactionLatencySketch
 }
 
-type serverConfig struct {
-	blockArrivalIntv float64
-	blockArrivalBurst int
-
-	nodeConfig
-	decoderMemory int
+func (a *server) newHandler() *handler {
+	return &handler{
+		sender: &sender{
+			Encoder: lt.NewEncoder[transaction](a.rng, testKey, nil, 0),
+			rng: a.rng,
+			sendWindow: a.senderConfig.detectThreshold,
+			senderConfig: a.senderConfig,
+		},
+		receiver: &receiver{
+			Decoder: a.decoder,
+			receiverConfig: a.receiverConfig,
+		},
+	}
 }
 
 func connectServers(a, b *server) {
-	ha := &handler{
-		node: newNode(a.rng, a.nodeConfig, a.decoderMemory),
-	}
-	hb := &handler{
-		node: newNode(b.rng, b.nodeConfig, b.decoderMemory),
-	}
-	a.handlers[b] = ha
-	b.handlers[a] = hb
+	a.handlers[b] = a.newHandler()
+	b.handlers[a] = b.newHandler()
 }
 
 func newServers(simulator *des.Simulator, n int, startingSeed int64, config serverConfig) []*server {
@@ -45,6 +57,7 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 	for i := 0; i < n; i++ {
 		s := &server {
 			handlers: make(map[des.Module]*handler),
+			decoder: lt.NewDecoder[transaction](testKey, config.decoderMemory),
 			rng: rand.New(rand.NewSource(startingSeed+int64(i))),
 			serverConfig: config,
 		}
@@ -59,32 +72,38 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 func (s *server) collectOutgoingMessages() []des.OutgoingMessage {
 	outbox := []des.OutgoingMessage{}
 	for peer, handler := range s.handlers {
-		for _, msg := range handler.outbox {
+		for _, msg := range handler.sender.outbox {
 			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
 		}
-		handler.outbox = handler.outbox[:0]
+		handler.sender.outbox = handler.sender.outbox[:0]
+		for _, msg := range handler.receiver.outbox {
+			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
+		}
+		handler.receiver.outbox = handler.receiver.outbox[:0]
 	}
 	return outbox
 }
 
-func (s *server) forwardTransactions(from *handler, txs []lt.Transaction[transaction]) {
-	for _, handler := range s.handlers {
-		if from != handler {
-			handler.ingressBuffer = append(handler.ingressBuffer, txs...)
+func (s *server) forwardTransactions(txs []lt.Transaction[transaction]) {
+	// TODO: we are ignoring the possibility of codewords being decoded because of this...
+	for len(txs) > 0 {
+		tx := txs[0]
+		for _, handler := range s.handlers {
+			handler.sender.onTransaction(tx)
 		}
+		txs = txs[1:]
+		txs = append(txs, s.decoder.AddTransaction(tx)...)
 	}
 }
 
 func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Duration) []des.OutgoingMessage {
 	if ba, isBa := payload.(blockArrival); isBa {
+		txs := []lt.Transaction[transaction]{}
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
-			for _, handler := range s.handlers {
-				// freshly generated transactions, guaranteed not to cause any decoding, so we can be sure
-				// the returned decoded transactions is empty
-				handler.onTransaction(tx)
-			}
+			txs = append(txs, tx)
 		}
+		s.forwardTransactions(txs)
 		outbox := s.collectOutgoingMessages()
 		// schedule itself the next block arrival
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
@@ -99,26 +118,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			for _, val := range buf {
 				s.latencySketch.record(val.Data(), timestamp)
 			}
-			s.forwardTransactions(n, buf)
-			// forward the decoded transactions to others,
-			// handling the chain reaction (this is so painful)
-			for {
-				acted := false
-				for _, handler := range(s.handlers) {
-					for _, t := range handler.ingressBuffer {
-						acted = true
-						buf = handler.onTransaction(t)
-						for _, val := range buf {
-							s.latencySketch.record(val.Data(), timestamp)
-						}
-						s.forwardTransactions(handler, buf)
-					}
-					handler.ingressBuffer = handler.ingressBuffer[:0]
-				}
-				if !acted {
-					break
-				}
-			}
+			s.forwardTransactions(buf)
 		case ack:
 			n.onAck(m)
 		default:
