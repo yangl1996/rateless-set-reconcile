@@ -65,6 +65,7 @@ func main() {
 		}
 	}
 	servers[0].latencySketch = newTransactionLatencySketch()
+	fmt.Println("# node 0 peers", len(servers[0].handlers))
 
 	receivedCodewordRate := difference[int]{}
 	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
