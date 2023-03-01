@@ -20,6 +20,7 @@ func main() {
 	networkDelay := flag.Duration("d", 100*time.Millisecond, "network one-way propagation time")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
+	mainSeed := flag.Int64("seed", 1, "randomness seed")
 	flag.Parse()
 
 	config := nodeConfig{
@@ -27,9 +28,10 @@ func main() {
 		controlOverhead: *controlOverhead,
 	}
 
+	mainRNG := rand.New(rand.NewSource(*mainSeed))
 	s := &des.Simulator{}
 	s.SetDefaultDelay(*networkDelay)
-	servers := newServers(s, 100, 1, serverConfig{
+	servers := newServers(s, 100, *mainSeed, serverConfig{
 		// Rate parameter for the block arrival interval distribution.
 		// Transactions arrive in bursts to simulate the burstiness in decoding
 		// (of transactions from other, unsimulated peers).
@@ -41,8 +43,8 @@ func main() {
 	connected := make(map[struct{from, to int}]struct{})
 	for i := 0; i < 100*8; i++ {
 		for {
-			from := rand.Intn(100)
-			to := rand.Intn(100)
+			from := mainRNG.Intn(100)
+			to := mainRNG.Intn(100)
 			if from == to {
 				continue
 			}

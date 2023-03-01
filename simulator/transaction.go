@@ -7,42 +7,33 @@ import (
 	"time"
 )
 
-type transaction uint64
+type transaction struct {
+	idx uint64
+	ts time.Duration
+}
 
 func (d transaction) XOR(t2 transaction) transaction {
-	return d ^ t2
+	return transaction{d.idx ^ t2.idx, d.ts ^ t2.ts}
 }
 
 func (d transaction) Hash() []byte {
 	res := make([]byte, 8)
-	binary.LittleEndian.PutUint64(res, uint64(d))
+	binary.LittleEndian.PutUint64(res, d.idx)
 	return res
 }
 
-func (d transaction) Equals(t2 transaction) bool {
-	return d == t2
-}
-
 type transactionGenerator struct {
-	next transaction 
-	ts   map[transaction]time.Duration
+	next uint64
 }
 
 func newTransactionGenerator() *transactionGenerator {
-	return &transactionGenerator{
-		ts: make(map[transaction]time.Duration),
-	}
+	return &transactionGenerator{}
 }
 
 func (t *transactionGenerator) generate(at time.Duration) lt.Transaction[transaction] {
-	tx := t.next
-	t.ts[tx] = at
+	tx := transaction{t.next, at}
 	t.next += 1
 	return lt.NewTransaction[transaction](tx)
-}
-
-func (t *transactionGenerator) timestamp(tx transaction) time.Duration {
-	return t.ts[tx]
 }
 
 type transactionLatencySketch struct {
@@ -66,7 +57,7 @@ func (t *transactionLatencySketch) record(tx transaction, tp time.Duration) {
 	if t == nil {
 		return
 	}
-	latency := tp.Seconds() - txgen.timestamp(tx).Seconds()
+	latency := tp.Seconds() - tx.ts.Seconds()
 	t.sketch.Add(latency)
 }
 
