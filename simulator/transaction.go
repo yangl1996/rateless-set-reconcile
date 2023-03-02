@@ -37,24 +37,23 @@ func (t *transactionGenerator) generate(at time.Duration) lt.Transaction[transac
 }
 
 type transactionLatencySketch struct {
-	nextAdd transaction
-	pending map[transaction]struct{}
 	sketch *ddsketch.DDSketch
+	warmup time.Duration
 }
 
-func newTransactionLatencySketch() *transactionLatencySketch {
+func newTransactionLatencySketch(warmup time.Duration) *transactionLatencySketch {
 	sketch, err := ddsketch.NewDefaultDDSketch(0.01)
 	if err != nil {
 		panic(err)
 	}
-	return &transactionLatencySketch{
-		pending: make(map[transaction]struct{}),
-		sketch: sketch,
-	}
+	return &transactionLatencySketch{sketch, warmup}
 }
 
 func (t *transactionLatencySketch) record(tx transaction, tp time.Duration) {
 	if t == nil {
+		return
+	}
+	if t.warmup > tp {
 		return
 	}
 	latency := tp.Seconds() - tx.ts.Seconds()

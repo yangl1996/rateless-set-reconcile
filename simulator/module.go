@@ -121,10 +121,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		switch m := payload.(type) {
 		case codeword:
 			buf := n.onCodeword(m)
-			if timestamp > 50*time.Second {
-				for _, val := range buf {
-					s.latencySketch.record(val.Data(), timestamp)
-				}
+			for _, val := range buf {
+				s.latencySketch.record(val.Data(), timestamp)
 			}
 			s.decodedTransactions += len(buf)
 			s.receivedCodewords += 1
