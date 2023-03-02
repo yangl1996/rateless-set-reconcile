@@ -125,9 +125,9 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 				for _, val := range buf {
 					s.latencySketch.record(val.Data(), timestamp)
 				}
-				s.decodedTransactions += len(buf)
-				s.receivedCodewords += 1
 			}
+			s.decodedTransactions += len(buf)
+			s.receivedCodewords += 1
 			s.forwardTransactions(buf)
 		case ack:
 			n.onAck(m)
