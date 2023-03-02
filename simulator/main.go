@@ -21,6 +21,7 @@ func main() {
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	mainSeed := flag.Int64("seed", 1, "randomness seed")
+	warmupDuration := flag.Duration("w", 50*time.Second, "randomness seed")
 	flag.Parse()
 
 	config := serverConfig {
@@ -64,11 +65,11 @@ func main() {
 			break
 		}
 	}
-	servers[0].latencySketch = newTransactionLatencySketch(70 * time.Second)
+	servers[0].latencySketch = newTransactionLatencySketch(*warmupDuration)
 	fmt.Println("# node 0 peers", len(servers[0].handlers))
 
 	receivedCodewordRate := difference[int]{}
-	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
+	for cur := *warmupDuration; cur < *simDuration; cur += *reportInterval {
 		s.RunUntil(cur)
 		receivedCodewordRate.record(servers[0].receivedCodewords)
 		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
