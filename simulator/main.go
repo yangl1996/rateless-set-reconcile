@@ -69,10 +69,14 @@ func main() {
 	fmt.Println("# node 0 peers", len(servers[0].handlers))
 
 	receivedCodewordRate := difference[int]{}
-	for cur := *warmupDuration; cur < *simDuration; cur += *reportInterval {
+	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
 		s.RunUntil(cur)
 		receivedCodewordRate.record(servers[0].receivedCodewords)
-		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
+		if cur > *warmupDuration {
+			fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
+		} else {
+			receivedCodewordRate.get()
+		}
 	}
 
 	d := servers[0].decodedTransactions
