@@ -21,7 +21,7 @@ func main() {
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	mainSeed := flag.Int64("seed", 1, "randomness seed")
-	warmupDuration := flag.Duration("w", 50*time.Second, "randomness seed")
+	warmupDuration := flag.Duration("w", 50*time.Second, "warmup duration")
 	flag.Parse()
 
 	config := serverConfig {
@@ -45,7 +45,7 @@ func main() {
 	s.SetDefaultDelay(*networkDelay)
 	servers := newServers(s, 100, *mainSeed, config)
 	connected := make(map[struct{from, to int}]struct{})
-	for i := 0; i < 100*8; i++ {
+	for i := 0; i < 100*16; i++ {
 		for {
 			from := mainRNG.Intn(100)
 			to := mainRNG.Intn(100)

@@ -1,2 +1,5 @@
 exp.sh: run the simulation, collect time series, and plot.
 time-series.gnuplot: plot the time series data.
+
+A reasonable set of simulation parameters
+./simulator -b 1 -d 50ms -dur 50s -th 10 -txgen 5 -w 20s > data.txt
