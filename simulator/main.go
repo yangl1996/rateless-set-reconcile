@@ -45,7 +45,7 @@ func main() {
 	s.SetDefaultDelay(*networkDelay)
 	servers := newServers(s, 100, *mainSeed, config)
 	connected := make(map[struct{from, to int}]struct{})
-	for i := 0; i < 100*16; i++ {
+	for i := 0; i < 100*8; i++ {
 		for {
 			from := mainRNG.Intn(100)
 			to := mainRNG.Intn(100)
