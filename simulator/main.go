@@ -43,12 +43,12 @@ func main() {
 	mainRNG := rand.New(rand.NewSource(*mainSeed))
 	s := &des.Simulator{}
 	s.SetDefaultDelay(*networkDelay)
-	servers := newServers(s, 100, *mainSeed, config)
+	servers := newServers(s, 20, *mainSeed, config)
 	connected := make(map[struct{from, to int}]struct{})
-	for i := 0; i < 100*8; i++ {
+	for i := 0; i < 20*4; i++ {
 		for {
-			from := mainRNG.Intn(100)
-			to := mainRNG.Intn(100)
+			from := mainRNG.Intn(20)
+			to := mainRNG.Intn(20)
 			if from == to {
 				continue
 			}
