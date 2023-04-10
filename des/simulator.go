@@ -26,11 +26,15 @@ type Simulator struct {
 	time time.Duration
 	mq   priorityQueue
 
-	defaultDelay time.Duration
+	topo Topology
 }
 
-func (s *Simulator) SetDefaultDelay(d time.Duration) {
-	s.defaultDelay = d
+type Topology interface {
+	PropagationDelay(from Module, to Module) time.Duration
+}
+
+func (s *Simulator) SetTopology(t Topology) {
+	s.topo = t
 }
 
 func (s *Simulator) Drained() bool {
@@ -58,7 +62,7 @@ func (s *Simulator) ScheduleMessage(msg OutgoingMessage, from Module) {
 		m := queuedMessage{s.time + msg.Delay, from, from, msg.Payload}
 		heap.Push(&s.mq, m)
 	} else {
-		m := queuedMessage{s.time + msg.Delay + s.defaultDelay, from, msg.To, msg.Payload}
+		m := queuedMessage{s.time + msg.Delay + s.topo.PropagationDelay(from, msg.To), from, msg.To, msg.Payload}
 		heap.Push(&s.mq, m)
 	}
 }

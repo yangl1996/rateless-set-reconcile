@@ -11,6 +11,14 @@ import (
 
 var txgen = newTransactionGenerator()
 
+type dummyTopo struct {
+	d time.Duration
+}
+
+func (d dummyTopo) PropagationDelay(from des.Module, to des.Module) time.Duration {
+	return d.d
+}
+
 func main() {
 	arrivalBurstSize := flag.Int("b", 500, "transaction arrival burst size")
 	decoderMem := flag.Int("mem", 50000, "decoder memory")
@@ -42,7 +50,7 @@ func main() {
 
 	mainRNG := rand.New(rand.NewSource(*mainSeed))
 	s := &des.Simulator{}
-	s.SetDefaultDelay(*networkDelay)
+	s.SetTopology(dummyTopo{*networkDelay})
 	servers := newServers(s, 20, *mainSeed, config)
 	connected := make(map[struct{from, to int}]struct{})
 	for i := 0; i < 20*4; i++ {
