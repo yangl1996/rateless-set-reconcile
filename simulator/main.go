@@ -6,6 +6,8 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/des"
 	"time"
 	"math/rand"
+	"github.com/aclements/go-moremath/stats"
+	"sort"
 )
 
 
@@ -46,6 +48,7 @@ func main() {
 	topo := loadCitiesTopology()
 	servers := newServers(s, *numNodes, *mainSeed, config)
 	for _, s := range servers {
+		s.latencySketch = newTransactionLatencySketch(*warmupDuration)
 		topo.register(s)
 	}
 	s.SetTopology(topo)
@@ -70,23 +73,59 @@ func main() {
 			break
 		}
 	}
-	servers[0].latencySketch = newTransactionLatencySketch(*warmupDuration)
-	fmt.Println("# node 0 peers", len(servers[0].handlers))
+	fmt.Println("# node 0 num peers", len(servers[0].handlers))
 
 	receivedCodewordRate := difference[int]{}
+	warmed := false
 	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
 		s.RunUntil(cur)
-		receivedCodewordRate.record(servers[0].receivedCodewords)
-		if cur < *warmupDuration {
-			fmt.Print("# ")
+		if cur > *warmupDuration {
+			if warmed == false {
+				warmed = true
+				for _, s := range servers {
+					s.resetMetric()
+				}
+				receivedCodewordRate.record(servers[0].receivedCodewords)
+			} else {
+				receivedCodewordRate.record(servers[0].receivedCodewords)
+				fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
+			}
 		}
-		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
 	}
 
-	d := servers[0].decodedTransactions
-	r := servers[0].receivedCodewords
-	fmt.Println("# received rate transaction", float64(d)/s.Time().Seconds())
-	fmt.Println("# overhead", float64(r)/float64(d))
-	qts := servers[0].latencySketch.getQuantiles([]float64{0.05, 0.50, 0.95})
-	fmt.Println("# latency p5", qts[0], "p50", qts[1], "p95", qts[2])
+	fmt.Println("# moments: mean, stddev, p5, p25, p50, p75, p95")
+	fmt.Println("# decoded transaction rate", collectMoments(servers, func(srv *server) float64 {
+		return float64(srv.decodedTransactions) / (s.Time() - *warmupDuration).Seconds()
+	}))
+	fmt.Println("# overhead", collectMoments(servers, func(s *server) float64 {
+		return float64(s.receivedCodewords) / float64(s.decodedTransactions)
+	}))
+	fmt.Println("# latency p5", collectMoments(servers, func(s *server) float64 {
+		return s.latencySketch.getQuantiles([]float64{0.05})[0]
+	}))
+	fmt.Println("# latency p50", collectMoments(servers, func(s *server) float64 {
+		return s.latencySketch.getQuantiles([]float64{0.50})[0]
+	}))
+	fmt.Println("# latency p95", collectMoments(servers, func(s *server) float64 {
+		return s.latencySketch.getQuantiles([]float64{0.95})[0]
+	}))
+}
+
+func collectMoments(servers []*server, metric func(s *server) float64) []float64 {
+	res := []float64{}
+	s := stats.Sample{}
+	for _, server := range servers {
+		s.Xs = append(s.Xs, metric(server))
+	}
+	sort.Float64s(s.Xs)
+	s.Sorted = true
+
+	res = append(res, s.Mean())
+	res = append(res, s.StdDev())
+	res = append(res, s.Quantile(0.05))
+	res = append(res, s.Quantile(0.25))
+	res = append(res, s.Quantile(0.50))
+	res = append(res, s.Quantile(0.75))
+	res = append(res, s.Quantile(0.95))
+	return res
 }

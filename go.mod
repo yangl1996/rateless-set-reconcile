@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/DataDog/sketches-go v1.4.1
+	github.com/aclements/go-moremath v0.0.0-20210112150236-f10218a38794
 	github.com/aws/aws-sdk-go v1.43.38
 	github.com/dchest/siphash v1.2.2
 	github.com/vultr/govultr v1.1.1
@@ -17,5 +18,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.7 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	golang.org/x/perf v0.0.0-20230227161431-f7320a6d63e8 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )

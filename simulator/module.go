@@ -8,8 +8,13 @@ import (
 )
 
 type serverMetric struct {
-       decodedTransactions int
-       receivedCodewords    int
+	decodedTransactions int
+	receivedCodewords    int
+}
+
+func (m *serverMetric) resetMetric() {
+	m.decodedTransactions = 0
+	m.receivedCodewords = 0
 }
 
 type serverConfig struct {
