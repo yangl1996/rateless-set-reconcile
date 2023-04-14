@@ -11,25 +11,18 @@ import (
 
 var txgen = newTransactionGenerator()
 
-type dummyTopo struct {
-	d time.Duration
-}
-
-func (d dummyTopo) PropagationDelay(from des.Module, to des.Module) time.Duration {
-	return d.d
-}
-
 func main() {
-	arrivalBurstSize := flag.Int("b", 500, "transaction arrival burst size")
+	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
 	decoderMem := flag.Int("mem", 50000, "decoder memory")
-	detectThreshold := flag.Int("th", 50, "detector threshold")
-	transactionRate := flag.Float64("txgen", 600.0, "per-node transaction generation per second")
-	simDuration := flag.Duration("dur", 1000*time.Second, "simulation duration")
-	networkDelay := flag.Duration("d", 100*time.Millisecond, "network one-way propagation time")
+	detectThreshold := flag.Int("th", 5, "detector threshold")
+	transactionRate := flag.Float64("txgen", 5, "per-node transaction generation per second")
+	simDuration := flag.Duration("dur", 100*time.Second, "simulation duration")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	mainSeed := flag.Int64("seed", 1, "randomness seed")
-	warmupDuration := flag.Duration("w", 50*time.Second, "warmup duration")
+	warmupDuration := flag.Duration("w", 20*time.Second, "warmup duration")
+	numNodes := flag.Int("n", 20, "number of nodes in the simulation")
+	averageDegree := flag.Int("d", 8, "average network degree")
 	flag.Parse()
 
 	config := serverConfig {
@@ -50,13 +43,17 @@ func main() {
 
 	mainRNG := rand.New(rand.NewSource(*mainSeed))
 	s := &des.Simulator{}
-	s.SetTopology(dummyTopo{*networkDelay})
-	servers := newServers(s, 20, *mainSeed, config)
+	topo := loadCitiesTopology()
+	servers := newServers(s, *numNodes, *mainSeed, config)
+	for _, s := range servers {
+		topo.register(s)
+	}
+	s.SetTopology(topo)
 	connected := make(map[struct{from, to int}]struct{})
-	for i := 0; i < 20*4; i++ {
+	for i := 0; i < (*numNodes)*(*averageDegree)/2; i++ {
 		for {
-			from := mainRNG.Intn(20)
-			to := mainRNG.Intn(20)
+			from := mainRNG.Intn(*numNodes)
+			to := mainRNG.Intn(*numNodes)
 			if from == to {
 				continue
 			}
@@ -80,11 +77,10 @@ func main() {
 	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
 		s.RunUntil(cur)
 		receivedCodewordRate.record(servers[0].receivedCodewords)
-		if cur > *warmupDuration {
-			fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
-		} else {
-			receivedCodewordRate.get()
+		if cur < *warmupDuration {
+			fmt.Print("# ")
 		}
+		fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
 	}
 
 	d := servers[0].decodedTransactions
