@@ -11,6 +11,10 @@ type Codeword[T TransactionData[T]] struct {
 	members []uint32
 }
 
+func (c Codeword[T])Members() []uint32 {
+	return c.members
+}
+
 const SaltSize = 16
 
 type DegreeDistribution interface {

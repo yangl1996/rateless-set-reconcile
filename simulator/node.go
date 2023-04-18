@@ -5,6 +5,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/lt"
 	"github.com/yangl1996/soliton"
 	"math/rand"
+	"hash"
 )
 
 var testKey = [lt.SaltSize]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
@@ -103,9 +104,46 @@ type receiver struct {
 	outbox []any
 
 	receiverConfig
+
+	touchedHashesSet map[uint32]struct{}
+	touchedHashes []uint32
+	sipHasher hash.Hash64
 }
 
-func (n *receiver) onCodeword(cw codeword) []lt.Transaction[transaction] {
+func (n *receiver) markHasSeen(tx lt.Transaction[transaction]) {
+	n.sipHasher.Reset()
+	n.sipHasher.Write(tx.Hash())
+	hash := (uint32)(n.sipHasher.Sum64())
+	if _, there := n.touchedHashesSet[hash]; !there {
+		n.touchedHashesSet[hash] = struct{}{}
+		n.touchedHashes = append(n.touchedHashes, hash)
+		if len(n.touchedHashes) > 50000 {
+			delete(n.touchedHashesSet, n.touchedHashes[0])
+			n.touchedHashes = n.touchedHashes[1:50000]
+		}
+	}
+}
+
+func (n *receiver) hasSeen(tx lt.Transaction[transaction]) bool {
+	n.sipHasher.Reset()
+	n.sipHasher.Write(tx.Hash())
+	hash := (uint32)(n.sipHasher.Sum64())
+	_, there := n.touchedHashesSet[hash]
+	return there
+}
+
+func(n *receiver) onCodeword(cw codeword) []lt.Transaction[transaction] {
+	for _, hash := range cw.Members() {
+		if _, there := n.touchedHashesSet[hash]; !there {
+			n.touchedHashesSet[hash] = struct{}{}
+			n.touchedHashes = append(n.touchedHashes, hash)
+			if len(n.touchedHashes) > 50000 {
+				delete(n.touchedHashesSet, n.touchedHashes[0])
+				n.touchedHashes = n.touchedHashes[1:50000]
+			}
+		}
+	}
+
 	if cw.newBlock {
 		n.curCodewords = n.curCodewords[:0]
 		n.currentBlockReceived = false

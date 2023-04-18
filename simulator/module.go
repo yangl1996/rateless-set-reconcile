@@ -4,6 +4,7 @@ import (
 	"github.com/yangl1996/rateless-set-reconcile/lt"
 	"github.com/yangl1996/rateless-set-reconcile/des"
 	"math/rand"
+	"github.com/dchest/siphash"
 	"time"
 )
 
@@ -54,6 +55,8 @@ func (a *server) newHandler() *handler {
 		receiver: &receiver{
 			Decoder: a.decoder,
 			receiverConfig: a.receiverConfig,
+			touchedHashesSet: make(map[uint32]struct{}),
+			sipHasher: siphash.New(testKey[:]),
 		},
 	}
 }
@@ -100,7 +103,11 @@ func (s *server) forwardTransactions(txs []lt.Transaction[transaction]) {
 	for len(txs) > 0 {
 		tx := txs[0]
 		for _, handler := range s.handlers {
-			handler.sender.onTransaction(tx)
+			// FIXME: switch
+			if !handler.receiver.hasSeen(tx) {
+				handler.sender.onTransaction(tx)
+				handler.receiver.markHasSeen(tx)
+			}
 		}
 		txs = txs[1:]
 		txs = append(txs, s.decoder.AddTransaction(tx)...)
