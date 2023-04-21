@@ -1,8 +1,0 @@
-v(r): overhead per fresh transaction when r-fraction of the block is fresh.
-
-B transactions, two senders, f overlap. So: each sender has (B-f)/2 unique
-transactions and f common transactions. 
-
-Let C = (B-f)/2 + f = (B+f)/2. Overall cost if one finishes sending first:
-N(B, f) = C * v(1) + (C-f) * v((C-f)/C)
-d/df N(B, f) = v(1)/2 - v((C-f)/C)/2 + (B-f)/2 d/df v((B-f)/(B+f))
