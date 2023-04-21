@@ -7,24 +7,36 @@ import (
 )
 
 func SimulateOneSenderOverlap(Nruns int, N int, common int) int {
-	tot := 0
-	for runIdx := 0; runIdx < Nruns; runIdx++ {
+	resCh := make(chan int, Nruns)
+	oneSimulation := func(runIdx int) {
 		seed := int64(runIdx)
 		dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(seed)), uint64(N), 0.03, 0.5)
 		e := lt.NewEncoder[Transaction](rand.New(rand.NewSource(seed)), TestKey, dist, N)
 		d := lt.NewDecoder[Transaction](TestKey, 2147483647)
 
+		var txIdx uint64
+
 		for i := 0; i < common; i++ {
-			tx := GetTransaction(uint64(i))
-			e.AddTransaction(tx)
-			d.AddTransaction(tx)
+			tx := GetTransaction(uint64(txIdx))
+			if e.AddTransaction(tx) {
+				d.AddTransaction(tx)
+			} else {
+				i -= 1
+			}
+			txIdx += 1
 		}
+
 		toDecode := make(map[uint64]struct{})
 		for i := common; i < N; i++ {
-			tx := GetTransaction(uint64(i))
-			e.AddTransaction(tx)
-			toDecode[uint64(i)] = struct{}{}
+			tx := GetTransaction(uint64(txIdx))
+			if e.AddTransaction(tx) {
+				toDecode[uint64(i)] = struct{}{}
+			} else {
+				i -= 1
+			}
+			txIdx += 1
 		}
+
 		Ncw := 0
 		for len(toDecode) > 0 {
 			c := e.ProduceCodeword()
@@ -34,7 +46,15 @@ func SimulateOneSenderOverlap(Nruns int, N int, common int) int {
 				delete(toDecode, tx.Data().Idx)
 			}
 		}
-		tot += Ncw
+		resCh <- Ncw
+	}
+	tot := 0
+	for runIdx := 0; runIdx < Nruns; runIdx++ {
+		go oneSimulation(runIdx)
+	}
+	for runIdx := 0; runIdx < Nruns; runIdx++ {
+		res := <-resCh
+		tot += res
 	}
 	return tot/Nruns
 }
