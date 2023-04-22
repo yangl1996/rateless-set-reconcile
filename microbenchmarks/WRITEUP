@@ -1,1 +1,54 @@
-Let the 
+Algorithm.
+
+Parameters: t (detection threshold), c (control overhead).
+
+For each peer, the node maintains a sending buffer. The node inserts every new
+transaction (either decoded or locally generated) into the buffer, and makes
+sure it never inserts the same transaction into the buffer more than once.
+When the node finishes sending the current block (discussed next) and there
+are at least t/c transactions in the sending buffer, it takes the entire
+sending buffer as the next block and starts sending it.
+
+To send the block, the node generates coded symbols using LT codes and sends
+them to the peer. The peer attempts to decode these coded symbols using the
+peeling decoder. It tracks whether each received coded symbol has been decoded.
+If it has received at least t coded symbols for the current block, and all
+these coded symbols have been decoded, then it decides that the entire current
+block has been successfully decoded and notifies the sending peer. The sender
+moves onto the next block upon receiving the acknowledgement, as discussed
+above.
+
+Analysis of the efficiency.
+
+We now show an upper bound for the efficiency of the algorithm. Efficiency is
+measured by the overhead---the expected number of codewords that a node
+receives for each unique transaction it decodes. The upper bound will be
+dependent on the degree of the node, i.e., the number of peers it connects to.
+
+Lemma 1. The overhead is maximized at minimum block size.
+
+Proof: Omitted. True for single-sender. Simulations show this is the case for
+multiple senders as well.
+
+This lemma says that we can assume every block is of size t/c, i.e., the
+minimum block size.
+
+Lemma 2. No transaction appears more than once across the blocks from the same
+peer.
+
+Proof: By definition.
+
+Lemma 3. For each peer, every transaction ever created in the system eventually
+appears in its blocks.
+
+Proof: Omitted. True if the algorithm guarantees reliability, i.e., every
+node receives every transaction eventually.
+
+Lemma 2 says that the blocks from the same sender never overlap. Lemma 3 says
+that blocks from one sender alone can cover the entire set of transactions in
+the system.
+
+Theorem 1. There is an upper bound for the overhead.
+
+Sketch: focus on one sender first. Its blocks cover all transactions already,
+so the overhead is close to 1. 

@@ -40,6 +40,12 @@ func main() {
 		o, m := findMaxOverhead(bs, 2)
 		fmt.Println(bs, o[0], m[0])
 	}
+	fmt.Println("# efficiency assuming symmetry for block size 200")
+	fmt.Println("# number of nodes   overhead")
+	for nodes := 2; nodes < 16; nodes++ {
+		ncw := microbenchmarks.SimulateOneSenderOverlap(100, 200, 200-200/nodes)
+		fmt.Println(nodes, float64(ncw) / float64(200/nodes))
+	}
 	fmt.Println("# efficiency for block size 100 as there are more overlapping nodes")
 	fmt.Println("# n-th node   overhead upperbound   maximizing overlap")
 	o, m := findMaxOverhead(100, 10)
