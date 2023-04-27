@@ -18,9 +18,12 @@ block has been successfully decoded and notifies the sending peer. The sender
 moves onto the next block upon receiving the acknowledgement, as discussed
 above.
 
+TODO: mention that the parameters are always local but it will lead to a global
+property.
+
 Analysis of the efficiency.
 
-We now show an upper bound for the efficiency of the algorithm. Efficiency is
+We now show a bound for the efficiency of the algorithm. Efficiency is
 measured by the overhead---the expected number of codewords that a node
 receives for each unique transaction it decodes. The upper bound will be
 dependent on the degree of the node, i.e., the number of peers it connects to.
@@ -52,3 +55,9 @@ Theorem 1. There is an upper bound for the overhead.
 
 Sketch: focus on one sender first. Its blocks cover all transactions already,
 so the overhead is close to 1. 
+
+Use the concavaty of the abs curve. Rel curve is no good.
+That is, for D nodes collectively sending N transactions, the overhead is
+maximized when each node sends N/D fresh transactions. This only assumes
+f(x) is concave where f(x) is the number of codewords to send x fresh
+transactions in a block.
