@@ -33,23 +33,10 @@ func findMaxOverhead(blockSize int, numNodes int) ([]float64, []int) {
 }
 
 func main() {
-	fmt.Println("# worst efficiency for 2 overlapping nodes at different block sizes")
-	fmt.Println("# block size   overhead upperbound   maximizing overlap")
-	blockSizes := []int{50, 100, 200, 500}
-	for _, bs := range blockSizes {
-		o, m := findMaxOverhead(bs, 2)
-		fmt.Println(bs, o[0], m[0])
-	}
-	fmt.Println("# efficiency assuming symmetry for block size 200")
+	fmt.Println("# efficiency assuming symmetry for block size 500")
 	fmt.Println("# number of nodes   overhead")
-	for nodes := 2; nodes < 16; nodes++ {
-		ncw := microbenchmarks.SimulateOneSenderOverlap(100, 200, 200-200/nodes)
-		fmt.Println(nodes, float64(ncw) / float64(200/nodes))
-	}
-	fmt.Println("# efficiency for block size 100 as there are more overlapping nodes")
-	fmt.Println("# n-th node   overhead upperbound   maximizing overlap")
-	o, m := findMaxOverhead(100, 10)
-	for nodes := 2; nodes <= 10; nodes++ {
-		fmt.Println(nodes, o[nodes-2], m[nodes-2])
+	for nodes := 2; nodes <= 6; nodes++ {
+		ncw := microbenchmarks.SimulateOneSenderOverlap(50, 500, 500-500/nodes)
+		fmt.Printf("%d & $%.2f$ \\\\\n", nodes, float64(ncw) / float64(500/nodes))
 	}
 }

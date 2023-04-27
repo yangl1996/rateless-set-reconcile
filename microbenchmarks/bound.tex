@@ -1,0 +1,62 @@
+\documentclass{article}
+\begin{document}
+
+Let $D$ be the number of peers. Let $N_i$ for $1 \le i \le D$ be the number of
+blocks that the $i$-th peer sends to the receiver for the lifetime of the
+system. For convenience, let $N = \sum_{i=1}^D N_i$, i.e., $N$ is the number of
+blocks that the receiver receives.  Let $x_j$ for $1 \le j \le N$ be the number
+of \emph{fresh} transactions in the $j$-th block that the receiver decodes, and
+let $x=\sum_{j=1}^N x_j$ for convenience.  Finally, let $B$ be the block size,
+and $f(t)$ be the number of codewords required to send a block with $t$ fresh
+transactions. Note that the receiver needs to receive $f(x_j)$ codewords in
+order to decode the $j$-th block. The system overhead is defined as
+$\sum_{j=1}^N f(x_j)/x$, which is the average number of codewords needed to
+decode a fresh transaction.
+
+\smallskip
+\noindent
+\textbf{Lemma 1.} $x \ge NB/D.$
+
+\smallskip
+\noindent \textbf{Proof.} The algorithm guarantees that blocks from the same
+peer are disjoint, so peer $i$ sends $N_i B$ fresh transactions, i.e., $x \ge
+N_i B$ for $1 \le i \le D$. Because by definition $N=\sum_{i=1}^D N_i$, there
+exists at least one $i^*$, such that $1 \le i^* \le D$ and $N_{i^*} \ge N/D$.
+Plug $i^*$ into $x \ge N_i B$ and we immediate get $x \ge NB/D$.
+
+\smallskip
+\noindent
+\textbf{Theorem 1.} If $f(t)$ is concave and $f(t)/t$ is monotonically decreasing, then $$\frac{\sum_{j=1}^N f(x_j)}{x} \le \frac{D}{B}f\left(\frac{B}{D}\right).$$ 
+
+\smallskip \noindent \textbf{Proof.} By Jensen's inequality and the assumption
+that $f(t)$ is concave, $$\sum_{j=1}^N \frac{f(x_j)}{N} \le
+f\left(\frac{\sum_{j=1}^N x_j}{N}\right) = f\left(\frac{x}{N}\right).$$ Then
+$$\frac{\sum_{j=1}^N f(x_j)}{x} \le \frac{N}{x}f\left(\frac{x}{N}\right).$$ By
+Lemma 1 and the assumption that $f(t)/t$ monotonically decreases,
+$$\frac{N}{x}f\left(\frac{x}{N}\right) \le
+\frac{D}{B}f\left(\frac{B}{D}\right).$$ 
+
+\smallskip \noindent \textbf{Discussion.} The theorem says that the average
+number of codewords that the receiver needs to download in order to decode a
+fresh transaction is upper-bounded by $\frac{D}{B}f\left(\frac{B}{D}\right)$.
+This upper bound is achieved when every block contains $D/B$ fresh transactions.
+Here are some sample calculations for $B=500$.
+
+\begin{center}
+\begin{tabular}{ r|r }
+    \hline
+    $D$ & max. overhead\\\hline
+    2 & $1.65$ \\
+    3 & $2.20$ \\
+    4 & $2.67$ \\
+    5 & $3.17$ \\
+    6 & $3.70$ \\
+    7 & $4.11$ \\
+    8 & $4.39$ \\
+    9 & $4.80$ \\
+    10 & $5.02$ \\
+ \hline
+\end{tabular}
+\end{center}
+
+\end{document}

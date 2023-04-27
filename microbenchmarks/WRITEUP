@@ -61,3 +61,7 @@ That is, for D nodes collectively sending N transactions, the overhead is
 maximized when each node sends N/D fresh transactions. This only assumes
 f(x) is concave where f(x) is the number of codewords to send x fresh
 transactions in a block.
+
+B: size of a block
+N_i: number of blocks a peer sent in its lifetime
+
