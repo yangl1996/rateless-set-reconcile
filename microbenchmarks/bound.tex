@@ -1,15 +1,20 @@
 \documentclass{article}
+\usepackage{amsmath}
+
+\title{Analysis of Strokkur Algorithm}
+
 \begin{document}
 
-\noindent
-\textbf{Algorithm.} There are two parameters: $t$ (detection threshold), and
+\maketitle
+
+\section{Algorithm}
+ There are two parameters: $t$ (detection threshold), and
 $c$ (control overhead). Each node is free to choose these parameters for
 incoming blocks, and these parameters only affect the overhead (discussed
 below) of this node. Peers sending to this node are expected to honor these
 parameters (but it is easy for the receiving node to verify and enforce
 the parameters). We now discuss the algorithm for sending transactions to peers.
 
-\smallskip
 For each peer, a node maintains a sending buffer. The node inserts every new
 transaction (either decoded or locally generated) into the buffer, and makes
 sure it never inserts the same transaction into the buffer more than once.
@@ -17,7 +22,6 @@ When the node finishes sending the current block (discussed next) and there
 are at least $t/c$ transactions in the sending buffer, it takes the entire
 sending buffer as the next block and starts sending it.
 
-\smallskip
 To send the block, the node generates coded symbols using LT codes and sends
 them to the peer. The peer attempts to decode these coded symbols using the
 peeling decoder. It tracks whether each received coded symbol has been decoded.
@@ -27,8 +31,7 @@ that the entire current block has been successfully decoded and notifies the
 sending peer. The sender moves onto the next block upon receiving the
 acknowledgement, as discussed above.
 
-
-\smallskip\noindent\textbf{Analysis.}
+\section{Analysis}
 Let $D$ be the number of peers. Let $N_i$ for $1 \le i \le D$ be the number of
 blocks that the $i$-th peer sends to the receiver for the lifetime of the
 system. For convenience, let $N = \sum_{i=1}^D N_i$, i.e., $N$ is the number of
@@ -54,7 +57,7 @@ Plug $i^*$ into $x \ge N_i B$ and we immediate get $x \ge NB/D$.
 
 \smallskip
 \noindent
-\textbf{Theorem 1.} If $f(t)$ is concave and $f(t)/t$ is monotonically decreasing, then $$\frac{\sum_{j=1}^N f(x_j)}{x} \le \frac{D}{B}f\left(\frac{B}{D}\right).$$ 
+\textbf{Theorem 1.} If $f(t)$ is concave and $f(t)/t$ monotonically decreases, then $$\frac{\sum_{j=1}^N f(x_j)}{x} \le \frac{D}{B}f\left(\frac{B}{D}\right).$$ 
 
 \smallskip \noindent \textbf{Proof.} By Jensen's inequality and the assumption
 that $f(t)$ is concave, $$\sum_{j=1}^N \frac{f(x_j)}{N} \le
