@@ -5,7 +5,7 @@ set output "fig-overlap.pdf"
 
 set ylabel "Abs Overhead"
 set y2label "Rel Overhead"
-set xlabel "Rel Overlap"
+set xlabel "Rel Fresh"
 set ytics nomirror
 set y2tics
 set notitle

@@ -7,9 +7,9 @@ import (
 
 func main() {
 	fmt.Println("# block size 200")
-	fmt.Println("# absOverlap  relOverlap  absCost  relCost")
-	for overlap := 0; overlap < 200; overlap++ {
-		res := microbenchmarks.SimulateOneSenderOverlap(100, 200, overlap)
-		fmt.Println(overlap, float64(overlap)/200, res, float64(res)/float64(200-overlap))
+	fmt.Println("# absFresh relFresh absCost  relCost")
+	for fresh := 0; fresh < 200; fresh++ {
+		res := microbenchmarks.SimulateOneSenderOverlap(100, 200, 200-fresh)
+		fmt.Println(fresh, float64(fresh)/200, res, float64(res)/float64(fresh))
 	}
 }
