@@ -49,6 +49,16 @@ func newTransactionLatencySketch(warmup time.Duration) *transactionLatencySketch
 	return &transactionLatencySketch{sketch, warmup}
 }
 
+func (t *transactionLatencySketch) recordRaw(data float64, tp time.Duration) {
+	if t == nil {
+		return
+	}
+	if t.warmup > tp {
+		return
+	}
+	t.sketch.Add(data)
+}
+
 func (t *transactionLatencySketch) record(tx transaction, tp time.Duration) {
 	if t == nil {
 		return

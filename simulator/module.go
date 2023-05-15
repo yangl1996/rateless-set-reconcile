@@ -40,6 +40,7 @@ type server struct {
 	serverConfig
 
 	latencySketch *transactionLatencySketch
+	overlapSketch *transactionLatencySketch
 	serverMetric
 }
 
@@ -137,7 +138,28 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		default:
 			panic("unknown message type")
 		}
-		return s.collectOutgoingMessages()
+		// see if we are starting a new block, and compute overlap
+		outmsgs := s.collectOutgoingMessages()
+		if s.overlapSketch != nil {
+			for _, msg := range outmsgs {
+				if cw, is := msg.Payload.(codeword); is {
+					if cw.newBlock {
+						peerServer := msg.To.(*server)
+						peerHandler := peerServer.handlers[s]	// peer's handler for us
+						ourHandler := s.handlers[peerServer]	// our handler for the peer
+						overlap := 0
+						for _, tx := range ourHandler.sender.currentBlock {
+							if peerHandler.receiver.HasDecoded(tx) {
+								overlap += 1
+							}
+						}
+						ratio := float64(overlap) / float64(len(ourHandler.sender.currentBlock))
+						s.overlapSketch.recordRaw(ratio, timestamp)
+					}
+				}
+			}
+		}
+		return outmsgs
 	}
 }
 

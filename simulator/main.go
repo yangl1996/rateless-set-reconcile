@@ -51,6 +51,7 @@ func main() {
 	servers := newServers(s, *numNodes, *mainSeed, config)
 	for _, s := range servers {
 		s.latencySketch = newTransactionLatencySketch(*warmupDuration)
+		s.overlapSketch = newTransactionLatencySketch(*warmupDuration)
 		topo.register(s)
 	}
 	s.SetTopology(topo)
@@ -134,6 +135,12 @@ func main() {
 	fmt.Println("# latency p95", collectMoments(servers, func(s *server) float64 {
 		return s.latencySketch.getQuantiles([]float64{0.95})[0]
 	}))
+	qts := []float64{}
+	for i := 0.0; i < 1.0; i += 0.01 {
+		qts = append(qts, i)
+	}
+	qtres := servers[0].overlapSketch.getQuantiles(qts)
+	fmt.Println("# node 0 overlap dist", qtres)
 }
 
 func collectMoments(servers []*server, metric func(s *server) float64) []float64 {

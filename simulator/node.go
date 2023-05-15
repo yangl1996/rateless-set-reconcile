@@ -16,6 +16,7 @@ type senderConfig struct {
 
 type sender struct {
 	buffer       []lt.Transaction[transaction]
+	currentBlock []lt.Transaction[transaction]
 	*lt.Encoder[transaction]
 	rng *rand.Rand
 
@@ -68,11 +69,14 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 			n.encodingCurrentBlock = true
 			dist := soliton.NewRobustSoliton(n.rng, uint64(blockSize), 0.03, 0.5)
 			n.Encoder.Reset(dist, blockSize)
+			n.currentBlock = n.currentBlock[:0]
 			// move buffer into block
 			for i := 0; i < blockSize; i++ {
 				res := n.Encoder.AddTransaction(n.buffer[i])
 				if !res {
 					fmt.Println("Warning: duplicate transaction exists in window")
+				} else {
+					n.currentBlock = append(n.currentBlock, n.buffer[i])
 				}
 			}
 			n.buffer = n.buffer[blockSize:]

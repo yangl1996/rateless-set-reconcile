@@ -103,6 +103,18 @@ type Decoder[T TransactionData[T]] struct {
 	memory               int
 }
 
+func (p *Decoder[T]) HasDecoded(tx Transaction[T]) bool {
+	p.hasher.Reset()
+	p.hasher.Write(tx.hash[:])
+	saltedHash := (uint32)(p.hasher.Sum64())
+	_, there := p.receivedTransactions[saltedHash]
+	if there {
+		return true
+	} else {
+		return false
+	}
+}
+
 func NewDecoder[T TransactionData[T]](salt [SaltSize]byte, memory int) *Decoder[T] {
 	p := &Decoder[T]{
 		receivedTransactions: make(map[uint32]Transaction[T]),
