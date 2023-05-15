@@ -8,12 +8,14 @@ import (
 	"math/rand"
 	"github.com/aclements/go-moremath/stats"
 	"sort"
+	rgraph "github.com/arberiii/random-regular-graphs"
 )
 
 
 var txgen = newTransactionGenerator()
 
 func main() {
+	useRegularGraph := flag.Bool("regular", false, "generate random regular graph instead of a Poisson graph")
 	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
 	decoderMem := flag.Int("mem", 50000, "decoder memory")
 	detectThreshold := flag.Int("th", 5, "detector threshold")
@@ -53,24 +55,47 @@ func main() {
 	}
 	s.SetTopology(topo)
 	connected := make(map[struct{from, to int}]struct{})
-	for i := 0; i < (*numNodes)*(*averageDegree)/2; i++ {
-		for {
-			from := mainRNG.Intn(*numNodes)
-			to := mainRNG.Intn(*numNodes)
-			if from == to {
-				continue
+	if !(*useRegularGraph) {
+		for i := 0; i < (*numNodes)*(*averageDegree)/2; i++ {
+			for {
+				from := mainRNG.Intn(*numNodes)
+				to := mainRNG.Intn(*numNodes)
+				if from == to {
+					continue
+				}
+				pair1 := struct{from, to int}{from, to}
+				pair2 := struct{from, to int}{to, from}
+				if _, there := connected[pair1]; there {
+					continue
+				}
+				if _, there := connected[pair2]; there {
+					continue
+				}
+				connected[pair1] = struct{}{}
+				connectServers(servers[from], servers[to])
+				break
 			}
-			pair1 := struct{from, to int}{from, to}
-			pair2 := struct{from, to int}{to, from}
-			if _, there := connected[pair1]; there {
-				continue
+		}
+	} else {
+		graph := rgraph.RandomRegularGraph(*numNodes, *averageDegree)
+		fmt.Println("# graph generated")
+		for i := 0; i < (*numNodes); i++ {
+			if _, there := graph[i]; there {
+				for _, peer := range graph[i] {
+					from := i
+					to := peer
+					pair1 := struct{from, to int}{from, to}
+					pair2 := struct{from, to int}{to, from}
+					if _, there := connected[pair1]; there {
+						continue
+					}
+					if _, there := connected[pair2]; there {
+						continue
+					}
+					connected[pair1] = struct{}{}
+					connectServers(servers[from], servers[to])
+				}
 			}
-			if _, there := connected[pair2]; there {
-				continue
-			}
-			connected[pair1] = struct{}{}
-			connectServers(servers[from], servers[to])
-			break
 		}
 	}
 	fmt.Println("# node 0 num peers", len(servers[0].handlers))
