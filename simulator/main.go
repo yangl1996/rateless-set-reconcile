@@ -9,6 +9,7 @@ import (
 	"github.com/aclements/go-moremath/stats"
 	"sort"
 	rgraph "github.com/arberiii/random-regular-graphs"
+	"os"
 )
 
 
@@ -27,6 +28,7 @@ func main() {
 	warmupDuration := flag.Duration("w", 20*time.Second, "warmup duration")
 	numNodes := flag.Int("n", 20, "number of nodes in the simulation")
 	averageDegree := flag.Int("d", 8, "average network degree")
+	logPrefix := flag.String("prefix", "exp", "prefix of log files")
 	flag.Parse()
 
 	config := serverConfig {
@@ -139,8 +141,18 @@ func main() {
 	for i := 0.0; i < 1.0; i += 0.01 {
 		qts = append(qts, i)
 	}
-	qtres := servers[0].overlapSketch.getQuantiles(qts)
-	fmt.Println("# node 0 overlap dist", qtres)
+	for i, s := range servers {
+		qtres := s.overlapSketch.getQuantiles(qts)
+		filename := fmt.Sprintf("%s-overlap-%d.csv", *logPrefix, i)
+		file, err := os.Create(filename)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		for idx, val := range qtres {
+			fmt.Fprintln(file, float64(idx) * 0.01, val)
+		}
+	}
 }
 
 func collectMoments(servers []*server, metric func(s *server) float64) []float64 {

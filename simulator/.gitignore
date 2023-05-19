@@ -1,3 +1,5 @@
 simulator
 *.txt
 *.pdf
+*.csv
+!city-prop-delay.csv
