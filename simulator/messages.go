@@ -16,3 +16,7 @@ type ack struct {
 type blockArrival struct{
 	n int
 }
+
+type loopback struct {
+	tx lt.Transaction[transaction]
+}

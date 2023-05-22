@@ -42,6 +42,13 @@ type server struct {
 	latencySketch *transactionLatencySketch
 	overlapSketch *transactionLatencySketch
 	serverMetric
+
+	forwardRateLimiter rateLimiter
+}
+
+type rateLimiter struct {
+	lastScheduled time.Duration
+	minInterval time.Duration
 }
 
 func (a *server) newHandler() *handler {
@@ -81,8 +88,7 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 	return res
 }
 
-func (s *server) collectOutgoingMessages() []des.OutgoingMessage {
-	outbox := []des.OutgoingMessage{}
+func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.OutgoingMessage {
 	for peer, handler := range s.handlers {
 		for _, msg := range handler.sender.outbox {
 			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
@@ -96,32 +102,41 @@ func (s *server) collectOutgoingMessages() []des.OutgoingMessage {
 	return outbox
 }
 
-func (s *server) forwardTransactions(txs []lt.Transaction[transaction]) {
-	// TODO: we are ignoring the possibility of codewords being decoded because of this...
-	for len(txs) > 0 {
-		tx := txs[0]
-		for _, handler := range s.handlers {
-			handler.sender.onTransaction(tx)
-		}
-		txs = txs[1:]
-		txs = append(txs, s.decoder.AddTransaction(tx)...)
+func (s *server) scheduleForwardingTransactions(txs []lt.Transaction[transaction], ts time.Duration) []des.OutgoingMessage {
+	out := []des.OutgoingMessage{}
+	nextSlot := ts
+	if s.forwardRateLimiter.lastScheduled + s.forwardRateLimiter.minInterval > nextSlot {
+		nextSlot = s.forwardRateLimiter.lastScheduled + s.forwardRateLimiter.minInterval
+	}
+	for _, tx := range txs {
+		out = append(out, des.OutgoingMessage{loopback{tx}, nil, nextSlot-ts})
+		s.forwardRateLimiter.lastScheduled = nextSlot
+		nextSlot += s.forwardRateLimiter.minInterval
+	}
+	return out
+}
+
+func (s *server) forwardTransaction(tx lt.Transaction[transaction]) {
+	for _, handler := range s.handlers {
+		handler.sender.onTransaction(tx)
 	}
 }
 
 func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Duration) []des.OutgoingMessage {
+	var outbox []des.OutgoingMessage
 	if ba, isBa := payload.(blockArrival); isBa {
 		txs := []lt.Transaction[transaction]{}
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
 			txs = append(txs, tx)
 		}
-		s.forwardTransactions(txs)
-		outbox := s.collectOutgoingMessages()
+		outbox = s.scheduleForwardingTransactions(txs, timestamp)
 		// schedule itself the next block arrival
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
 		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
-		return outbox
+	} else if lp, isLp := payload.(loopback); isLp {
+		s.forwardTransaction(lp.tx)
 	} else {
 		n := s.handlers[from]
 		switch m := payload.(type) {
@@ -132,34 +147,34 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			}
 			s.decodedTransactions += len(buf)
 			s.receivedCodewords += 1
-			s.forwardTransactions(buf)
+			outbox = s.scheduleForwardingTransactions(buf, timestamp)
 		case ack:
 			n.onAck(m)
 		default:
 			panic("unknown message type")
 		}
-		// see if we are starting a new block, and compute overlap
-		outmsgs := s.collectOutgoingMessages()
-		if s.overlapSketch != nil {
-			for _, msg := range outmsgs {
-				if cw, is := msg.Payload.(codeword); is {
-					if cw.newBlock {
-						peerServer := msg.To.(*server)
-						peerHandler := peerServer.handlers[s]	// peer's handler for us
-						ourHandler := s.handlers[peerServer]	// our handler for the peer
-						overlap := 0
-						for _, tx := range ourHandler.sender.currentBlock {
-							if peerHandler.receiver.HasDecoded(tx) {
-								overlap += 1
-							}
+	}
+	// see if we are starting a new block, and compute overlap
+	outbox = s.collectOutgoingMessages(outbox)
+	if s.overlapSketch != nil {
+		for _, msg := range outbox {
+			if cw, is := msg.Payload.(codeword); is {
+				if cw.newBlock {
+					peerServer := msg.To.(*server)
+					peerHandler := peerServer.handlers[s]	// peer's handler for us
+					ourHandler := s.handlers[peerServer]	// our handler for the peer
+					overlap := 0
+					for _, tx := range ourHandler.sender.currentBlock {
+						if peerHandler.receiver.HasDecoded(tx) {
+							overlap += 1
 						}
-						ratio := float64(overlap) / float64(len(ourHandler.sender.currentBlock))
-						s.overlapSketch.recordRaw(ratio, timestamp)
 					}
+					ratio := float64(overlap) / float64(len(ourHandler.sender.currentBlock))
+					s.overlapSketch.recordRaw(ratio, timestamp)
 				}
 			}
 		}
-		return outmsgs
 	}
+	return outbox
 }
 

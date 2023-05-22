@@ -29,6 +29,7 @@ func main() {
 	numNodes := flag.Int("n", 20, "number of nodes in the simulation")
 	averageDegree := flag.Int("d", 8, "average network degree")
 	logPrefix := flag.String("prefix", "exp", "prefix of log files")
+	smoothingRate := flag.Float64("smooth", 100, "smoothing rate target")
 	flag.Parse()
 
 	config := serverConfig {
@@ -54,6 +55,7 @@ func main() {
 	for _, s := range servers {
 		s.latencySketch = newTransactionLatencySketch(*warmupDuration)
 		s.overlapSketch = newTransactionLatencySketch(*warmupDuration)
+		s.forwardRateLimiter.minInterval = time.Duration(int(1.0 / (*smoothingRate) * 1000000000))
 		topo.register(s)
 	}
 	s.SetTopology(topo)
