@@ -39,8 +39,8 @@ type server struct {
 	rng *rand.Rand
 	serverConfig
 
-	latencySketch *transactionLatencySketch
-	overlapSketch *transactionLatencySketch
+	latencySketch *distributionSketch
+	overlapSketch *distributionSketch
 	serverMetric
 
 	forwardRateLimiter rateLimiter
@@ -143,7 +143,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		case codeword:
 			buf := n.onCodeword(m)
 			for _, val := range buf {
-				s.latencySketch.record(val.Data(), timestamp)
+				s.latencySketch.recordTxLatency(val.Data(), timestamp)
 			}
 			s.decodedTransactions += len(buf)
 			s.receivedCodewords += 1

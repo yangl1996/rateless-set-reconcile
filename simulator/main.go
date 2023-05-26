@@ -53,8 +53,8 @@ func main() {
 	topo := loadCitiesTopology()
 	servers := newServers(s, *numNodes, *mainSeed, config)
 	for _, s := range servers {
-		s.latencySketch = newTransactionLatencySketch(*warmupDuration)
-		s.overlapSketch = newTransactionLatencySketch(*warmupDuration)
+		s.latencySketch = newDistributionSketch(*warmupDuration)
+		s.overlapSketch = newDistributionSketch(*warmupDuration)
 		s.forwardRateLimiter.minInterval = time.Duration(int(1.0 / (*smoothingRate) * 1000000000))
 		topo.register(s)
 	}

@@ -36,20 +36,20 @@ func (t *transactionGenerator) generate(at time.Duration) lt.Transaction[transac
 	return lt.NewTransaction[transaction](tx)
 }
 
-type transactionLatencySketch struct {
+type distributionSketch struct {
 	sketch *ddsketch.DDSketch
 	warmup time.Duration
 }
 
-func newTransactionLatencySketch(warmup time.Duration) *transactionLatencySketch {
+func newDistributionSketch(warmup time.Duration) *distributionSketch {
 	sketch, err := ddsketch.NewDefaultDDSketch(0.01)
 	if err != nil {
 		panic(err)
 	}
-	return &transactionLatencySketch{sketch, warmup}
+	return &distributionSketch{sketch, warmup}
 }
 
-func (t *transactionLatencySketch) recordRaw(data float64, tp time.Duration) {
+func (t *distributionSketch) recordRaw(data float64, tp time.Duration) {
 	if t == nil {
 		return
 	}
@@ -59,7 +59,7 @@ func (t *transactionLatencySketch) recordRaw(data float64, tp time.Duration) {
 	t.sketch.Add(data)
 }
 
-func (t *transactionLatencySketch) record(tx transaction, tp time.Duration) {
+func (t *distributionSketch) recordTxLatency(tx transaction, tp time.Duration) {
 	if t == nil {
 		return
 	}
@@ -70,7 +70,7 @@ func (t *transactionLatencySketch) record(tx transaction, tp time.Duration) {
 	t.sketch.Add(latency)
 }
 
-func (t *transactionLatencySketch) getQuantiles(q []float64) []float64 {
+func (t *distributionSketch) getQuantiles(q []float64) []float64 {
 	res, err := t.sketch.GetValuesAtQuantiles(q)
 	if err != nil {
 		panic(err)
