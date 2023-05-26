@@ -102,8 +102,7 @@ func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.Out
 	return outbox
 }
 
-func (s *server) scheduleForwardingTransactions(txs []lt.Transaction[transaction], ts time.Duration) []des.OutgoingMessage {
-	out := []des.OutgoingMessage{}
+func (s *server) scheduleForwardingTransactions(out []des.OutgoingMessage, txs []lt.Transaction[transaction], ts time.Duration) []des.OutgoingMessage {
 	nextSlot := ts
 	if s.forwardRateLimiter.lastScheduled + s.forwardRateLimiter.minInterval > nextSlot {
 		nextSlot = s.forwardRateLimiter.lastScheduled + s.forwardRateLimiter.minInterval
@@ -129,8 +128,12 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
 			txs = append(txs, tx)
+			buf := s.decoder.AddTransaction(tx)
+			if len(buf) != 0 {
+				panic("locally generated tx leading to decode")
+			}
 		}
-		outbox = s.scheduleForwardingTransactions(txs, timestamp)
+		outbox = s.scheduleForwardingTransactions(outbox, txs, timestamp)
 		// schedule itself the next block arrival
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
@@ -147,7 +150,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			}
 			s.decodedTransactions += len(buf)
 			s.receivedCodewords += 1
-			outbox = s.scheduleForwardingTransactions(buf, timestamp)
+			outbox = s.scheduleForwardingTransactions(outbox, buf, timestamp)
 		case ack:
 			n.onAck(m)
 		default:
