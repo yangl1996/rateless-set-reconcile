@@ -25,6 +25,8 @@ type serverConfig struct {
 
 	senderConfig
 	receiverConfig
+
+	forceSynchronize time.Duration
 }
 
 type handler struct {
@@ -83,6 +85,9 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
 		simulator.ScheduleMessage(des.OutgoingMessage{newBa, nil, intv}, s)
+		if s.forceSynchronize != 0 {
+			simulator.ScheduleMessage(des.OutgoingMessage{createNewBlock{}, nil, s.forceSynchronize}, s)
+		}
 		res = append(res, s)
 	}
 	return res
@@ -116,13 +121,15 @@ func (s *server) scheduleForwardingTransactions(out []des.OutgoingMessage, txs [
 }
 
 func (s *server) forwardTransaction(tx lt.Transaction[transaction]) {
+	canStartNewBlock := (s.forceSynchronize == 0)
 	for _, handler := range s.handlers {
-		handler.sender.onTransaction(tx)
+		handler.sender.onTransaction(tx, canStartNewBlock)
 	}
 }
 
 func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Duration) []des.OutgoingMessage {
 	var outbox []des.OutgoingMessage
+	canStartNewBlock := (s.forceSynchronize == 0)
 	if ba, isBa := payload.(blockArrival); isBa {
 		txs := []lt.Transaction[transaction]{}
 		for i := 0; i < ba.n; i++ {
@@ -140,6 +147,11 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
 	} else if lp, isLp := payload.(loopback); isLp {
 		s.forwardTransaction(lp.tx)
+	} else if _, isNb := payload.(createNewBlock); isNb {
+		for _, handler := range s.handlers {
+			handler.sender.tryFillSendWindow(true)
+		}
+		outbox = append(outbox, des.OutgoingMessage{createNewBlock{}, nil, s.forceSynchronize})
 	} else {
 		n := s.handlers[from]
 		switch m := payload.(type) {
@@ -152,7 +164,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			s.receivedCodewords += 1
 			outbox = s.scheduleForwardingTransactions(outbox, buf, timestamp)
 		case ack:
-			n.onAck(m)
+			n.onAck(m, canStartNewBlock)
 		default:
 			panic("unknown message type")
 		}

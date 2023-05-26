@@ -30,6 +30,7 @@ func main() {
 	averageDegree := flag.Int("d", 8, "average network degree")
 	logPrefix := flag.String("prefix", "exp", "prefix of log files")
 	smoothingRate := flag.Float64("smooth", 100, "smoothing rate target")
+	synchronizationPeriod := flag.Duration("sync", 0, "synchronize block generation with given period")
 	flag.Parse()
 
 	config := serverConfig {
@@ -46,6 +47,7 @@ func main() {
 		receiverConfig: receiverConfig{
 			detectThreshold: *detectThreshold,
 		},
+		forceSynchronize: *synchronizationPeriod,
 	}
 
 	mainRNG := rand.New(rand.NewSource(*mainSeed))

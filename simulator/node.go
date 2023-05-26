@@ -31,22 +31,22 @@ type sender struct {
 	senderConfig
 }
 
-func (n *sender) onAck(ack ack) {
+func (n *sender) onAck(ack ack, mayStartNewBlock bool) {
 	n.inFlight -= 1
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
 	}
-	n.tryFillSendWindow()
+	n.tryFillSendWindow(mayStartNewBlock)
 }
 
-func (n *sender) onTransaction(tx lt.Transaction[transaction]) {
+func (n *sender) onTransaction(tx lt.Transaction[transaction], mayStartNewBlock bool) {
 	n.buffer = append(n.buffer, tx)
-	n.tryFillSendWindow()
+	n.tryFillSendWindow(mayStartNewBlock)
 }
 
-func (n *sender) tryFillSendWindow() {
+func (n *sender) tryFillSendWindow(mayStartNewBlock bool) {
 	for n.inFlight < n.sendWindow {
-		cw, yes := n.tryProduceCodeword()
+		cw, yes := n.tryProduceCodeword(mayStartNewBlock)
 		if !yes {
 			return
 		}
@@ -56,9 +56,9 @@ func (n *sender) tryFillSendWindow() {
 	return
 }
 
-func (n *sender) tryProduceCodeword() (codeword, bool) {
+func (n *sender) tryProduceCodeword(mayStartNewBlock bool) (codeword, bool) {
 	cw := codeword{}
-	if !n.encodingCurrentBlock {
+	if (!n.encodingCurrentBlock) && mayStartNewBlock {
 		//minBlockSize := int(2 / n.controlOverhead)
 		minBlockSize := int(float64(n.detectThreshold) / n.controlOverhead)
 		if len(n.buffer) >= minBlockSize {
@@ -88,6 +88,8 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		} else {
 			return cw, false
 		}
+	} else if (!n.encodingCurrentBlock) && (!mayStartNewBlock) {
+		return cw, false
 	}
 	cw.Codeword = n.Encoder.ProduceCodeword()
 	return cw, true

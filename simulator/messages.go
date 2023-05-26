@@ -20,3 +20,6 @@ type blockArrival struct{
 type loopback struct {
 	tx lt.Transaction[transaction]
 }
+
+type createNewBlock struct {
+}
