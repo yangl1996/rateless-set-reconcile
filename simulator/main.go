@@ -29,8 +29,9 @@ func main() {
 	numNodes := flag.Int("n", 20, "number of nodes in the simulation")
 	averageDegree := flag.Int("d", 8, "average network degree")
 	logPrefix := flag.String("prefix", "exp", "prefix of log files")
-	smoothingRate := flag.Float64("smooth", 100, "smoothing rate target")
+	smoothingRate := flag.Float64("smooth", 100000, "smoothing rate target")
 	synchronizationPeriod := flag.Duration("sync", 0, "synchronize block generation with given period")
+	targetCodewordLoss := flag.Float64("l", 0.0, "target codeword loss rate for controller")
 	flag.Parse()
 
 	config := serverConfig {
@@ -46,6 +47,7 @@ func main() {
 		},
 		receiverConfig: receiverConfig{
 			detectThreshold: *detectThreshold,
+			targetCodewordLoss: *targetCodewordLoss,
 		},
 		forceSynchronize: *synchronizationPeriod,
 	}

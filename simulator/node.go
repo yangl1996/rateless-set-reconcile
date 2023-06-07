@@ -97,6 +97,7 @@ func (n *sender) tryProduceCodeword(mayStartNewBlock bool) (codeword, bool) {
 
 type receiverConfig struct {
 	detectThreshold int
+	targetCodewordLoss float64
 }
 
 type receiver struct {
@@ -120,14 +121,15 @@ func (n *receiver) onCodeword(cw codeword) []lt.Transaction[transaction] {
 	n.curCodewords = append(n.curCodewords, stub)
 
 	if !n.currentBlockReceived && len(n.curCodewords) > n.detectThreshold {
-		decoded := true
+		notDecoded := 0
+		limit := int(float64(len(n.curCodewords)) * n.targetCodewordLoss)
+//		limit := 0 
 		for _, c := range n.curCodewords {
 			if !c.Decoded() {
-				decoded = false
-				break
+				notDecoded += 1
 			}
 		}
-		if decoded {
+		if notDecoded <= limit {
 			n.currentBlockReceived = true
 			n.outbox = append(n.outbox, ack{true})
 			return tx
