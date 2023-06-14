@@ -5,18 +5,14 @@ import (
 	"fmt"
 	"github.com/yangl1996/rateless-set-reconcile/des"
 	"time"
-	"math/rand"
 	"github.com/aclements/go-moremath/stats"
 	"sort"
-	rgraph "github.com/arberiii/random-regular-graphs"
 	"os"
 )
-
 
 var txgen = newTransactionGenerator()
 
 func main() {
-	useRegularGraph := flag.Bool("regular", false, "generate random regular graph instead of a Poisson graph")
 	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
 	decoderMem := flag.Int("mem", 50000, "decoder memory")
 	detectThreshold := flag.Int("th", 5, "detector threshold")
@@ -26,12 +22,11 @@ func main() {
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	mainSeed := flag.Int64("seed", 1, "randomness seed")
 	warmupDuration := flag.Duration("w", 20*time.Second, "warmup duration")
-	numNodes := flag.Int("n", 20, "number of nodes in the simulation")
-	averageDegree := flag.Int("d", 8, "average network degree")
 	logPrefix := flag.String("prefix", "exp", "prefix of log files")
 	smoothingRate := flag.Float64("smooth", 100000, "smoothing rate target")
 	synchronizationPeriod := flag.Duration("sync", 0, "synchronize block generation with given period")
 	targetCodewordLoss := flag.Float64("l", 0.0, "target codeword loss rate for controller")
+	topologyFile := flag.String("topo", "", "topology file")
 	flag.Parse()
 
 	config := serverConfig {
@@ -52,60 +47,16 @@ func main() {
 		forceSynchronize: *synchronizationPeriod,
 	}
 
-	mainRNG := rand.New(rand.NewSource(*mainSeed))
+	topo, N := loadTopology(*topologyFile)
 	s := &des.Simulator{}
-	topo := loadCitiesTopology()
-	servers := newServers(s, *numNodes, *mainSeed, config)
+	servers := newServers(s, N, *mainSeed, config)
 	for _, s := range servers {
 		s.latencySketch = newDistributionSketch(*warmupDuration)
 		s.overlapSketch = newDistributionSketch(*warmupDuration)
 		s.forwardRateLimiter.minInterval = time.Duration(int(1.0 / (*smoothingRate) * 1000000000))
-		topo.register(s)
 	}
-	s.SetTopology(topo)
-	connected := make(map[struct{from, to int}]struct{})
-	if !(*useRegularGraph) {
-		for i := 0; i < (*numNodes)*(*averageDegree)/2; i++ {
-			for {
-				from := mainRNG.Intn(*numNodes)
-				to := mainRNG.Intn(*numNodes)
-				if from == to {
-					continue
-				}
-				pair1 := struct{from, to int}{from, to}
-				pair2 := struct{from, to int}{to, from}
-				if _, there := connected[pair1]; there {
-					continue
-				}
-				if _, there := connected[pair2]; there {
-					continue
-				}
-				connected[pair1] = struct{}{}
-				connectServers(servers[from], servers[to])
-				break
-			}
-		}
-	} else {
-		graph := rgraph.RandomRegularGraph(*numNodes, *averageDegree)
-		fmt.Println("# graph generated")
-		for i := 0; i < (*numNodes); i++ {
-			if _, there := graph[i]; there {
-				for _, peer := range graph[i] {
-					from := i
-					to := peer
-					pair1 := struct{from, to int}{from, to}
-					pair2 := struct{from, to int}{to, from}
-					if _, there := connected[pair1]; there {
-						continue
-					}
-					if _, there := connected[pair2]; there {
-						continue
-					}
-					connected[pair1] = struct{}{}
-					connectServers(servers[from], servers[to])
-				}
-			}
-		}
+	for _, conn := range topo {
+		connectServers(servers[conn.a], servers[conn.b], conn.delay)
 	}
 	fmt.Println("# node 0 num peers", len(servers[0].handlers))
 

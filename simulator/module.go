@@ -34,8 +34,13 @@ type handler struct {
 	*receiver
 }
 
+type peer struct {
+	*handler
+	delay time.Duration
+}
+
 type server struct {
-	handlers map[des.Module]*handler
+	handlers map[des.Module]peer
 	decoder *lt.Decoder[transaction]
 
 	rng *rand.Rand
@@ -68,16 +73,16 @@ func (a *server) newHandler() *handler {
 	}
 }
 
-func connectServers(a, b *server) {
-	a.handlers[b] = a.newHandler()
-	b.handlers[a] = b.newHandler()
+func connectServers(a, b *server, delay time.Duration) {
+	a.handlers[b] = peer{a.newHandler(), delay}
+	b.handlers[a] = peer{b.newHandler(), delay}
 }
 
 func newServers(simulator *des.Simulator, n int, startingSeed int64, config serverConfig) []*server {
 	res := []*server{}
 	for i := 0; i < n; i++ {
 		s := &server {
-			handlers: make(map[des.Module]*handler),
+			handlers: make(map[des.Module]peer),
 			decoder: lt.NewDecoder[transaction](testKey, config.decoderMemory),
 			rng: rand.New(rand.NewSource(startingSeed+int64(i))),
 			serverConfig: config,
@@ -96,11 +101,11 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.OutgoingMessage {
 	for peer, handler := range s.handlers {
 		for _, msg := range handler.sender.outbox {
-			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
+			outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
 		}
 		handler.sender.outbox = handler.sender.outbox[:0]
 		for _, msg := range handler.receiver.outbox {
-			outbox = append(outbox, des.OutgoingMessage{msg, peer, time.Duration(0)})
+			outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
 		}
 		handler.receiver.outbox = handler.receiver.outbox[:0]
 	}

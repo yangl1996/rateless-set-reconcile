@@ -15,26 +15,9 @@ type OutgoingMessage struct {
 	Delay time.Duration
 }
 
-type queuedMessage struct {
-	arrival     time.Duration
-	from Module
-	to Module
-	payload     any
-}
-
 type Simulator struct {
 	time time.Duration
 	mq   priorityQueue
-
-	topo Topology
-}
-
-type Topology interface {
-	PropagationDelay(from Module, to Module) time.Duration
-}
-
-func (s *Simulator) SetTopology(t Topology) {
-	s.topo = t
 }
 
 func (s *Simulator) Drained() bool {
@@ -62,7 +45,7 @@ func (s *Simulator) ScheduleMessage(msg OutgoingMessage, from Module) {
 		m := queuedMessage{s.time + msg.Delay, from, from, msg.Payload}
 		heap.Push(&s.mq, m)
 	} else {
-		m := queuedMessage{s.time + msg.Delay + s.topo.PropagationDelay(from, msg.To), from, msg.To, msg.Payload}
+		m := queuedMessage{s.time + msg.Delay, from, msg.To, msg.Payload}
 		heap.Push(&s.mq, m)
 	}
 }
@@ -77,6 +60,13 @@ func (s *Simulator) deliverNextMessage() {
 	for _, v := range nm {
 		s.ScheduleMessage(v, m.to)
 	}
+}
+
+type queuedMessage struct {
+	arrival     time.Duration
+	from Module
+	to Module
+	payload     any
 }
 
 type priorityQueue []queuedMessage
