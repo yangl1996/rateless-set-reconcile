@@ -14,7 +14,7 @@ func main() {
 	N := 100
 	nruns := 100
 	for overlap := 0; overlap < 100; overlap++ {
-		var cwToTh, cwTot int
+		var cwToTh, cwTot, txAtTh int
 		for nrun := 0; nrun < nruns; nrun++ {
 			seed := int64(nrun)
 			dist := soliton.NewRobustSoliton(rand.New(rand.NewSource(seed)), uint64(N), 0.03, 0.5)
@@ -44,7 +44,7 @@ func main() {
 				txIdx += 1
 			}
 
-			var cwToThreshold int
+			var cwToThreshold, txAtThreshold int
 			cw := 0
 			stubs := []*lt.PendingCodeword[microbenchmarks.Transaction]{}
 			codewords := []lt.Codeword[microbenchmarks.Transaction]{}
@@ -66,12 +66,14 @@ func main() {
 					}
 					if decoded > int(float64(len(stubs)) * 0.5) {
 						cwToThreshold = len(stubs)
+						txAtThreshold = len(toDecode)
 					}
 				}
 			}
 			cwToTh += cwToThreshold
 			cwTot += cw
+			txAtTh += txAtThreshold
 		}
-		fmt.Println(overlap, cwToTh/nruns, cwTot/nruns)
+		fmt.Println(overlap, cwToTh/nruns, cwTot/nruns, txAtTh/nruns)
 	}
 }
