@@ -43,6 +43,8 @@ type server struct {
 	handlers map[des.Module]peer
 	decoder *lt.Decoder[transaction]
 
+	received map[transaction]struct{}
+
 	rng *rand.Rand
 	serverConfig
 
@@ -86,6 +88,7 @@ func newServers(simulator *des.Simulator, n int, startingSeed int64, config serv
 			decoder: lt.NewDecoder[transaction](testKey, config.decoderMemory),
 			rng: rand.New(rand.NewSource(startingSeed+int64(i))),
 			serverConfig: config,
+			received: make(map[transaction]struct{}),
 		}
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
@@ -132,6 +135,15 @@ func (s *server) forwardTransaction(tx lt.Transaction[transaction]) {
 	}
 }
 
+func (s *server) registerReceived(tx lt.Transaction[transaction]) {
+	dt := tx.Data()
+	if _, there := s.received[dt]; there {
+		panic("duplicate")
+	} else {
+		s.received[dt] = struct{}{}
+	}
+}
+
 func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Duration) []des.OutgoingMessage {
 	var outbox []des.OutgoingMessage
 	canStartNewBlock := (s.forceSynchronize == 0)
@@ -140,6 +152,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
 			txs = append(txs, tx)
+			s.registerReceived(tx)
 			buf := s.decoder.AddTransaction(tx)
 			if len(buf) != 0 {
 				panic("locally generated tx leading to decode")
@@ -163,6 +176,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		case codeword:
 			buf := n.onCodeword(m)
 			for _, val := range buf {
+				s.registerReceived(val)
 				s.latencySketch.recordTxLatency(val.Data(), timestamp)
 			}
 			s.decodedTransactions += len(buf)
