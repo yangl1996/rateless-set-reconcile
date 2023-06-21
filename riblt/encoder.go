@@ -4,7 +4,8 @@ import (
 	//"github.com/dchest/siphash"
 	"math/rand"
 )
-// TODO: can we use XOR w/ random number to replace siphash with random key?
+
+// TODO: we succeeded in using multiplication to replace keyed hash. But why?
 
 type CodedSymbol[T Symbol[T]] struct {
 	sum T
