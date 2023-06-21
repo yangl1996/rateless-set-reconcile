@@ -5,9 +5,8 @@ type Symbol[T any] interface {
 	// to modify the method receiver during the operation. When the method
 	// receiver is the default value of T, the result is t2.
 	XOR(t2 T) T
-	// Hash returns the cryptographic hash of the method receiver with the
-	// given key. It is guaranteed not to modify the method receiver.
-	Hash(key uint64) uint64
+	// Hash returns the cryptographic hash of the method receiver. It is guaranteed not to modify the method receiver.
+	Hash() []byte
 	comparable
 }
 

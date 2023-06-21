@@ -6,7 +6,7 @@ import (
 )
 
 type CodedSymbol[T Symbol[T]] struct {
-	symbol T
+	sum T
 	count int64
 	checksum uint64
 }
@@ -21,7 +21,7 @@ func (e *Encoder[T]) ProduceCodedSymbol(salt0, salt1, threshold uint64) CodedSym
 	for _, v := range e.window {
 		sh := siphash.Hash(salt0, salt1, v.hash)
 		if sh < threshold {
-			c.symbol = c.symbol.XOR(v.symbol)
+			c.sum = c.sum.XOR(v.symbol)
 			c.count += 1
 			c.checksum ^= sh
 		}
@@ -64,3 +64,6 @@ func (e *SynchronizedEncoder[T]) Reset() {
 	e.degseq.Reset()
 }
 
+func (e *SynchronizedEncoder[T]) AddSymbol(t HashedSymbol[T]) {
+	e.encoder.AddSymbol(t)
+}
