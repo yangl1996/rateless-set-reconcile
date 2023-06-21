@@ -33,11 +33,13 @@ func newSimpleData(i uint64) *simpleData {
 }
 
 func TestEncodeAndDecode(t *testing.T) {
-	ndiff := 50000
+	set := make(map[uint64]struct{})
+	ndiff := 100000
 	e := Encoder[*simpleData]{}
 	for i := 0; i < ndiff; i++ {
 		s := NewHashedSymbol[*simpleData](newSimpleData(uint64(i)))
 		e.AddSymbol(s)
+		set[s.hash] = struct{}{}
 	}
 	dec := Decoder[*simpleData]{}
 	ncw := 0
@@ -52,6 +54,12 @@ func TestEncodeAndDecode(t *testing.T) {
 		c := e.ProduceCodedSymbol(salt0, salt1, th)
 		dec.AddCodedSymbol(c, salt0, salt1, th)
 		ncw += 1
+	}
+	for _, v := range dec.added {
+		delete(set, v.hash)
+	}
+	if len(set) != 0 {
+		t.Errorf("missing symbols")
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
