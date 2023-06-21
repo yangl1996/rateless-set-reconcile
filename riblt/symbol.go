@@ -6,13 +6,13 @@ type Symbol[T any] interface {
 	// receiver is the default value of T, the result is t2.
 	XOR(t2 T) T
 	// Hash returns the cryptographic hash of the method receiver. It is guaranteed not to modify the method receiver.
-	Hash() []byte
+	Hash() uint64
 	comparable
 }
 
 type HashedSymbol[T Symbol[T]] struct {
 	symbol T
-	hash []byte
+	hash uint64
 }
 
 func NewHashedSymbol[T Symbol[T]](s T) HashedSymbol[T] {
@@ -26,7 +26,7 @@ func (s HashedSymbol[T]) Symbol() T {
 	return s.symbol
 }
 
-func (s HashedSymbol[T]) Hash() []byte {
+func (s HashedSymbol[T]) Hash() uint64 {
 	return s.hash
 }
 

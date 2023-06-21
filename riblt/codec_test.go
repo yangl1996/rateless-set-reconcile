@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"math"
 	"testing"
+	"github.com/dchest/siphash"
 )
 
 const simpleDataSize = 256
@@ -21,8 +22,8 @@ func (d *simpleData) XOR(t2 *simpleData) *simpleData {
 	return d
 }
 
-func (d *simpleData) Hash() []byte {
-	return d[:]
+func (d *simpleData) Hash() uint64 {
+	return siphash.Hash(567, 890, d[:])
 }
 
 func newSimpleData(i uint64) *simpleData {
@@ -32,14 +33,15 @@ func newSimpleData(i uint64) *simpleData {
 }
 
 func TestEncodeAndDecode(t *testing.T) {
+	ndiff := 50000
 	e := Encoder[*simpleData]{}
-	for i := 0; i < 5000; i++ {
+	for i := 0; i < ndiff; i++ {
 		s := NewHashedSymbol[*simpleData](newSimpleData(uint64(i)))
 		e.AddSymbol(s)
 	}
 	dec := Decoder[*simpleData]{}
 	ncw := 0
-	for len(dec.added) < 5000 {
+	for len(dec.added) < ndiff {
 		salt0 := rand.Uint64()
 		salt1 := rand.Uint64()
 		var th uint64

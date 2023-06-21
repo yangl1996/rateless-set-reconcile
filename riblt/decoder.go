@@ -1,7 +1,7 @@
 package riblt
 
 import (
-	"github.com/dchest/siphash"
+	//"github.com/dchest/siphash"
 	//"math/rand"
 )
 
@@ -31,11 +31,11 @@ func (d *Decoder[T]) tryDecode() {
 				}
 			case 1:
 				s := NewHashedSymbol[T](p.sum)
-				if siphash.Hash(p.salt0, p.salt1, s.hash) == p.checksum {
+				if p.salt0 * s.hash == p.checksum {
 					d.pending[i] = d.pending[len(d.pending)-1]
 					d.pending = d.pending[:len(d.pending)-1]
 					for j := range d.pending {
-						sh := siphash.Hash(d.pending[j].salt0, d.pending[j].salt1, s.hash)
+						sh := d.pending[j].salt0 * s.hash
 						if sh < d.pending[j].threshold {
 							d.pending[j].sum = d.pending[j].sum.XOR(s.symbol)
 							d.pending[j].count -= 1
@@ -48,11 +48,11 @@ func (d *Decoder[T]) tryDecode() {
 				}
 			case -1:
 				s := NewHashedSymbol[T](p.sum)
-				if siphash.Hash(p.salt0, p.salt1, s.hash) == p.checksum {
+				if p.salt0 * s.hash == p.checksum {
 					d.pending[i] = d.pending[len(d.pending)-1]
 					d.pending = d.pending[:len(d.pending)-1]
 					for j := range d.pending {
-						sh := siphash.Hash(d.pending[j].salt0, d.pending[j].salt1, s.hash)
+						sh := d.pending[j].salt0 * s.hash
 						if sh < d.pending[j].threshold {
 							d.pending[j].sum = d.pending[j].sum.XOR(s.symbol)
 							d.pending[j].count += 1
@@ -77,7 +77,7 @@ func (d *Decoder[T]) tryDecode() {
 func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt0, salt1, threshold uint64) {
 	// scan through decoded symbols to peel off matching ones
 	for _, v := range d.window {
-		sh := siphash.Hash(salt0, salt1, v.hash)
+		sh := salt0 * v.hash
 		if sh < threshold {
 			c.sum = c.sum.XOR(v.symbol)
 			c.count -= 1

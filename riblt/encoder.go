@@ -1,7 +1,7 @@
 package riblt
 
 import (
-	"github.com/dchest/siphash"
+	//"github.com/dchest/siphash"
 	"math/rand"
 )
 // TODO: can we use XOR w/ random number to replace siphash with random key?
@@ -20,7 +20,7 @@ func (e *Encoder[T]) ProduceCodedSymbol(salt0, salt1, threshold uint64) CodedSym
 	c := CodedSymbol[T]{}
 
 	for _, v := range e.window {
-		sh := siphash.Hash(salt0, salt1, v.hash)
+		sh := salt0 * v.hash
 		if sh < threshold {
 			c.sum = c.sum.XOR(v.symbol)
 			c.count += 1
