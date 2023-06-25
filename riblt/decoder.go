@@ -7,7 +7,7 @@ import (
 
 type pendingSymbol[T Symbol[T]] struct {
 	CodedSymbol[T]
-	salt0, salt1 uint64
+	salt uint64
 	threshold uint64
 }
 
@@ -30,16 +30,16 @@ func (d *Decoder[T]) tryDecode() {
 					acted = true
 				}
 			case 1:
-				s := NewHashedSymbol[T](p.sum)
-				if p.salt0 * s.hash == p.checksum {
+				s := HashedSymbol[T]{p.sum, p.sum.Hash()}
+				if s.Hash == p.checksum {
 					d.pending[i] = d.pending[len(d.pending)-1]
 					d.pending = d.pending[:len(d.pending)-1]
 					for j := range d.pending {
-						sh := d.pending[j].salt0 * s.hash
+						sh := d.pending[j].salt * s.Hash
 						if sh < d.pending[j].threshold {
-							d.pending[j].sum = d.pending[j].sum.XOR(s.symbol)
+							d.pending[j].sum = d.pending[j].sum.XOR(s.Symbol)
 							d.pending[j].count -= 1
-							d.pending[j].checksum ^= sh
+							d.pending[j].checksum ^= s.Hash
 						}
 					}
 					d.window = append(d.window, s)
@@ -47,16 +47,16 @@ func (d *Decoder[T]) tryDecode() {
 					acted = true
 				}
 			case -1:
-				s := NewHashedSymbol[T](p.sum)
-				if p.salt0 * s.hash == p.checksum {
+				s := HashedSymbol[T]{p.sum, p.sum.Hash()}
+				if s.Hash == p.checksum {
 					d.pending[i] = d.pending[len(d.pending)-1]
 					d.pending = d.pending[:len(d.pending)-1]
 					for j := range d.pending {
-						sh := d.pending[j].salt0 * s.hash
+						sh := d.pending[j].salt * s.Hash
 						if sh < d.pending[j].threshold {
-							d.pending[j].sum = d.pending[j].sum.XOR(s.symbol)
+							d.pending[j].sum = d.pending[j].sum.XOR(s.Symbol)
 							d.pending[j].count += 1
-							d.pending[j].checksum ^= sh
+							d.pending[j].checksum ^= s.Hash
 						}
 					}
 					d.removed = append(d.removed, s)
@@ -74,17 +74,16 @@ func (d *Decoder[T]) tryDecode() {
 	}
 }
 
-func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt0, salt1, threshold uint64) {
+func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
 	// scan through decoded symbols to peel off matching ones
 	for _, v := range d.window {
-		sh := salt0 * v.hash
-		if sh < threshold {
-			c.sum = c.sum.XOR(v.symbol)
+		if salt * v.Hash < threshold {
+			c.sum = c.sum.XOR(v.Symbol)
 			c.count -= 1
-			c.checksum ^= sh
+			c.checksum ^= v.Hash
 		}
 	}
-	p := pendingSymbol[T]{c, salt0, salt1, threshold}
+	p := pendingSymbol[T]{c, salt, threshold}
 	d.pending = append(d.pending, p)
 	d.tryDecode()
 	return

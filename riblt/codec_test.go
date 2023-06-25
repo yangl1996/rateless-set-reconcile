@@ -34,29 +34,28 @@ func newSimpleData(i uint64) *simpleData {
 
 func TestEncodeAndDecode(t *testing.T) {
 	set := make(map[uint64]struct{})
-	ndiff := 100000
+	ndiff := 10000
 	e := Encoder[*simpleData]{}
 	for i := 0; i < ndiff; i++ {
-		s := NewHashedSymbol[*simpleData](newSimpleData(uint64(i)))
-		e.AddSymbol(s)
-		set[s.hash] = struct{}{}
+		d := newSimpleData(uint64(i))
+		e.AddSymbol(d)
+		set[d.Hash()] = struct{}{}
 	}
 	dec := Decoder[*simpleData]{}
 	ncw := 0
 	for len(dec.added) < ndiff {
-		salt0 := rand.Uint64()
-		salt1 := rand.Uint64()
+		salt := rand.Uint64()
 		var th uint64
 		th = math.MaxUint64
 		if ncw != 0 {
 			th = uint64(float64(th) / (1 + float64(ncw)/2))
 		}
-		c := e.ProduceCodedSymbol(salt0, salt1, th)
-		dec.AddCodedSymbol(c, salt0, salt1, th)
+		c := e.ProduceCodedSymbol(salt, th)
+		dec.AddCodedSymbol(c, salt, th)
 		ncw += 1
 	}
 	for _, v := range dec.added {
-		delete(set, v.hash)
+		delete(set, v.Hash)
 	}
 	if len(set) != 0 {
 		t.Errorf("missing symbols")

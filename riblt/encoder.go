@@ -1,11 +1,12 @@
 package riblt
 
 import (
-	//"github.com/dchest/siphash"
 	"math/rand"
 )
 
-// TODO: we succeeded in using multiplication to replace keyed hash. But why?
+const order = 18446744073709551557	// 2^64-59
+
+// TODO: prove that multiplying with a random number (mod prime number?) can replace keyed hash.
 
 type CodedSymbol[T Symbol[T]] struct {
 	sum T
@@ -17,15 +18,15 @@ type Encoder[T Symbol[T]] struct {
 	window     []HashedSymbol[T]
 }
 
-func (e *Encoder[T]) ProduceCodedSymbol(salt0, salt1, threshold uint64) CodedSymbol[T] {
+func (e *Encoder[T]) ProduceCodedSymbol(salt, threshold uint64) CodedSymbol[T] {
 	c := CodedSymbol[T]{}
 
 	for _, v := range e.window {
-		sh := salt0 * v.hash
+		sh := salt * v.Hash
 		if sh < threshold {
-			c.sum = c.sum.XOR(v.symbol)
+			c.sum = c.sum.XOR(v.Symbol)
 			c.count += 1
-			c.checksum ^= sh
+			c.checksum ^= v.Hash
 		}
 	}
 
@@ -38,8 +39,13 @@ func (e *Encoder[T]) Reset() {
 	}
 }
 
-func (e *Encoder[T]) AddSymbol(t HashedSymbol[T]) {
+func (e *Encoder[T]) AddHashedSymbol(t HashedSymbol[T]) {
 	e.window = append(e.window, t)
+}
+
+func (e *Encoder[T]) AddSymbol(t T) {
+	th := HashedSymbol[T]{t, t.Hash()}
+	e.window = append(e.window, th)
 }
 
 type DegreeSequence interface {
@@ -48,24 +54,20 @@ type DegreeSequence interface {
 }
 
 type SynchronizedEncoder[T Symbol[T]] struct {
-	r *rand.Rand	// FIXME: is it safe to assume the RNG implementation is platform/OS/arch agnostic? Probably better to use an explicit algorithm.
-	encoder *Encoder[T]
-	degseq DegreeSequence
+	*rand.Rand	// FIXME: is it safe to assume the RNG implementation is platform/OS/arch agnostic? Probably better to use an explicit algorithm.
+	*Encoder[T]
+	DegreeSequence
 }
 
 func (e *SynchronizedEncoder[T]) ProduceNextCodedSymbol() CodedSymbol[T] {
-	salt0 := e.r.Uint64()
-	salt1 := e.r.Uint64()
-	threshold := e.degseq.NextThreshold()
-	s := e.encoder.ProduceCodedSymbol(salt0, salt1, threshold)
+	salt := e.Rand.Uint64()
+	threshold := e.DegreeSequence.NextThreshold()
+	s := e.Encoder.ProduceCodedSymbol(salt, threshold)
 	return s
 }
 
 func (e *SynchronizedEncoder[T]) Reset() {
-	e.encoder.Reset()
-	e.degseq.Reset()
+	e.Encoder.Reset()
+	e.DegreeSequence.Reset()
 }
 
-func (e *SynchronizedEncoder[T]) AddSymbol(t HashedSymbol[T]) {
-	e.encoder.AddSymbol(t)
-}
