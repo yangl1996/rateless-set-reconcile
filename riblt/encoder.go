@@ -5,8 +5,10 @@ import (
 )
 
 const order = 18446744073709551557	// 2^64-59
+const order2 = 4294967291 // 2^32-5
 
 // TODO: prove that multiplying with a random number (mod prime number?) can replace keyed hash.
+// TODO: if we want hash, salt, and their multiplication to be in F_p (p is prime) then the fastest and simpliest way (I think?) is to let p be the largest prime number smaller than 2^32, and perform normal 64-bit multiplication hash*salt (result guaranteed to be within 2^64) and then take modulo. However we will be forced to use 4-byte hashes and salts. I think it is fine (we can use the per-peer salt trick everyone else is using) but might be good to see if there is a way to stick to 8-byte salts and hashes.
 
 type CodedSymbol[T Symbol[T]] struct {
 	sum T
