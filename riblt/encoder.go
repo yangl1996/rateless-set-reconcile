@@ -6,7 +6,8 @@ import (
 
 //const order = 18446744073709551557	// 2^64-59, largest prime that fits in 64 bits
 //const order = 4294967291 // 2^32-5, so we can use 64-bit type to store values and perform multiplication without worrying about overflow
-const order = 2147483647 // 2^31-1, so 31-bit arithmetics work out of the box
+//const order = 2147483647 // 2^31-1, if we want to fit in 31 bits
+// NOTE: empirically it was fine ignoring the need for a Z_p field and just use 64-bit multiplication
 
 
 // TODO: prove that multiplying with a random number (mod prime number?) can replace keyed hash.
