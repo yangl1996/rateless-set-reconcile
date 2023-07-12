@@ -43,7 +43,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 	dec := Decoder[*simpleData]{}
 	ncw := 0
-	for len(dec.added) < ndiff {
+	for len(dec.remote) < ndiff {
 		salt := rand.Uint64()
 		var th uint64
 		th = math.MaxUint64
@@ -53,8 +53,9 @@ func TestEncodeAndDecode(t *testing.T) {
 		c := e.ProduceCodedSymbol(salt, th)
 		dec.AddCodedSymbol(c, salt, th)
 		ncw += 1
+		dec.TryDecode()
 	}
-	for _, v := range dec.added {
+	for _, v := range dec.remote {
 		delete(set, v.Hash)
 	}
 	if len(set) != 0 {
