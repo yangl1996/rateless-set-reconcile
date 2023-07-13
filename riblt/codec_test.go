@@ -32,9 +32,27 @@ func newTestSymbol(i uint64) *testSymbol {
 	return &data
 }
 
+type testDegreeSequence struct {
+	count int
+}
+
+func (t *testDegreeSequence) Reset() {
+	t.count = 0
+}
+
+func (t *testDegreeSequence) NextThreshold() uint64 {
+	var th uint64
+	th = math.MaxUint64
+	if t.count != 0 {
+		th = uint64(float64(th) / (1 + float64(t.count)/2))
+	}
+	t.count += 1
+	return th
+}
+
 func TestEncodeAndDecode(t *testing.T) {
-	enc := Encoder[*testSymbol]{}
-	dec := Decoder[*testSymbol]{}
+	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
+	dec := SynchronizedDecoder[*testSymbol]{rand.New(rand.NewSource(10)), &Decoder[*testSymbol]{}, &testDegreeSequence{}}
 	local := make(map[uint64]struct{})
 	remote := make(map[uint64]struct{})
 
@@ -63,14 +81,7 @@ func TestEncodeAndDecode(t *testing.T) {
 
 	ncw := 0
 	for len(dec.remote) < nremote && len(dec.local) < nlocal {
-		salt := rand.Uint64()
-		var th uint64
-		th = math.MaxUint64
-		if ncw != 0 {
-			th = uint64(float64(th) / (1 + float64(ncw)/2))
-		}
-		cw := enc.ProduceCodedSymbol(salt, th)
-		dec.AddCodedSymbol(cw, salt, th)
+		dec.AddNextCodedSymbol(enc.ProduceNextCodedSymbol())
 		ncw += 1
 		dec.TryDecode()
 	}
