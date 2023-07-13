@@ -80,7 +80,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	ncw := 0
-	for len(dec.remote) < nremote && len(dec.local) < nlocal {
+	for len(dec.remote) < nremote || len(dec.local) < nlocal {
 		dec.AddNextCodedSymbol(enc.ProduceNextCodedSymbol())
 		ncw += 1
 		dec.TryDecode()
@@ -92,7 +92,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		delete(local, v.Hash)
 	}
 	if len(remote) != 0 || len(local) != 0 {
-		t.Errorf("missing symbols")
+		t.Errorf("missing symbols: %d remote and %d local", len(remote), len(local))
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
