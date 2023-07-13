@@ -21,6 +21,15 @@ type Decoder[T Symbol[T]] struct {
 	dirty []int		// indices of the coded symbols in cs that have been operated on (peeled) but not checked for pureness
 }
 
+func (d *Decoder[T]) AddSymbol(s T) {
+	th := HashedSymbol[T]{s, s.Hash()}
+	d.window = append(d.window, th)
+}
+
+func (d *Decoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
+	d.window = append(d.window, s)
+}
+
 func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
 	// scan through decoded symbols to peel off matching ones
 	for _, v := range d.window {
