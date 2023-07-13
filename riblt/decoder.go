@@ -1,8 +1,7 @@
 package riblt
 
 import (
-	//"github.com/dchest/siphash"
-	//"math/rand"
+	"math/rand"
 )
 
 type pendingSymbol[T Symbol[T]] struct {
@@ -183,25 +182,19 @@ func (d *Decoder[T]) Reset() {
 	}
 }
 
-/*
-type SynchronizedEncoder[T Symbol[T]] struct {
-	r *rand.Rand	// FIXME: is it safe to assume the RNG implementation is platform/OS/arch agnostic? Probably better to use an explicit algorithm.
-	encoder *Encoder[T]
-	degseq DegreeSequence
-	count uint64
+type SynchronizedDecoder[T Symbol[T]] struct {
+	*rand.Rand	// FIXME: is it safe to assume the RNG implementation is platform/OS/arch agnostic? Probably better to use an explicit algorithm.
+	*Decoder[T]
+	DegreeSequence
 }
 
-func (e *SynchronizedEncoder[T]) ProduceNextCodedSymbol() CodedSymbol[T] {
-	salt0 := e.r.Uint64()
-	salt1 := e.r.Uint64()
-	threshold := e.degseq.Threshold(e.count)
-	s := e.encoder.ProduceCodedSymbol(salt0, salt1, threshold)
-	e.count += 1
-	return s
+func (d *SynchronizedDecoder[T]) AddNextCodedSymbol(c CodedSymbol[T]) {
+	salt := d.Rand.Uint64()
+	threshold := d.DegreeSequence.NextThreshold()
+	d.Decoder.AddCodedSymbol(c, salt, threshold)
 }
 
-func (e *SynchronizedEncoder[T]) Reset() {
-	e.encoder.Reset()
-	e.count = 0
+func (d *SynchronizedDecoder[T]) Reset() {
+	d.Decoder.Reset()
+	d.DegreeSequence.Reset()
 }
-*/
