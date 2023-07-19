@@ -50,7 +50,7 @@ func (t *testDegreeSequence) NextThreshold() uint64 {
 	return th
 }
 
-func TestEncodeAndDecode(t *testing.T) {
+func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
 	dec := SynchronizedDecoder[*testSymbol]{rand.New(rand.NewSource(10)), &Decoder[*testSymbol]{}, &testDegreeSequence{}}
 	local := make(map[uint64]struct{})

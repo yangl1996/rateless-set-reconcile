@@ -20,6 +20,18 @@ type Decoder[T Symbol[T]] struct {
 	dirty []int		// indices of the coded symbols in cs that have been operated on (peeled) but not checked for pureness
 }
 
+func (d *Decoder[T]) Decoded() bool {
+	return len(d.pending) == 0
+}
+
+func (d *Decoder[T]) Local() []HashedSymbol[T] {
+	return d.local
+}
+
+func (d *Decoder[T]) Remote() []HashedSymbol[T] {
+	return d.remote
+}
+
 func (d *Decoder[T]) AddSymbol(s T) {
 	th := HashedSymbol[T]{s, s.Hash()}
 	d.window = append(d.window, th)
