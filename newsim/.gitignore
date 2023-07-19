@@ -1,0 +1,5 @@
+newsim
+*.txt
+*.pdf
+*.csv
+!city-prop-delay.csv

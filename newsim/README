@@ -1,0 +1,3 @@
+exp.sh: run the simulation, collect time series, and plot.
+time-series.gnuplot: plot the time series data.
+
