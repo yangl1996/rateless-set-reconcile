@@ -87,6 +87,8 @@ type receiver struct {
 	buffer       []riblt.HashedSymbol[transaction]
 
 	currentBlockReceived bool
+	currentBlockSize int
+	currentBlockCount int
 
 	// outgoing msgs
 	outbox []any
@@ -95,15 +97,18 @@ type receiver struct {
 func (n *receiver) onCodeword(cw codeword) bool {
 	if cw.newBlock {
 		n.Decoder.Reset()
+		n.currentBlockReceived = false
+		n.currentBlockSize = int(cw.Count()) + len(n.buffer)
+		n.currentBlockCount = 0
 		for _, tx := range n.buffer {
 			n.Decoder.AddHashedSymbol(tx)
 		}
 		n.buffer = n.buffer[:0]
-		n.currentBlockReceived = false
 	}
 	n.Decoder.AddCodedSymbol(cw.CodedSymbol, cw.salt, cw.threshold)
 	n.Decoder.TryDecode()
-	if !n.currentBlockReceived && n.Decoder.Decoded() {
+	n.currentBlockCount += 1
+	if !n.currentBlockReceived && (n.Decoder.Decoded() || n.currentBlockCount > n.currentBlockSize * 2) {
 		n.currentBlockReceived = true
 		n.outbox = append(n.outbox, ack{true})
 		return true

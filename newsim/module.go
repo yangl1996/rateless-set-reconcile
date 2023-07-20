@@ -9,11 +9,13 @@ import (
 
 type serverMetric struct {
 	decodedTransactions int
+	receivedTransactions int
 	receivedCodewords    int
 }
 
 func (s *serverMetric) resetMetric() {
 	s.decodedTransactions = 0
+	s.receivedTransactions = 0
 	s.receivedCodewords = 0
 }
 
@@ -42,6 +44,8 @@ type server struct {
 
 	latencySketch *distributionSketch
 	serverMetric
+
+	received map[uint64]struct{}
 }
 
 func (a *server) newHandler() *handler {
@@ -71,6 +75,7 @@ func newServers(simulator *des.Simulator, n int, config serverConfig) []*server 
 			handlers: make(map[des.Module]peer),
 			serverConfig: config,
 			rng: rand.New(rand.NewSource(int64(i))),
+			received: make(map[uint64]struct{}),
 		}
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
@@ -109,6 +114,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
 			s.forwardTransaction(riblt.HashedSymbol[transaction]{tx, tx.Hash()}, nil)
+			s.received[tx.idx] = struct{}{}
+			s.receivedTransactions += 1
 		}
 		// schedule itself the next block arrival
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
@@ -122,10 +129,14 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			if decoded {
 				remote := n.Remote()
 				for _, tx := range remote {
-					s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
-					s.forwardTransaction(tx, from)
+					if _, there := s.received[tx.Symbol.idx]; !there {
+						s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
+						s.forwardTransaction(tx, from)
+						s.received[tx.Symbol.idx] = struct{}{}
+						s.decodedTransactions += 1
+						s.receivedTransactions += 1
+					}
 				}
-				s.decodedTransactions += len(remote)
 			}
 			s.receivedCodewords += 1
 		case ack:
