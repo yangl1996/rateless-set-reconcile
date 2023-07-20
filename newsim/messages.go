@@ -7,6 +7,8 @@ import (
 type codeword struct {
 	riblt.CodedSymbol[transaction]
 	newBlock bool
+	threshold uint64
+	salt uint64
 }
 
 type ack struct {

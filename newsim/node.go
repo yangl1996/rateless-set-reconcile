@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
+	"math/rand"
 )
 
 type senderConfig struct {
@@ -10,7 +11,9 @@ type senderConfig struct {
 
 type sender struct {
 	buffer       []riblt.HashedSymbol[transaction]
-	*riblt.SynchronizedEncoder[transaction]
+	*riblt.Encoder[transaction]
+	deg *degseq
+	salt *rand.Rand
 
 	// send window
 	sendWindow int
@@ -60,22 +63,27 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 			}
 			cw.newBlock = true
 			n.encodingCurrentBlock = true
-			n.SynchronizedEncoder.Reset()
+			n.Encoder.Reset()
+			n.deg.Reset()
 			// move buffer into block
 			for i := 0; i < blockSize; i++ {
-				n.SynchronizedEncoder.AddHashedSymbol(n.buffer[i])
+				n.Encoder.AddHashedSymbol(n.buffer[i])
 			}
 			n.buffer = n.buffer[:0]
 		} else {
 			return cw, false
 		}
 	}
-	cw.CodedSymbol = n.SynchronizedEncoder.ProduceNextCodedSymbol()
+	salt := n.salt.Uint64()
+	threshold := n.deg.NextThreshold()
+	cw.CodedSymbol = n.Encoder.ProduceCodedSymbol(salt, threshold)
+	cw.salt = salt
+	cw.threshold = threshold
 	return cw, true
 }
 
 type receiver struct {
-	*riblt.SynchronizedDecoder[transaction]
+	*riblt.Decoder[transaction]
 	buffer       []riblt.HashedSymbol[transaction]
 
 	currentBlockReceived bool
@@ -86,16 +94,16 @@ type receiver struct {
 
 func (n *receiver) onCodeword(cw codeword) bool {
 	if cw.newBlock {
-		n.SynchronizedDecoder.Reset()
+		n.Decoder.Reset()
 		for _, tx := range n.buffer {
-			n.SynchronizedDecoder.AddHashedSymbol(tx)
+			n.Decoder.AddHashedSymbol(tx)
 		}
 		n.buffer = n.buffer[:0]
 		n.currentBlockReceived = false
 	}
-	n.SynchronizedDecoder.AddNextCodedSymbol(cw.CodedSymbol)
-	n.SynchronizedDecoder.TryDecode()
-	if !n.currentBlockReceived && n.SynchronizedDecoder.Decoded() {
+	n.Decoder.AddCodedSymbol(cw.CodedSymbol, cw.salt, cw.threshold)
+	n.Decoder.TryDecode()
+	if !n.currentBlockReceived && n.Decoder.Decoded() {
 		n.currentBlockReceived = true
 		n.outbox = append(n.outbox, ack{true})
 		return true
