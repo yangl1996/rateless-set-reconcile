@@ -94,5 +94,8 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	if len(remote) != 0 || len(local) != 0 {
 		t.Errorf("missing symbols: %d remote and %d local", len(remote), len(local))
 	}
+	if !dec.Decoded() {
+		t.Errorf("decoder not marked as decoded")
+	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }

@@ -55,6 +55,9 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 			// move to the next block
 			blockSize := len(n.buffer)
 			n.sendWindow = int(float64(blockSize) * n.controlOverhead)
+			if n.sendWindow <= 0 {
+				n.sendWindow = 1
+			}
 			cw.newBlock = true
 			n.encodingCurrentBlock = true
 			n.SynchronizedEncoder.Reset()
@@ -91,6 +94,7 @@ func (n *receiver) onCodeword(cw codeword) bool {
 		n.currentBlockReceived = false
 	}
 	n.SynchronizedDecoder.AddNextCodedSymbol(cw.CodedSymbol)
+	n.SynchronizedDecoder.TryDecode()
 	if !n.currentBlockReceived && n.SynchronizedDecoder.Decoded() {
 		n.currentBlockReceived = true
 		n.outbox = append(n.outbox, ack{true})

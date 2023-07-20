@@ -49,6 +49,7 @@ func (a *server) newHandler() *handler {
 		sender: &sender{
 			SynchronizedEncoder: &riblt.SynchronizedEncoder[transaction]{rand.New(rand.NewSource(0)), &riblt.Encoder[transaction]{}, &degseq{}},
 			senderConfig: a.senderConfig,
+			sendWindow: 1,	// otherwise tryFillSendWindow always returns
 		},
 		receiver: &receiver{
 			SynchronizedDecoder: &riblt.SynchronizedDecoder[transaction]{rand.New(rand.NewSource(0)), &riblt.Decoder[transaction]{}, &degseq{}},

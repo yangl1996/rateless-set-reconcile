@@ -68,6 +68,7 @@ func main() {
 	fmt.Println("# overhead", collectMoments(servers, func(s *server) float64 {
 		return float64(s.receivedCodewords) / float64(s.decodedTransactions)
 	}))
+	/*
 	fmt.Println("# latency p5", collectMoments(servers, func(s *server) float64 {
 		return s.latencySketch.getQuantiles([]float64{0.05})[0]
 	}))
@@ -77,6 +78,7 @@ func main() {
 	fmt.Println("# latency p95", collectMoments(servers, func(s *server) float64 {
 		return s.latencySketch.getQuantiles([]float64{0.95})[0]
 	}))
+	*/
 }
 
 func collectMoments(servers []*server, metric func(s *server) float64) []float64 {
