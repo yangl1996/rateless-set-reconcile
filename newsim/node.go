@@ -19,17 +19,28 @@ type sender struct {
 	sendWindow int
 	inFlight   int
 	encodingCurrentBlock bool
+	currentBlockAckCount int
 
 	// outgoing msgs
 	outbox []any
+
+	disabled bool
 
 	senderConfig
 }
 
 func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
-	n.inFlight -= 1
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
+	}
+	if ack.ackStart {
+		n.currentBlockAckCount = 0
+	}
+	n.currentBlockAckCount += 1
+	n.inFlight -= 1
+	n.sendWindow = int(float64(n.currentBlockAckCount) * n.controlOverhead)
+	if n.sendWindow < 1 {
+		n.sendWindow = 1
 	}
 	n.tryFillSendWindow()
 	return ack.txs
@@ -41,7 +52,7 @@ func (n *sender) onTransaction(tx riblt.HashedSymbol[transaction]) {
 }
 
 func (n *sender) tryFillSendWindow() {
-	for n.inFlight < n.sendWindow {
+	for {
 		cw, yes := n.tryProduceCodeword()
 		if !yes {
 			return
@@ -53,34 +64,39 @@ func (n *sender) tryFillSendWindow() {
 }
 
 func (n *sender) tryProduceCodeword() (codeword, bool) {
+	if n.disabled {
+		return codeword{}, false
+	}
 	cw := codeword{}
 	if (!n.encodingCurrentBlock) {
 		if len(n.buffer) > 0 {
 			// move to the next block
-			blockSize := len(n.buffer)
-			n.sendWindow = int(float64(blockSize) * n.controlOverhead)
-			if n.sendWindow <= 0 {
-				n.sendWindow = 1
-			}
 			cw.newBlock = true
 			n.encodingCurrentBlock = true
+			n.currentBlockAckCount = 0
+			n.sendWindow = 1
+			n.inFlight = 0
 			n.Encoder.Reset()
 			n.deg.Reset()
 			// move buffer into block
-			for i := 0; i < blockSize; i++ {
-				n.Encoder.AddHashedSymbol(n.buffer[i])
+			for _, v := range n.buffer {
+				n.Encoder.AddHashedSymbol(v)
 			}
 			n.buffer = n.buffer[:0]
 		} else {
 			return cw, false
 		}
 	}
-	salt := n.salt.Uint64()
-	threshold := n.deg.NextThreshold()
-	cw.CodedSymbol = n.Encoder.ProduceCodedSymbol(salt, threshold)
-	cw.salt = salt
-	cw.threshold = threshold
-	return cw, true
+	if n.inFlight < n.sendWindow {
+		salt := n.salt.Uint64()
+		threshold := n.deg.NextThreshold()
+		cw.CodedSymbol = n.Encoder.ProduceCodedSymbol(salt, threshold)
+		cw.salt = salt
+		cw.threshold = threshold
+		return cw, true
+	} else {
+		return cw, false
+	}
 }
 
 type receiver struct {
@@ -96,7 +112,12 @@ type receiver struct {
 }
 
 func (n *receiver) onCodeword(cw codeword) bool {
+	if n.currentBlockReceived && !cw.newBlock {
+		return false
+	}
+	ack := ack{}
 	if cw.newBlock {
+		ack.ackStart = true
 		n.Decoder.Reset()
 		n.currentBlockReceived = false
 		n.currentBlockSize = int(cw.Count()) + len(n.buffer)
@@ -109,16 +130,16 @@ func (n *receiver) onCodeword(cw codeword) bool {
 	n.Decoder.AddCodedSymbol(cw.CodedSymbol, cw.salt, cw.threshold)
 	n.Decoder.TryDecode()
 	n.currentBlockCount += 1
-	if !n.currentBlockReceived && (n.Decoder.Decoded() || n.currentBlockCount > n.currentBlockSize * 2) {
+	if n.Decoder.Decoded() || n.currentBlockCount > n.currentBlockSize * 2 {
 		n.currentBlockReceived = true
-		ack := ack{true, nil}
+		ack.ackBlock = true
 		for _, tx := range n.Local() {
 			ack.txs = append(ack.txs, tx)
 		}
 		n.outbox = append(n.outbox, ack)
 		return true
 	} else {
-		n.outbox = append(n.outbox, ack{false, nil})
+		n.outbox = append(n.outbox, ack)
 		return false
 	}
 }

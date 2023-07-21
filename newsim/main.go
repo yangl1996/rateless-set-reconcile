@@ -41,7 +41,7 @@ func main() {
 	for _, conn := range topo {
 		connectServers(servers[conn.a], servers[conn.b], conn.delay)
 	}
-	fmt.Println("# node 0 num peers", len(servers[0].handlers))
+	fmt.Println("#", N, "nodes, node 0 num peers", len(servers[0].handlers))
 
 	receivedCodewordRate := difference[int]{}
 	warmed := false

@@ -48,7 +48,7 @@ type server struct {
 	received map[uint64]struct{}
 }
 
-func (a *server) newHandler() *handler {
+func (a *server) newHandler(disableSender bool) *handler {
 	return &handler{
 		sender: &sender{
 			Encoder: &riblt.Encoder[transaction]{},
@@ -56,6 +56,7 @@ func (a *server) newHandler() *handler {
 			deg: &degseq{},
 			senderConfig: a.senderConfig,
 			sendWindow: 1,	// otherwise tryFillSendWindow always returns
+			disabled: disableSender,
 		},
 		receiver: &receiver{
 			Decoder: &riblt.Decoder[transaction]{},
@@ -64,8 +65,8 @@ func (a *server) newHandler() *handler {
 }
 
 func connectServers(a, b *server, delay time.Duration) {
-	a.handlers[b] = peer{a.newHandler(), delay}
-	b.handlers[a] = peer{b.newHandler(), delay}
+	a.handlers[b] = peer{a.newHandler(false), delay}
+	b.handlers[a] = peer{b.newHandler(true), delay}
 }
 
 func newServers(simulator *des.Simulator, n int, config serverConfig) []*server {
