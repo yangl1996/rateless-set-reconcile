@@ -38,6 +38,7 @@ type peer struct {
 
 type server struct {
 	handlers map[des.Module]peer
+	peers []des.Module
 	rng *rand.Rand
 
 	serverConfig
@@ -66,7 +67,9 @@ func (a *server) newHandler(disableSender bool) *handler {
 
 func connectServers(a, b *server, delay time.Duration) {
 	a.handlers[b] = peer{a.newHandler(false), delay}
+	a.peers = append(a.peers, b)
 	b.handlers[a] = peer{b.newHandler(true), delay}
+	b.peers = append(b.peers, a)
 }
 
 func newServers(simulator *des.Simulator, n int, config serverConfig) []*server {
@@ -87,7 +90,8 @@ func newServers(simulator *des.Simulator, n int, config serverConfig) []*server 
 }
 
 func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.OutgoingMessage {
-	for peer, handler := range s.handlers {
+	for _, peer := range s.peers {
+		handler := s.handlers[peer]
 		for _, msg := range handler.sender.outbox {
 			outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
 		}
@@ -101,7 +105,8 @@ func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.Out
 }
 
 func (s *server) forwardTransaction(tx riblt.HashedSymbol[transaction], exclude des.Module) {
-	for peer, handler := range s.handlers {
+	for _, peer := range s.peers {
+		handler := s.handlers[peer]
 		if peer != exclude {
 			handler.sender.onTransaction(tx)
 			handler.receiver.onTransaction(tx)
