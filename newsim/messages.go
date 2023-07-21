@@ -13,6 +13,7 @@ type codeword struct {
 
 type ack struct {
 	ackBlock bool
+	txs []riblt.HashedSymbol[transaction]
 }
 
 type blockArrival struct {

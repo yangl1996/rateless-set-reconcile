@@ -18,6 +18,7 @@ type OutgoingMessage struct {
 type Simulator struct {
 	time time.Duration
 	mq   priorityQueue
+	seq int
 }
 
 func (s *Simulator) Drained() bool {
@@ -42,12 +43,13 @@ func (s *Simulator) Run() {
 
 func (s *Simulator) ScheduleMessage(msg OutgoingMessage, from Module) {
 	if msg.To == nil {
-		m := queuedMessage{s.time + msg.Delay, from, from, msg.Payload}
+		m := queuedMessage{s.time + msg.Delay, s.seq, from, from, msg.Payload}
 		heap.Push(&s.mq, m)
 	} else {
-		m := queuedMessage{s.time + msg.Delay, from, msg.To, msg.Payload}
+		m := queuedMessage{s.time + msg.Delay, s.seq, from, msg.To, msg.Payload}
 		heap.Push(&s.mq, m)
 	}
+	s.seq += 1
 }
 
 func (s *Simulator) deliverNextMessage() {
@@ -64,6 +66,7 @@ func (s *Simulator) deliverNextMessage() {
 
 type queuedMessage struct {
 	arrival     time.Duration
+	seq int
 	from Module
 	to Module
 	payload     any
@@ -74,7 +77,12 @@ type priorityQueue []queuedMessage
 func (pq priorityQueue) Len() int { return len(pq) }
 
 func (pq priorityQueue) Less(i, j int) bool {
-	return pq[i].arrival < pq[j].arrival
+	if pq[i].arrival < pq[j].arrival {
+		return true
+	} else if pq[i].arrival == pq[j].arrival {
+		return pq[i].seq < pq[j].seq
+	}
+	return false
 }
 
 func (pq priorityQueue) Swap(i, j int) {

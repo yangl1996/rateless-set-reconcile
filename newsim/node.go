@@ -26,12 +26,13 @@ type sender struct {
 	senderConfig
 }
 
-func (n *sender) onAck(ack ack) {
+func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
 	n.inFlight -= 1
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
 	}
 	n.tryFillSendWindow()
+	return ack.txs
 }
 
 func (n *sender) onTransaction(tx riblt.HashedSymbol[transaction]) {
@@ -110,10 +111,14 @@ func (n *receiver) onCodeword(cw codeword) bool {
 	n.currentBlockCount += 1
 	if !n.currentBlockReceived && (n.Decoder.Decoded() || n.currentBlockCount > n.currentBlockSize * 2) {
 		n.currentBlockReceived = true
-		n.outbox = append(n.outbox, ack{true})
+		ack := ack{true, nil}
+		for _, tx := range n.Local() {
+			ack.txs = append(ack.txs, tx)
+		}
+		n.outbox = append(n.outbox, ack)
 		return true
 	} else {
-		n.outbox = append(n.outbox, ack{false})
+		n.outbox = append(n.outbox, ack{false, nil})
 		return false
 	}
 }

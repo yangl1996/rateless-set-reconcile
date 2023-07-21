@@ -140,7 +140,17 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 			}
 			s.receivedCodewords += 1
 		case ack:
-			n.onAck(m)
+			remote := n.onAck(m)
+			for _, tx := range remote {
+				s.receivedCodewords += 1
+				if _, there := s.received[tx.Symbol.idx]; !there {
+					s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
+					s.forwardTransaction(tx, from)
+					s.received[tx.Symbol.idx] = struct{}{}
+					s.decodedTransactions += 1
+					s.receivedTransactions += 1
+				}
+			}
 		default:
 			panic("unknown message type")
 		}
