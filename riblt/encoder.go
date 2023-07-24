@@ -21,10 +21,6 @@ type CodedSymbol[T Symbol[T]] struct {
 	checksum uint64
 }
 
-func (c CodedSymbol[T]) Count() int64 {
-	return c.count
-}
-
 type Encoder[T Symbol[T]] struct {
 	window     []HashedSymbol[T]
 }

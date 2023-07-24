@@ -8,13 +8,14 @@ type pendingSymbol[T Symbol[T]] struct {
 	CodedSymbol[T]
 	salt uint64
 	threshold uint64
+	pending bool
 	dirty bool
 }
 
 type Decoder[T Symbol[T]] struct {
 	cs []pendingSymbol[T]	// coded symbols received so far
 	local []HashedSymbol[T]
-	window []HashedSymbol[T]
+	window []HashedSymbol[T]	// set of the symbols that the decoder already has
 	remote []HashedSymbol[T]
 	pending []int	// indices of the coded symbols in cs that are not yet pure (decoded)
 	dirty []int		// indices of the coded symbols in cs that have been operated on (peeled) but not checked for pureness
@@ -34,9 +35,10 @@ func (d *Decoder[T]) Remote() []HashedSymbol[T] {
 
 func (d *Decoder[T]) AddSymbol(s T) {
 	th := HashedSymbol[T]{s, s.Hash()}
-	d.window = append(d.window, th)
+	d.AddHashedSymbol(th)
 }
 
+// TODO: update the definition of dirty to cover only codewords that have some chance to get decoded.
 func (d *Decoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
 	d.window = append(d.window, s)
 }
@@ -65,9 +67,12 @@ func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
 		}
 	}
 	if c.count == 0 && c.checksum == 0 {
+		// still insert the codeword in case a symbol added later causes it to become dirty
+		p := pendingSymbol[T]{c, salt, threshold, false, false}
+		d.cs = append(d.cs, p)
 		return
 	} else {
-		p := pendingSymbol[T]{c, salt, threshold, true}
+		p := pendingSymbol[T]{c, salt, threshold, true, true}
 		d.cs = append(d.cs, p)
 		d.dirty = append(d.dirty, len(d.cs)-1)
 		d.pending = append(d.pending, len(d.cs)-1)
@@ -111,6 +116,7 @@ func (d *Decoder[T]) TryDecode() {
 						if d.cs[j].count == 0 && d.cs[j].checksum == 0 {
 							// d.cs[j] is now pure, remove it from pending list
 							d.cs[j].dirty = false	// force it to be undirty so that we never look at it again
+							d.cs[j].pending = false 
 							d.pending[pidx] = d.pending[ptot-1]
 							d.pending = d.pending[:ptot-1]
 							ptot -= 1
@@ -129,6 +135,8 @@ func (d *Decoder[T]) TryDecode() {
 				}
 				s := HashedSymbol[T]{p.sum, h}
 				d.remote = append(d.remote, s)
+				d.cs[i].CodedSymbol = CodedSymbol[T]{}
+				d.cs[i].pending = false 
 			}
 		case -1:
 			h := p.sum.Hash()
@@ -149,6 +157,7 @@ func (d *Decoder[T]) TryDecode() {
 						if d.cs[j].count == 0 && d.cs[j].checksum == 0 {
 							// d.cs[j] is now pure, remove it from pending list
 							d.cs[j].dirty = false	// force it to be undirty so that we never look at it again
+							d.cs[j].pending = false 
 							d.pending[pidx] = d.pending[ptot-1]
 							d.pending = d.pending[:ptot-1]
 							ptot -= 1
@@ -167,6 +176,8 @@ func (d *Decoder[T]) TryDecode() {
 				}
 				s := HashedSymbol[T]{p.sum, h}
 				d.local = append(d.local, s)
+				d.cs[i].CodedSymbol = CodedSymbol[T]{}
+				d.cs[i].pending = false 
 			}
 		}
 	}

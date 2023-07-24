@@ -99,3 +99,4 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
+
