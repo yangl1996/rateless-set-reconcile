@@ -19,6 +19,7 @@ type Decoder[T Symbol[T]] struct {
 	remote []HashedSymbol[T]
 	pending []int	// indices of the coded symbols in cs that are not yet pure (decoded)
 	dirty []int		// indices of the coded symbols in cs that have been operated on (peeled) but not checked for pureness
+	pure []int
 }
 
 func (d *Decoder[T]) Decoded() bool {
@@ -41,6 +42,46 @@ func (d *Decoder[T]) AddSymbol(s T) {
 // TODO: update the definition of dirty to cover only codewords that have some chance to get decoded.
 func (d *Decoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
 	d.window = append(d.window, s)
+	for idx := range d.remote {
+		if s.Hash == d.remote[idx].Hash {
+			l := len(d.remote)
+			d.remote[idx] = d.remote[l-1]
+			d.remote = d.remote[:l-1]
+			return
+		}
+	}
+	for _, j := range d.pure {
+		if d.cs[j].salt * s.Hash < d.cs[j].threshold {
+			d.local = append(d.local, s)
+			return
+		}
+	}
+	pidx := 0
+	ptot := len(d.pending)
+	for pidx < ptot {
+		j := d.pending[pidx]
+		if d.cs[j].salt * s.Hash < d.cs[j].threshold {
+			d.cs[j].sum = d.cs[j].sum.XOR(s.Symbol)
+			d.cs[j].count -= 1
+			d.cs[j].checksum ^= s.Hash
+			if d.cs[j].count == 0 && d.cs[j].checksum == 0 {
+				// d.cs[j] is now pure, remove it from pending list
+				d.cs[j].dirty = false	// force it to be undirty so that we never look at it again
+				d.cs[j].pending = false
+				d.pending[pidx] = d.pending[ptot-1]
+				d.pending = d.pending[:ptot-1]
+				ptot -= 1
+				d.pure = append(d.pure, j)
+			} else {
+				// d.cs[j] is now dirty
+				if !d.cs[j].dirty {
+					d.cs[j].dirty = true
+					d.dirty = append(d.dirty, j)
+				}
+				pidx += 1
+			}
+		}
+	}
 }
 
 func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
@@ -70,6 +111,7 @@ func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
 		// still insert the codeword in case a symbol added later causes it to become dirty
 		p := pendingSymbol[T]{c, salt, threshold, false, false}
 		d.cs = append(d.cs, p)
+		d.pure = append(d.pure, len(d.cs)-1)
 		return
 	} else {
 		p := pendingSymbol[T]{c, salt, threshold, true, true}
@@ -120,6 +162,7 @@ func (d *Decoder[T]) TryDecode() {
 							d.pending[pidx] = d.pending[ptot-1]
 							d.pending = d.pending[:ptot-1]
 							ptot -= 1
+							d.pure = append(d.pure, j)
 						} else {
 							// d.cs[j] is now dirty
 							if !d.cs[j].dirty {
@@ -137,6 +180,7 @@ func (d *Decoder[T]) TryDecode() {
 				d.remote = append(d.remote, s)
 				d.cs[i].CodedSymbol = CodedSymbol[T]{}
 				d.cs[i].pending = false 
+				d.pure = append(d.pure, i)
 			}
 		case -1:
 			h := p.sum.Hash()
@@ -161,6 +205,7 @@ func (d *Decoder[T]) TryDecode() {
 							d.pending[pidx] = d.pending[ptot-1]
 							d.pending = d.pending[:ptot-1]
 							ptot -= 1
+							d.pure = append(d.pure, j)
 						} else {
 							// d.cs[j] is now dirty
 							if !d.cs[j].dirty {
@@ -178,6 +223,7 @@ func (d *Decoder[T]) TryDecode() {
 				d.local = append(d.local, s)
 				d.cs[i].CodedSymbol = CodedSymbol[T]{}
 				d.cs[i].pending = false 
+				d.pure = append(d.pure, i)
 			}
 		}
 	}
@@ -202,6 +248,9 @@ func (d *Decoder[T]) Reset() {
 	}
 	if len(d.cs) != 0 {
 		d.cs = d.cs[:0]
+	}
+	if len(d.pure) != 0 {
+		d.pure = d.pure[:0]
 	}
 }
 
