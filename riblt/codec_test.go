@@ -80,10 +80,13 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	}
 
 	ncw := 0
-	for len(dec.remote) < nremote || len(dec.local) < nlocal {
+	for {
 		dec.AddNextCodedSymbol(enc.ProduceNextCodedSymbol())
 		ncw += 1
 		dec.TryDecode()
+		if dec.Decoded() {
+			break
+		}
 	}
 	for _, v := range dec.remote {
 		delete(remote, v.Hash)
