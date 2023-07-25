@@ -80,6 +80,8 @@ func (d *Decoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
 				}
 				pidx += 1
 			}
+		} else {
+			pidx += 1
 		}
 	}
 }
