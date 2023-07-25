@@ -118,9 +118,8 @@ func (n *receiver) onCodeword(cw codeword) bool {
 	ack := ack{}
 	if cw.newBlock {
 		ack.ackStart = true
-		n.Decoder.Reset()
 		n.currentBlockReceived = false
-		n.currentBlockSize = int(cw.Count()) + len(n.buffer)
+		//n.currentBlockSize = int(cw.Count()) + len(n.buffer)
 		n.currentBlockCount = 0
 		for _, tx := range n.buffer {
 			n.Decoder.AddHashedSymbol(tx)
@@ -130,13 +129,14 @@ func (n *receiver) onCodeword(cw codeword) bool {
 	n.Decoder.AddCodedSymbol(cw.CodedSymbol, cw.salt, cw.threshold)
 	n.Decoder.TryDecode()
 	n.currentBlockCount += 1
-	if n.Decoder.Decoded() || n.currentBlockCount > n.currentBlockSize * 2 {
+	if n.Decoder.Decoded()  {
 		n.currentBlockReceived = true
 		ack.ackBlock = true
 		for _, tx := range n.Local() {
 			ack.txs = append(ack.txs, tx)
 		}
 		n.outbox = append(n.outbox, ack)
+		n.Decoder.Reset()
 		return true
 	} else {
 		n.outbox = append(n.outbox, ack)
@@ -145,5 +145,6 @@ func (n *receiver) onCodeword(cw codeword) bool {
 }
 
 func (n *receiver) onTransaction(tx riblt.HashedSymbol[transaction]) {
-	n.buffer = append(n.buffer, tx)
+	n.Decoder.AddHashedSymbol(tx)
+	//n.buffer = append(n.buffer, tx)
 }
