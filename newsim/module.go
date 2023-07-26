@@ -131,9 +131,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		n := s.handlers[from]
 		switch m := payload.(type) {
 		case codeword:
-			decoded := n.onCodeword(m)
+			remote, decoded := n.onCodeword(m)
 			if decoded {
-				remote := n.Remote()
 				for _, tx := range remote {
 					if _, there := s.received[tx.Symbol.idx]; !there {
 						s.latencySketch.recordTxLatency(tx.Symbol, timestamp)

@@ -111,9 +111,9 @@ type receiver struct {
 	outbox []any
 }
 
-func (n *receiver) onCodeword(cw codeword) bool {
+func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], bool) {
 	if n.currentBlockReceived && !cw.newBlock {
-		return false
+		return nil, false
 	}
 	ack := ack{}
 	if cw.newBlock {
@@ -136,11 +136,15 @@ func (n *receiver) onCodeword(cw codeword) bool {
 			ack.txs = append(ack.txs, tx)
 		}
 		n.outbox = append(n.outbox, ack)
+		res := []riblt.HashedSymbol[transaction]{}
+		for _, v := range n.Decoder.Remote() {
+			res = append(res, v)
+		}
 		n.Decoder.Reset()
-		return true
+		return res, true
 	} else {
 		n.outbox = append(n.outbox, ack)
-		return false
+		return nil, false
 	}
 }
 
