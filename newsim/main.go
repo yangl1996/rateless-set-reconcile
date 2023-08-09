@@ -65,6 +65,9 @@ func main() {
 	fmt.Println("# received transaction rate", collectMoments(servers, func(srv *server) float64 {
 		return float64(srv.receivedTransactions) / (s.Time() - *warmupDuration).Seconds()
 	}))
+	fmt.Println("# duplicate transaction rate", collectMoments(servers, func(srv *server) float64 {
+		return float64(srv.duplicateTransactions) / (s.Time() - *warmupDuration).Seconds()
+	}))
 	fmt.Println("# overhead", collectMoments(servers, func(s *server) float64 {
 		return float64(s.receivedCodewords) / float64(s.decodedTransactions)
 	}))

@@ -10,12 +10,14 @@ import (
 type serverMetric struct {
 	decodedTransactions int
 	receivedTransactions int
+	duplicateTransactions int
 	receivedCodewords    int
 }
 
 func (s *serverMetric) resetMetric() {
 	s.decodedTransactions = 0
 	s.receivedTransactions = 0
+	s.duplicateTransactions = 0
 	s.receivedCodewords = 0
 }
 
@@ -140,6 +142,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 						s.received[tx.Symbol.idx] = struct{}{}
 						s.decodedTransactions += 1
 						s.receivedTransactions += 1
+					} else {
+						s.duplicateTransactions += 1
 					}
 				}
 			}
@@ -154,6 +158,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 					s.received[tx.Symbol.idx] = struct{}{}
 					s.decodedTransactions += 1
 					s.receivedTransactions += 1
+				} else {
+					s.duplicateTransactions += 1
 				}
 			}
 		default:
