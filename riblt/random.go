@@ -28,5 +28,8 @@ func (s *mapping) nextIndex() uint64 {
 	rs := float64(s.lastIdx)*2 + 3	// rs = 2j+3
 	ls := math.Sqrt((float64(minstd_m) * rs * rs - float64(r)) / float64(minstd_m - r))
 	s.lastIdx += uint64(math.Ceil((ls - rs)/2))
+	if s.lastIdx > minstd_m {
+		panic("overflow")
+	}
 	return s.lastIdx
 }

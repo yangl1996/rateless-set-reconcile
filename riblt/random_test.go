@@ -5,9 +5,9 @@ import (
 )
 
 func BenchmarkNextIndex(b *testing.B) {
-	s := mapping{234235, 0}
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
+		s := mapping{uint64(i) % 100000, uint64(i) % 99999}
 		s.nextIndex()
     }
 }
