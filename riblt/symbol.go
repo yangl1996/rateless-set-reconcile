@@ -14,3 +14,20 @@ type HashedSymbol[T Symbol[T]] struct {
 	Hash uint64
 }
 
+type CodedSymbol[T Symbol[T]] struct {
+    sum T
+    count int64
+    checksum uint64
+}
+
+const (
+	add = 1
+	remove = -1
+)
+
+func (c CodedSymbol[T]) apply(s HashedSymbol[T], direction int64) CodedSymbol[T] {
+	c.sum = c.sum.XOR(s.Symbol)
+	c.count += direction
+	c.checksum ^= s.Hash
+	return c
+}

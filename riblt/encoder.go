@@ -3,12 +3,6 @@ package riblt
 // TODO: encoder should send conflicting transactions as-is when detected; since it happens very rarely and each pair of peers can use a secret hash key, an adversary cannot forge too many conflicts.
 // TODO: replace siphash with xxhash (or whatever that supports native 4-byte output)
 
-type CodedSymbol[T Symbol[T]] struct {
-	sum T
-	count int64
-	checksum uint64
-}
-
 type symbolMapping struct {
 	sourceIdx int
 	codedIdx int
@@ -67,17 +61,9 @@ func (e *codingWindow[T]) addSymbol(t T) {
 	e.addHashedSymbol(th)
 }
 
-const (
-	add = 1
-	remove = -1
-)
-
 func (e *codingWindow[T]) applyWindow(cw CodedSymbol[T], direction int64) CodedSymbol[T] {
 	for e.queue[0].codedIdx == e.nextIdx {
-		v := e.symbols[e.queue[0].sourceIdx]
-		cw.sum = cw.sum.XOR(v.Symbol)
-		cw.count += direction
-		cw.checksum ^= v.Hash
+		cw = cw.apply(e.symbols[e.queue[0].sourceIdx], direction)
 		// generate the next mapping
 		nextMap := e.mappings[e.queue[0].sourceIdx].nextIndex()
 		e.queue[0].codedIdx = int(nextMap)
