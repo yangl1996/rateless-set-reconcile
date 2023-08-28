@@ -14,6 +14,7 @@ const (
 	minstd_a uint64 = 16807
 )
 
+// degree sequence is 1/(1+idx/2)
 func (s *randomMapping) nextIndex() uint64 {
 	r := (minstd_a * s.prng) % minstd_m
 	s.prng = r
