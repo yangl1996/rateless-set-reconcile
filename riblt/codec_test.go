@@ -107,7 +107,7 @@ func BenchmarkEncode(b *testing.B) {
 	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
 
 	var nextId uint64
-	n := 100000
+	n := 10000
 	for i := 0; i < n; i++ {
 		s := newTestSymbol(nextId)
 		nextId += 1
@@ -116,7 +116,7 @@ func BenchmarkEncode(b *testing.B) {
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
 		enc.DegreeSequence = &testDegreeSequence{}
-		for i := 0; i < 150000; i++ {
+		for i := 0; i < 15000; i++ {
 			enc.ProduceNextCodedSymbol()
 		}
     }
@@ -127,7 +127,7 @@ func BenchmarkFastEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		enc := &FastEncoder[*testSymbol]{}
 		var nextId uint64
-		n := 100000
+		n := 10000
 		for j := 0; j < n; j++ {
 			s := newTestSymbol(nextId)
 			nextId += 1
@@ -139,7 +139,7 @@ func BenchmarkFastEncode(b *testing.B) {
 
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
-		for j := 0; j < 150000; j++ {
+		for j := 0; j < 15000; j++ {
 			encs[i].ProduceNextCodedSymbol()
 		}
     }

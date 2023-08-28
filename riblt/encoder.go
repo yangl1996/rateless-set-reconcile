@@ -2,7 +2,6 @@ package riblt
 
 import (
 	"math/rand"
-	"container/heap"
 )
 
 //const order = 18446744073709551557	// 2^64-59, largest prime that fits in 64 bits
@@ -56,9 +55,28 @@ type FastEncoder[T Symbol[T]] struct {
 	nextIdx int
 }
 
+func (e *FastEncoder[T]) fixQueue() {
+	curr := 0
+	for {
+		child := curr * 2 + 1
+		if child >= len(e.mapping) {
+			// no left child
+			break
+		}
+		if rc := child + 1; rc < len(e.mapping) && e.mapping[rc].codedIdx < e.mapping[child].codedIdx {
+			child = rc
+		}
+		if e.mapping[curr].codedIdx <= e.mapping[child].codedIdx {
+			break
+		}
+		e.mapping[curr], e.mapping[child] = e.mapping[child], e.mapping[curr]
+		curr = child
+	}
+}
+
 func (e *FastEncoder[T]) AddHashedSymbol(t HashedSymbol[T]) {
 	e.window = append(e.window, InWindowSymbol[T]{t, randomMapping{t.Hash, 0}})
-	heap.Push(&e.mapping, mappedSymbol{len(e.window)-1, 0})
+	e.mapping = append(e.mapping, mappedSymbol{len(e.window)-1, 0})
 }
 
 func (e *FastEncoder[T]) AddSymbol(t T) {
@@ -76,7 +94,7 @@ func (e *FastEncoder[T]) ProduceNextCodedSymbol() CodedSymbol[T] {
 		// generate the next mapping
 		nextMap := e.window[e.mapping[0].sourceIdx].m.nextIndex()
 		e.mapping[0].codedIdx = int(nextMap)
-		heap.Fix(&e.mapping, 0)
+		e.fixQueue()
 	}
 	e.nextIdx += 1
 
