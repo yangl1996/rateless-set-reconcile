@@ -9,11 +9,6 @@ type CodedSymbol[T Symbol[T]] struct {
 	checksum uint64
 }
 
-type inWindowSymbol[T Symbol[T]] struct {
-	HashedSymbol[T]
-	randomMapping
-}
-
 type symbolMapping struct {
 	sourceIdx int
 	codedIdx int
@@ -53,47 +48,73 @@ func (m mappingHeap) fixTail() {
 	}
 }
 
-type Encoder[T Symbol[T]] struct {
-	window []inWindowSymbol[T]
-	mapping mappingHeap
+type codingWindow[T Symbol[T]] struct {
+	symbols []HashedSymbol[T]
+	mappings []randomMapping
+	queue mappingHeap
 	nextIdx int
 }
 
-func (e *Encoder[T]) AddHashedSymbol(t HashedSymbol[T]) {
-	e.window = append(e.window, inWindowSymbol[T]{t, randomMapping{t.Hash, 0}})
-	e.mapping = append(e.mapping, symbolMapping{len(e.window)-1, 0})
-	e.mapping.fixTail()
+func (e *codingWindow[T]) addHashedSymbol(t HashedSymbol[T]) {
+	e.symbols = append(e.symbols, t)
+	e.mappings = append(e.mappings, randomMapping{t.Hash % minstd_m, 0})
+	e.queue = append(e.queue, symbolMapping{len(e.symbols)-1, 0})
+	e.queue.fixTail()
 }
 
-func (e *Encoder[T]) AddSymbol(t T) {
+func (e *codingWindow[T]) addSymbol(t T) {
 	th := HashedSymbol[T]{t, t.Hash()}
-	e.AddHashedSymbol(th)
+	e.addHashedSymbol(th)
+}
+
+const (
+	add = 1
+	remove = -1
+)
+
+func (e *codingWindow[T]) applyWindow(cw CodedSymbol[T], direction int64) CodedSymbol[T] {
+	for e.queue[0].codedIdx == e.nextIdx {
+		v := e.symbols[e.queue[0].sourceIdx]
+		cw.sum = cw.sum.XOR(v.Symbol)
+		cw.count += direction
+		cw.checksum ^= v.Hash
+		// generate the next mapping
+		nextMap := e.mappings[e.queue[0].sourceIdx].nextIndex()
+		e.queue[0].codedIdx = int(nextMap)
+		e.queue.fixHead()
+	}
+	e.nextIdx += 1
+	return cw
+}
+
+func (e *codingWindow[T]) reset() {
+	if len(e.symbols) != 0 {
+		e.symbols = e.symbols[:0]
+	}
+	if len(e.mappings) != 0 {
+		e.mappings = e.mappings[:0]
+	}
+	if len(e.queue) != 0 {
+		e.queue = e.queue[:0]
+	}
+	e.nextIdx = 0
+}
+
+type Encoder[T Symbol[T]] codingWindow[T]
+
+func (e *Encoder[T]) AddSymbol(s T) {
+	(*codingWindow[T])(e).addSymbol(s)
+}
+
+func (e *Encoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
+	(*codingWindow[T])(e).addHashedSymbol(s)
 }
 
 func (e *Encoder[T]) ProduceNextCodedSymbol() CodedSymbol[T] {
-	c := CodedSymbol[T]{}
-	for e.mapping[0].codedIdx <= e.nextIdx {
-		v := e.window[e.mapping[0].sourceIdx]
-		c.sum = c.sum.XOR(v.Symbol)
-		c.count += 1
-		c.checksum ^= v.Hash
-		// generate the next mapping
-		nextMap := e.window[e.mapping[0].sourceIdx].nextIndex()
-		e.mapping[0].codedIdx = int(nextMap)
-		e.mapping.fixHead()
-	}
-	e.nextIdx += 1
-
-	return c
+	return (*codingWindow[T])(e).applyWindow(CodedSymbol[T]{}, add)
 }
 
 func (e *Encoder[T]) Reset() {
-	if len(e.window) != 0 {
-		e.window = e.window[:0]
-	}
-	if len(e.mapping) != 0 {
-		e.mapping = e.mapping[:0]
-	}
-	e.nextIdx = 0
+	(*codingWindow[T])(e).reset()
 }
 

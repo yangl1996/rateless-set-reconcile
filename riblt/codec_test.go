@@ -2,7 +2,6 @@ package riblt
 
 import (
 	"encoding/binary"
-	"math/rand"
 	"math"
 	"testing"
 	"github.com/dchest/siphash"
@@ -50,6 +49,7 @@ func (t *testDegreeSequence) NextThreshold() uint64 {
 	return th
 }
 
+/*
 func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
 	dec := SynchronizedDecoder[*testSymbol]{rand.New(rand.NewSource(10)), &Decoder[*testSymbol]{}, &testDegreeSequence{}}
@@ -102,30 +102,12 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
+*/
 
-func BenchmarkEncode(b *testing.B) {
-	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
-
-	var nextId uint64
-	n := 10000
-	for i := 0; i < n; i++ {
-		s := newTestSymbol(nextId)
-		nextId += 1
-		enc.AddSymbol(s)
-	}
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-		enc.DegreeSequence = &testDegreeSequence{}
-		for i := 0; i < 15000; i++ {
-			enc.ProduceNextCodedSymbol()
-		}
-    }
-}
-
-func BenchmarkFastEncode(b *testing.B) {
-	encs := []*FastEncoder[*testSymbol]{}
+func BenchmarkEncoding(b *testing.B) {
+	encs := []*Encoder[*testSymbol]{}
 	for i := 0; i < b.N; i++ {
-		enc := &FastEncoder[*testSymbol]{}
+		enc := &Encoder[*testSymbol]{}
 		var nextId uint64
 		n := 10000
 		for j := 0; j < n; j++ {
