@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-type mapping struct {
+type randomMapping struct {
 	prng uint64		// PRNG state
 	lastIdx uint64	// the last index the symbol was mapped to
 }
@@ -14,7 +14,7 @@ const (
 	minstd_a uint64 = 16807
 )
 
-func (s *mapping) nextIndex() uint64 {
+func (s *randomMapping) nextIndex() uint64 {
 	r := (minstd_a * s.prng) % minstd_m
 	s.prng = r
 	// m: minstd_m

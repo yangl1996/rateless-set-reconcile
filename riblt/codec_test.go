@@ -103,3 +103,44 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	t.Logf("%d codewords until fully decoded", ncw)
 }
 
+func BenchmarkEncode(b *testing.B) {
+	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
+
+	var nextId uint64
+	n := 100000
+	for i := 0; i < n; i++ {
+		s := newTestSymbol(nextId)
+		nextId += 1
+		enc.AddSymbol(s)
+	}
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+		enc.DegreeSequence = &testDegreeSequence{}
+		for i := 0; i < 150000; i++ {
+			enc.ProduceNextCodedSymbol()
+		}
+    }
+}
+
+func BenchmarkFastEncode(b *testing.B) {
+	encs := []*FastEncoder[*testSymbol]{}
+	for i := 0; i < b.N; i++ {
+		enc := &FastEncoder[*testSymbol]{}
+		var nextId uint64
+		n := 100000
+		for j := 0; j < n; j++ {
+			s := newTestSymbol(nextId)
+			nextId += 1
+			enc.AddSymbol(s)
+		}
+
+		encs = append(encs, enc)
+	}
+
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+		for j := 0; j < 150000; j++ {
+			encs[i].ProduceNextCodedSymbol()
+		}
+    }
+}

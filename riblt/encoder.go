@@ -2,6 +2,7 @@ package riblt
 
 import (
 	"math/rand"
+	"container/heap"
 )
 
 //const order = 18446744073709551557	// 2^64-59, largest prime that fits in 64 bits
@@ -19,6 +20,67 @@ type CodedSymbol[T Symbol[T]] struct {
 	sum T
 	count int64
 	checksum uint64
+}
+
+type InWindowSymbol[T Symbol[T]] struct {
+	s HashedSymbol[T]
+	m randomMapping
+}
+
+// TODO: can I do without a heap?
+
+type mappedSymbol struct {
+	sourceIdx int
+	codedIdx int
+}
+
+type mappingHeap []mappedSymbol
+
+func (m mappingHeap) Len() int           { return len(m) }
+func (m mappingHeap) Less(i, j int) bool { return m[i].codedIdx < m[j].codedIdx }
+func (m mappingHeap) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m *mappingHeap) Push(x any) {
+	*m = append(*m, x.(mappedSymbol))
+}
+func (m *mappingHeap) Pop() any {
+	old := *m
+	n := len(old)
+	x := old[n-1]
+	*m = old[0 : n-1]
+	return x
+}
+
+type FastEncoder[T Symbol[T]] struct {
+	window []InWindowSymbol[T]
+	mapping mappingHeap
+	nextIdx int
+}
+
+func (e *FastEncoder[T]) AddHashedSymbol(t HashedSymbol[T]) {
+	e.window = append(e.window, InWindowSymbol[T]{t, randomMapping{t.Hash, 0}})
+	heap.Push(&e.mapping, mappedSymbol{len(e.window)-1, 0})
+}
+
+func (e *FastEncoder[T]) AddSymbol(t T) {
+	th := HashedSymbol[T]{t, t.Hash()}
+	e.AddHashedSymbol(th)
+}
+
+func (e *FastEncoder[T]) ProduceNextCodedSymbol() CodedSymbol[T] {
+	c := CodedSymbol[T]{}
+	for e.mapping[0].codedIdx <= e.nextIdx {
+		v := e.window[e.mapping[0].sourceIdx].s
+		c.sum = c.sum.XOR(v.Symbol)
+		c.count += 1
+		c.checksum ^= v.Hash
+		// generate the next mapping
+		nextMap := e.window[e.mapping[0].sourceIdx].m.nextIndex()
+		e.mapping[0].codedIdx = int(nextMap)
+		heap.Fix(&e.mapping, 0)
+	}
+	e.nextIdx += 1
+
+	return c
 }
 
 type Encoder[T Symbol[T]] struct {
