@@ -35,7 +35,7 @@ func (d *Decoder[T]) AddHashedSymbol(s HashedSymbol[T]) {
 	d.window.addHashedSymbol(s)
 }
 
-func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T], salt, threshold uint64) {
+func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T]) {
 	// scan through decoded symbols to peel off matching ones
 	c = d.window.applyWindow(c, remove)
 	c = d.remote.applyWindow(c, remove)
@@ -100,11 +100,13 @@ func (d *Decoder[T]) TryDecode() {
 			if c.checksum == 0 {
 				d.pending -= 1
 			}
-		default:
-			panic("codewords with degrees other than 0, 1, -1 marked dirty")
+		// one may want to add a panic here when coded symbol is not of
+		// degree 1, -1 or 0, but this may be violated when a dirty coded symbol
+		// is peeled before its turn
 		}
 		d.cs[cidx].dirty = false
 	}
+	d.dirty = d.dirty[:0]
 }
 
 func (d *Decoder[T]) Reset() {

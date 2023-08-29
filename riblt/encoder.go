@@ -66,6 +66,9 @@ func (e *codingWindow[T]) addHashedSymbolWithMapping(t HashedSymbol[T], m random
 }
 
 func (e *codingWindow[T]) applyWindow(cw CodedSymbol[T], direction int64) CodedSymbol[T] {
+	if len(e.queue) == 0 {
+		return cw
+	}
 	for e.queue[0].codedIdx == e.nextIdx {
 		cw = cw.apply(e.symbols[e.queue[0].sourceIdx], direction)
 		// generate the next mapping

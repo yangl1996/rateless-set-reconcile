@@ -49,10 +49,9 @@ func (t *testDegreeSequence) NextThreshold() uint64 {
 	return th
 }
 
-/*
-func TestSynchronizedEncodeAndDecode(t *testing.T) {
-	enc := SynchronizedEncoder[*testSymbol]{rand.New(rand.NewSource(10)), &Encoder[*testSymbol]{}, &testDegreeSequence{}}
-	dec := SynchronizedDecoder[*testSymbol]{rand.New(rand.NewSource(10)), &Decoder[*testSymbol]{}, &testDegreeSequence{}}
+func TestEncodeAndDecode(t *testing.T) {
+	enc := Encoder[*testSymbol]{}
+	dec := Decoder[*testSymbol]{}
 	local := make(map[uint64]struct{})
 	remote := make(map[uint64]struct{})
 
@@ -81,17 +80,17 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 
 	ncw := 0
 	for {
-		dec.AddNextCodedSymbol(enc.ProduceNextCodedSymbol())
+		dec.AddCodedSymbol(enc.ProduceNextCodedSymbol())
 		ncw += 1
 		dec.TryDecode()
 		if dec.Decoded() {
 			break
 		}
 	}
-	for _, v := range dec.remote {
+	for _, v := range dec.Remote() {
 		delete(remote, v.Hash)
 	}
-	for _, v := range dec.local {
+	for _, v := range dec.Local() {
 		delete(local, v.Hash)
 	}
 	if len(remote) != 0 || len(local) != 0 {
@@ -102,7 +101,6 @@ func TestSynchronizedEncodeAndDecode(t *testing.T) {
 	}
 	t.Logf("%d codewords until fully decoded", ncw)
 }
-*/
 
 func BenchmarkEncoding(b *testing.B) {
 	encs := []*Encoder[*testSymbol]{}
