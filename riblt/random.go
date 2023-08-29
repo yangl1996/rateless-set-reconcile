@@ -16,7 +16,7 @@ const (
 
 // degree sequence is 1/(1+idx/2)
 func (s *randomMapping) nextIndex() uint64 {
-	r := s.prng * 0xda942042e4dd58b5
+	r := s.prng * 0xda942042e4dd58b5	// can we prove this is fine, assuming the multiplier is coprime to 2^64?
 	s.prng = r
 	// m: minstd_m
 	// x: steps to advance
