@@ -49,16 +49,20 @@ type codingWindow[T Symbol[T]] struct {
 	nextIdx int
 }
 
-func (e *codingWindow[T]) addHashedSymbol(t HashedSymbol[T]) {
-	e.symbols = append(e.symbols, t)
-	e.mappings = append(e.mappings, randomMapping{t.Hash % minstd_m, 0})
-	e.queue = append(e.queue, symbolMapping{len(e.symbols)-1, 0})
-	e.queue.fixTail()
-}
-
 func (e *codingWindow[T]) addSymbol(t T) {
 	th := HashedSymbol[T]{t, t.Hash()}
 	e.addHashedSymbol(th)
+}
+
+func (e *codingWindow[T]) addHashedSymbol(t HashedSymbol[T]) {
+	e.addHashedSymbolWithMapping(t, randomMapping{t.Hash % minstd_m, 0})
+}
+
+func (e *codingWindow[T]) addHashedSymbolWithMapping(t HashedSymbol[T], m randomMapping) {
+	e.symbols = append(e.symbols, t)
+	e.mappings = append(e.mappings, m)
+	e.queue = append(e.queue, symbolMapping{len(e.symbols)-1, int(m.lastIdx)})
+	e.queue.fixTail()
 }
 
 func (e *codingWindow[T]) applyWindow(cw CodedSymbol[T], direction int64) CodedSymbol[T] {
