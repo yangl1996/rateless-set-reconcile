@@ -55,7 +55,7 @@ func (e *codingWindow[T]) addSymbol(t T) {
 }
 
 func (e *codingWindow[T]) addHashedSymbol(t HashedSymbol[T]) {
-	e.addHashedSymbolWithMapping(t, randomMapping{t.Hash % minstd_m, 0})
+	e.addHashedSymbolWithMapping(t, randomMapping{t.Hash , 0})
 }
 
 func (e *codingWindow[T]) addHashedSymbolWithMapping(t HashedSymbol[T], m randomMapping) {

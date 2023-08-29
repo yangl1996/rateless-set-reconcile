@@ -57,7 +57,7 @@ func (d *Decoder[T]) AddCodedSymbol(c CodedSymbol[T]) {
 }
 
 func (d *Decoder[T]) applyNewSymbol(t HashedSymbol[T], direction int64) randomMapping {
-	m := randomMapping{t.Hash % minstd_m, 0}
+	m := randomMapping{t.Hash , 0}
 	for int(m.lastIdx) < len(d.cs) {
 		cidx := int(m.lastIdx)
 		d.cs[cidx].CodedSymbol = d.cs[cidx].apply(t, direction)
