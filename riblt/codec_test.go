@@ -54,28 +54,43 @@ func TestEncodeAndDecode(t *testing.T) {
 	dec := Decoder[*testSymbol]{}
 	local := make(map[uint64]struct{})
 	remote := make(map[uint64]struct{})
+	prngSeeds := make(map[uint64]struct{})
 
 	var nextId uint64
 	nlocal := 5000
 	nremote := 5000
 	ncommon := 10000
-	for i := 0; i < ncommon; i++ {
-		s := newTestSymbol(nextId)
-		nextId += 1
-		enc.AddSymbol(s)
-		dec.AddSymbol(s)
-	}
 	for i := 0; i < nlocal; i++ {
 		s := newTestSymbol(nextId)
 		nextId += 1
 		dec.AddSymbol(s)
 		local[s.Hash()] = struct{}{}
+
+		seed := s.Hash() % minstd_m
+		if _, there := prngSeeds[seed]; there {
+			t.Fatalf("duplicate rng seed after %d symbols", nextId)
+		} else {
+			prngSeeds[s.Hash() % minstd_m] = struct{}{}
+		}
 	}
 	for i := 0; i < nremote; i++ {
 		s := newTestSymbol(nextId)
 		nextId += 1
 		enc.AddSymbol(s)
 		remote[s.Hash()] = struct{}{}
+
+		seed := s.Hash() % minstd_m
+		if _, there := prngSeeds[seed]; there {
+			t.Fatalf("duplicate rng seed after %d symbols", nextId)
+		} else {
+			prngSeeds[s.Hash() % minstd_m] = struct{}{}
+		}
+	}
+	for i := 0; i < ncommon; i++ {
+		s := newTestSymbol(nextId)
+		nextId += 1
+		enc.AddSymbol(s)
+		dec.AddSymbol(s)
 	}
 
 	ncw := 0
