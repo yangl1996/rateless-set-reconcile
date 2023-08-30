@@ -51,13 +51,17 @@ type server struct {
 	received map[uint64]struct{}
 }
 
+var handlerSeed int64 = 0
+
 func (a *server) newHandler(disableSender bool) *handler {
+	handlerSeed += 1
 	return &handler{
 		sender: &sender{
 			Encoder: &riblt.Encoder[transaction]{},
 			senderConfig: a.senderConfig,
 			sendWindow: 1,	// otherwise tryFillSendWindow always returns
 			disabled: disableSender,
+			shardIndex: rand.New(rand.NewSource(handlerSeed)),
 		},
 		receiver: &receiver{
 			Decoder: &riblt.Decoder[transaction]{},

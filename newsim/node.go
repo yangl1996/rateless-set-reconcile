@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
+	"math/rand"
 )
 
 type senderConfig struct {
@@ -24,6 +25,7 @@ type sender struct {
 	disabled bool
 
 	senderConfig
+	shardIndex *rand.Rand
 }
 
 func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
@@ -69,16 +71,26 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		if len(n.buffer) > 0 {
 			// move to the next block
 			cw.newBlock = true
+			cw.newBlockStartHash = n.shardIndex.Uint64()
+			newBlockEndHash := cw.newBlockStartHash + (1<<58)
 			n.encodingCurrentBlock = true
 			n.currentBlockAckCount = 0
 			n.sendWindow = 1
 			n.inFlight = 0
 			n.Encoder.Reset()
 			// move buffer into block
-			for _, v := range n.buffer {
-				n.Encoder.AddHashedSymbol(v)
+			tidx := 0
+			for tidx < len(n.buffer) {
+				v := n.buffer[tidx]
+				if (cw.newBlockStartHash < newBlockEndHash && v.Hash >= cw.newBlockStartHash && v.Hash < newBlockEndHash) || (cw.newBlockStartHash >= newBlockEndHash && (v.Hash >= cw.newBlockStartHash || v.Hash < newBlockEndHash)) {
+					n.Encoder.AddHashedSymbol(v)
+					l := len(n.buffer)-1
+					n.buffer[tidx] = n.buffer[l]
+					n.buffer = n.buffer[:l]
+				} else {
+					tidx += 1
+				}
 			}
-			n.buffer = n.buffer[:0]
 		} else {
 			return cw, false
 		}
@@ -113,10 +125,19 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 		n.currentBlockReceived = false
 		//n.currentBlockSize = int(cw.Count()) + len(n.buffer)
 		n.currentBlockCount = 0
-		for _, tx := range n.buffer {
-			n.Decoder.AddHashedSymbol(tx)
+		newBlockEndHash := cw.newBlockStartHash + (1<<58)
+		tidx := 0
+		for tidx < len(n.buffer) {
+			v := n.buffer[tidx]
+			if (cw.newBlockStartHash < newBlockEndHash && v.Hash >= cw.newBlockStartHash && v.Hash < newBlockEndHash) || (cw.newBlockStartHash >= newBlockEndHash && (v.Hash >= cw.newBlockStartHash || v.Hash < newBlockEndHash)) {
+				n.Decoder.AddHashedSymbol(v)
+				l := len(n.buffer)-1
+				n.buffer[tidx] = n.buffer[l]
+				n.buffer = n.buffer[:l]
+			} else {
+				tidx += 1
+			}
 		}
-		n.buffer = n.buffer[:0]
 	}
 	n.Decoder.AddCodedSymbol(cw.CodedSymbol)
 	n.Decoder.TryDecode()
