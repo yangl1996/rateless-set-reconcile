@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
-	"math/rand"
 )
 
 type senderConfig struct {
@@ -12,8 +11,6 @@ type senderConfig struct {
 type sender struct {
 	buffer       []riblt.HashedSymbol[transaction]
 	*riblt.Encoder[transaction]
-	deg *degseq
-	salt *rand.Rand
 
 	// send window
 	sendWindow int
@@ -77,7 +74,6 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 			n.sendWindow = 1
 			n.inFlight = 0
 			n.Encoder.Reset()
-			n.deg.Reset()
 			// move buffer into block
 			for _, v := range n.buffer {
 				n.Encoder.AddHashedSymbol(v)
@@ -88,11 +84,7 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		}
 	}
 	if n.inFlight < n.sendWindow {
-		salt := n.salt.Uint64()
-		threshold := n.deg.NextThreshold()
-		cw.CodedSymbol = n.Encoder.ProduceCodedSymbol(salt, threshold)
-		cw.salt = salt
-		cw.threshold = threshold
+		cw.CodedSymbol = n.Encoder.ProduceNextCodedSymbol()
 		return cw, true
 	} else {
 		return cw, false
@@ -126,7 +118,7 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 		}
 		n.buffer = n.buffer[:0]
 	}
-	n.Decoder.AddCodedSymbol(cw.CodedSymbol, cw.salt, cw.threshold)
+	n.Decoder.AddCodedSymbol(cw.CodedSymbol)
 	n.Decoder.TryDecode()
 	n.currentBlockCount += 1
 	if n.Decoder.Decoded()  {
@@ -149,6 +141,6 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 }
 
 func (n *receiver) onTransaction(tx riblt.HashedSymbol[transaction]) {
-	n.Decoder.AddHashedSymbol(tx)
-	//n.buffer = append(n.buffer, tx)
+	//n.Decoder.AddHashedSymbol(tx)
+	n.buffer = append(n.buffer, tx)
 }

@@ -55,8 +55,6 @@ func (a *server) newHandler(disableSender bool) *handler {
 	return &handler{
 		sender: &sender{
 			Encoder: &riblt.Encoder[transaction]{},
-			salt: rand.New(rand.NewSource(0)),
-			deg: &degseq{},
 			senderConfig: a.senderConfig,
 			sendWindow: 1,	// otherwise tryFillSendWindow always returns
 			disabled: disableSender,
