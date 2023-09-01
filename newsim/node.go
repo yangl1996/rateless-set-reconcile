@@ -69,19 +69,18 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 	}
 	cw := codeword{}
 	if (!n.encodingCurrentBlock) {
-		if len(n.buffer) > 0 {
+		// NOTE: here we start the next block (shard) no matter whether there is content for that shard
+		// on sender's side. This is because the receiver might have content, which can then be transmitted
+		// to the sender. This opportunity is lost when the sender chooses not to initiate reconciliation.
+		//if len(n.buffer) > 0 {
 			// move to the next block
 			cw.newBlock = true
 			shardSize := ((1<<64) - 1) / uint64(len(n.shardSchedule))
 			cw.startHash = uint64(n.shardSchedule[n.nextShard]) * shardSize 
 			cw.endHash = uint64((n.shardSchedule[n.nextShard] + 1) % len(n.shardSchedule)) * shardSize
-			n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
-			n.encodingCurrentBlock = true
-			n.currentBlockAckCount = 0
-			n.sendWindow = 1
-			n.inFlight = 0
-			n.Encoder.Reset()
 			// move buffer into block
+		//	okay := false
+			n.Encoder.Reset()
 			tidx := 0
 			for tidx < len(n.buffer) {
 				v := n.buffer[tidx]
@@ -90,13 +89,22 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 					l := len(n.buffer)-1
 					n.buffer[tidx] = n.buffer[l]
 					n.buffer = n.buffer[:l]
+		//			okay = true
 				} else {
 					tidx += 1
 				}
 			}
-		} else {
-			return cw, false
-		}
+		//	if !okay {
+		//		return cw, false
+		//	}
+			n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
+			n.encodingCurrentBlock = true
+			n.currentBlockAckCount = 0
+			n.sendWindow = 1
+			n.inFlight = 0
+		//} else {
+		//	return cw, false
+		//}
 	}
 	if n.inFlight < n.sendWindow {
 		cw.CodedSymbol = n.Encoder.ProduceNextCodedSymbol()
