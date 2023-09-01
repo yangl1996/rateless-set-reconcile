@@ -21,6 +21,14 @@ type Simulator struct {
 	seq int
 }
 
+func (s *Simulator) EventsQueued() int {
+	return len(s.mq)
+}
+
+func (s *Simulator) EventsDelivered() int {
+	return s.seq - len(s.mq)
+}
+
 func (s *Simulator) Drained() bool {
 	return len(s.mq) == 0
 }

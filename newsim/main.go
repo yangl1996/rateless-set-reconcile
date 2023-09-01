@@ -20,7 +20,6 @@ func main() {
 	simDuration := flag.Duration("dur", 100*time.Second, "simulation duration")
 	warmupDuration := flag.Duration("w", 20*time.Second, "warm-up duration")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
-	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	topologyFile := flag.String("topo", "", "topology file")
 	numShards := flag.Int("s", 64, "number of shards to use")
 	flag.Parse()
@@ -50,9 +49,12 @@ func main() {
 	}
 	fmt.Println("#", N, "nodes, node 0 num peers", len(servers[0].handlers))
 
-	receivedCodewordRate := difference[int]{}
 	warmed := false
-	for cur := time.Duration(0); cur < *simDuration; cur += *reportInterval {
+	numEvents := 0
+	lastSimTime := time.Duration(0)
+	lastRealTime := time.Now()
+	reportInterval := time.Duration(1) * time.Second
+	for cur := time.Duration(0); cur < *simDuration; cur += reportInterval {
 		s.RunUntil(cur)
 		if cur > *warmupDuration {
 			if warmed == false {
@@ -60,12 +62,13 @@ func main() {
 				for _, s := range servers {
 					s.resetMetric()
 				}
-				receivedCodewordRate.record(servers[0].receivedCodewords)
-			} else {
-				receivedCodewordRate.record(servers[0].receivedCodewords)
-				fmt.Println(s.Time().Seconds(), float64(receivedCodewordRate.get()) / (*reportInterval).Seconds())
 			}
 		}
+
+		fmt.Printf("%.2fs %d queued %.2f ev/s sim %.2f ev/s real %.2fx speed up\n", s.Time().Seconds(), s.EventsQueued(), float64(s.EventsDelivered() - numEvents) / (s.Time()-lastSimTime).Seconds(), float64(s.EventsDelivered() - numEvents) / time.Now().Sub(lastRealTime).Seconds(), (s.Time()-lastSimTime).Seconds()/time.Now().Sub(lastRealTime).Seconds())
+		numEvents = s.EventsDelivered()
+		lastSimTime = s.Time()
+		lastRealTime = time.Now()
 	}
 
 	fmt.Println("# moments: mean, stddev, p5, p25, p50, p75, p95")
