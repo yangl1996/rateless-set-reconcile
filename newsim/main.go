@@ -7,19 +7,25 @@ import (
 	"time"
 	"github.com/aclements/go-moremath/stats"
 	"sort"
+	"math/rand"
 )
 
 var txgen = &transactionGenerator{}
+
+var RNG *rand.Rand
 
 func main() {
 	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
 	transactionRate := flag.Float64("txgen", 5, "per-node transaction generation per second")
 	simDuration := flag.Duration("dur", 100*time.Second, "simulation duration")
-	warmupDuration := flag.Duration("w", 20*time.Second, "warmup duration")
+	warmupDuration := flag.Duration("w", 20*time.Second, "warm-up duration")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	reportInterval := flag.Duration("r", 1*time.Second, "tracing interval")
 	topologyFile := flag.String("topo", "", "topology file")
+	numShards := flag.Int("s", 64, "number of shards to use")
 	flag.Parse()
+
+	RNG = rand.New(rand.NewSource(1))
 
 	config := serverConfig {
 		// Rate parameter for the block arrival interval distribution.
@@ -29,6 +35,7 @@ func main() {
 		blockArrivalBurst: *arrivalBurstSize,
 		senderConfig: senderConfig{
 			controlOverhead: *controlOverhead,
+			numShards: *numShards,
 		},
 	}
 

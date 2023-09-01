@@ -7,7 +7,8 @@ import (
 type codeword struct {
 	riblt.CodedSymbol[transaction]
 	newBlock bool
-	newBlockStartHash uint64
+	startHash uint64
+	endHash uint64
 }
 
 type ack struct {

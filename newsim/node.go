@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
-	"math/rand"
 )
 
 type senderConfig struct {
 	controlOverhead float64
+	numShards int
 }
 
 type sender struct {
@@ -25,7 +25,8 @@ type sender struct {
 	disabled bool
 
 	senderConfig
-	shardIndex *rand.Rand
+	shardSchedule []int
+	nextShard int
 }
 
 func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
@@ -71,8 +72,10 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		if len(n.buffer) > 0 {
 			// move to the next block
 			cw.newBlock = true
-			cw.newBlockStartHash = n.shardIndex.Uint64()
-			newBlockEndHash := cw.newBlockStartHash + (1<<58)
+			shardSize := ((1<<64) - 1) / uint64(len(n.shardSchedule))
+			cw.startHash = uint64(n.shardSchedule[n.nextShard]) * shardSize 
+			cw.endHash = uint64((n.shardSchedule[n.nextShard] + 1) % len(n.shardSchedule)) * shardSize
+			n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
 			n.encodingCurrentBlock = true
 			n.currentBlockAckCount = 0
 			n.sendWindow = 1
@@ -82,7 +85,7 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 			tidx := 0
 			for tidx < len(n.buffer) {
 				v := n.buffer[tidx]
-				if (cw.newBlockStartHash < newBlockEndHash && v.Hash >= cw.newBlockStartHash && v.Hash < newBlockEndHash) || (cw.newBlockStartHash >= newBlockEndHash && (v.Hash >= cw.newBlockStartHash || v.Hash < newBlockEndHash)) {
+				if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
 					n.Encoder.AddHashedSymbol(v)
 					l := len(n.buffer)-1
 					n.buffer[tidx] = n.buffer[l]
@@ -123,13 +126,11 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 	if cw.newBlock {
 		ack.ackStart = true
 		n.currentBlockReceived = false
-		//n.currentBlockSize = int(cw.Count()) + len(n.buffer)
 		n.currentBlockCount = 0
-		newBlockEndHash := cw.newBlockStartHash + (1<<58)
 		tidx := 0
 		for tidx < len(n.buffer) {
 			v := n.buffer[tidx]
-			if (cw.newBlockStartHash < newBlockEndHash && v.Hash >= cw.newBlockStartHash && v.Hash < newBlockEndHash) || (cw.newBlockStartHash >= newBlockEndHash && (v.Hash >= cw.newBlockStartHash || v.Hash < newBlockEndHash)) {
+			if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
 				n.Decoder.AddHashedSymbol(v)
 				l := len(n.buffer)-1
 				n.buffer[tidx] = n.buffer[l]
