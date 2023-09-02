@@ -8,11 +8,15 @@ import (
 	"github.com/aclements/go-moremath/stats"
 	"sort"
 	"math/rand"
+	"log"
+	"os"
 )
 
 var txgen = &transactionGenerator{}
 
 var RNG *rand.Rand
+
+var L = log.New(os.Stderr, "", 0)
 
 func main() {
 	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
@@ -65,7 +69,7 @@ func main() {
 			}
 		}
 
-		fmt.Printf("%.2fs %d queued %.2f ev/s sim %.2f ev/s real %.2fx speed up\n", s.Time().Seconds(), s.EventsQueued(), float64(s.EventsDelivered() - numEvents) / (s.Time()-lastSimTime).Seconds(), float64(s.EventsDelivered() - numEvents) / time.Now().Sub(lastRealTime).Seconds(), (s.Time()-lastSimTime).Seconds()/time.Now().Sub(lastRealTime).Seconds())
+		L.Printf("%.2fs %d queued %.2f ev/s sim %.2f ev/s real %.2fx speed up\n", s.Time().Seconds(), s.EventsQueued(), float64(s.EventsDelivered() - numEvents) / (s.Time()-lastSimTime).Seconds(), float64(s.EventsDelivered() - numEvents) / time.Now().Sub(lastRealTime).Seconds(), (s.Time()-lastSimTime).Seconds()/time.Now().Sub(lastRealTime).Seconds())
 		numEvents = s.EventsDelivered()
 		lastSimTime = s.Time()
 		lastRealTime = time.Now()

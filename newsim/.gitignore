@@ -3,3 +3,4 @@ newsim
 *.pdf
 *.csv
 !city-prop-delay.csv
+*.res
