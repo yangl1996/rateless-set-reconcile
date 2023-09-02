@@ -14,7 +14,7 @@ type sender struct {
 	*riblt.Encoder[transaction]
 
 	// send window
-	sendWindow int
+	sendWindow float64
 	inFlight   int
 	encodingCurrentBlock bool
 	currentBlockAckCount int
@@ -38,7 +38,7 @@ func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
 	}
 	n.currentBlockAckCount += 1
 	n.inFlight -= 1
-	n.sendWindow = int(float64(n.currentBlockAckCount) * n.controlOverhead)
+	n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
 	if n.sendWindow < 1 {
 		n.sendWindow = 1
 	}
@@ -106,7 +106,10 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		//	return cw, false
 		//}
 	}
-	if n.inFlight < n.sendWindow {
+	// NOTE: there is a big difference whether to turn inFlight into float
+	// or turn sendWindow to int. The former allows the second coded symbol
+	// to be sent much earlier than would be in the latter scheme.
+	if float64(n.inFlight) < n.sendWindow {
 		cw.CodedSymbol = n.Encoder.ProduceNextCodedSymbol()
 		return cw, true
 	} else {
