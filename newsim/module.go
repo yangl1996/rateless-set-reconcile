@@ -51,25 +51,23 @@ type server struct {
 	received map[uint64]struct{}
 }
 
-func (a *server) newHandler(disableSender bool) *handler {
-	return &handler{
-		sender: &sender{
-			Encoder: &riblt.Encoder[transaction]{},
-			senderConfig: a.senderConfig,
-			sendWindow: 1,	// otherwise tryFillSendWindow always returns
-			disabled: disableSender,
-			shardSchedule: RNG.Perm(a.senderConfig.numShards),
-		},
+func connectServers(a, b *server, delay time.Duration) {
+	a.handlers[b] = peer{&handler{
+        sender: &sender{
+            Encoder: &riblt.Encoder[transaction]{},
+            senderConfig: a.senderConfig,
+            sendWindow: 1,  // otherwise tryFillSendWindow always returns
+            shardSchedule: RNG.Perm(a.senderConfig.numShards),
+        },
+		receiver: nil,
+    }, delay}
+	a.peers = append(a.peers, b)
+	b.handlers[a] = peer{&handler{
+        sender: nil,
 		receiver: &receiver{
 			Decoder: &riblt.Decoder[transaction]{},
 		},
-	}
-}
-
-func connectServers(a, b *server, delay time.Duration) {
-	a.handlers[b] = peer{a.newHandler(false), delay}
-	a.peers = append(a.peers, b)
-	b.handlers[a] = peer{b.newHandler(true), delay}
+    }, delay}
 	b.peers = append(b.peers, a)
 }
 
@@ -93,14 +91,18 @@ func newServers(simulator *des.Simulator, n int, config serverConfig) []*server 
 func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.OutgoingMessage {
 	for _, peer := range s.peers {
 		handler := s.handlers[peer]
-		for _, msg := range handler.sender.outbox {
-			outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
+		if handler.sender != nil {
+			for _, msg := range handler.sender.outbox {
+				outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
+			}
+			handler.sender.outbox = handler.sender.outbox[:0]
 		}
-		handler.sender.outbox = handler.sender.outbox[:0]
-		for _, msg := range handler.receiver.outbox {
-			outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
+		if handler.receiver != nil {
+			for _, msg := range handler.receiver.outbox {
+				outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
+			}
+			handler.receiver.outbox = handler.receiver.outbox[:0]
 		}
-		handler.receiver.outbox = handler.receiver.outbox[:0]
 	}
 	return outbox
 }

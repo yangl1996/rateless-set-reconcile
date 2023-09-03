@@ -22,14 +22,15 @@ type sender struct {
 	// outgoing msgs
 	outbox []any
 
-	disabled bool
-
 	senderConfig
 	shardSchedule []int
 	nextShard int
 }
 
 func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
+	if n == nil {
+		return nil
+	}
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
 	}
@@ -47,11 +48,17 @@ func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
 }
 
 func (n *sender) onTransaction(tx riblt.HashedSymbol[transaction]) {
+	if n == nil {
+		return
+	}
 	n.buffer = append(n.buffer, tx)
 	n.tryFillSendWindow()
 }
 
 func (n *sender) tryFillSendWindow() {
+	if n == nil {
+		return
+	}
 	for {
 		cw, yes := n.tryProduceCodeword()
 		if !yes {
@@ -64,7 +71,7 @@ func (n *sender) tryFillSendWindow() {
 }
 
 func (n *sender) tryProduceCodeword() (codeword, bool) {
-	if n.disabled {
+	if n == nil {
 		return codeword{}, false
 	}
 	cw := codeword{}
@@ -130,6 +137,9 @@ type receiver struct {
 }
 
 func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], bool) {
+	if n == nil {
+		return nil, false
+	}
 	if n.currentBlockReceived && !cw.newBlock {
 		return nil, false
 	}
@@ -174,6 +184,9 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 }
 
 func (n *receiver) onTransaction(tx riblt.HashedSymbol[transaction]) {
+	if n == nil {
+		return 
+	}
 	//n.Decoder.AddHashedSymbol(tx)
 	n.buffer = append(n.buffer, tx)
 }
