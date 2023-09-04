@@ -21,10 +21,14 @@ type blockArrival struct {
 	n int
 }
 
-type plain struct {
-	payload transaction
+type response struct {
+	payload riblt.HashedSymbol[transaction]
 }
 
-type hash struct {
+type announce struct {
+	hash uint64
+}
+
+type request struct {
 	hash uint64
 }

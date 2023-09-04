@@ -26,6 +26,7 @@ func main() {
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
 	topologyFile := flag.String("topo", "", "topology file")
 	numShards := flag.Int("s", 64, "number of shards to use")
+	algorithm := flag.String("a", "coding", "algorithm to use, options are coding and pull")
 	flag.Parse()
 
 	RNG = rand.New(rand.NewSource(1))
@@ -49,7 +50,12 @@ func main() {
 		s.latencySketch = newDistributionSketch(*warmupDuration)
 	}
 	for _, conn := range topo {
-		connectCodingServers(servers[conn.a], servers[conn.b], conn.delay, senderConfig)
+		switch *algorithm {
+		case "coding":
+			connectCodingServers(servers[conn.a], servers[conn.b], conn.delay, senderConfig)
+		case"pull":
+			connectPullServers(servers[conn.a], servers[conn.b], conn.delay)
+		}
 	}
 	fmt.Println("#", N, "nodes, node 0 num peers", len(servers[0].handlers))
 
