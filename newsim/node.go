@@ -18,6 +18,7 @@ type sender struct {
 	inFlight   int
 	encodingCurrentBlock bool
 	currentBlockAckCount int
+	receivingCurrentBlock bool
 
 	// outgoing msgs
 	outbox []any
@@ -33,16 +34,21 @@ func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
 	}
 	if ack.ackBlock {
 		n.encodingCurrentBlock = false
+		n.receivingCurrentBlock = false
 	}
 	if ack.ackStart {
 		n.currentBlockAckCount = 0
+		n.receivingCurrentBlock = true
 	}
-	n.currentBlockAckCount += 1
-	n.inFlight -= 1
-	n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
-	if n.sendWindow < 1 {
-		n.sendWindow = 1
+	if n.receivingCurrentBlock {
+		n.currentBlockAckCount += 1
+		n.inFlight -= 1
+		n.sendWindow += n.controlOverhead
+		if n.sendWindow < 1 {
+			n.sendWindow = 1
+		}
 	}
+	//n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
 	n.tryFillSendWindow()
 	return ack.txs
 }
@@ -60,21 +66,28 @@ func (n *sender) tryFillSendWindow() {
 		return
 	}
 	for {
-		cw, yes := n.tryProduceCodeword()
+		cw, yes, burst := n.tryProduceCodeword()
 		if !yes {
 			return
 		}
 		n.outbox = append(n.outbox, cw)
 		n.inFlight += 1
+		for i := 0; i < burst; i++ {
+			cw := codeword{}
+			cw.CodedSymbol = n.Encoder.ProduceNextCodedSymbol()
+			n.outbox = append(n.outbox, cw)
+			n.inFlight += 1
+		}
 	}
 	return
 }
 
-func (n *sender) tryProduceCodeword() (codeword, bool) {
+func (n *sender) tryProduceCodeword() (codeword, bool, int) {
 	if n == nil {
-		return codeword{}, false
+		return codeword{}, false, 0
 	}
 	cw := codeword{}
+	burstSize := 0
 	if (!n.encodingCurrentBlock) {
 		// NOTE: here we start the next block (shard) no matter whether there is content for that shard
 		// on sender's side. This is because the receiver might have content, which can then be transmitted
@@ -104,10 +117,14 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 		//	if !okay {
 		//		return cw, false
 		//	}
+		burstSize = n.currentBlockAckCount * 2 / 3
 			n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
 			n.encodingCurrentBlock = true
+			n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
+			if n.sendWindow < 1 {
+				n.sendWindow = 1
+			}
 			n.currentBlockAckCount = 0
-			n.sendWindow = 1
 			n.inFlight = 0
 		//} else {
 		//	return cw, false
@@ -118,9 +135,9 @@ func (n *sender) tryProduceCodeword() (codeword, bool) {
 	// to be sent much earlier than would be in the latter scheme.
 	if float64(n.inFlight) < n.sendWindow {
 		cw.CodedSymbol = n.Encoder.ProduceNextCodedSymbol()
-		return cw, true
+		return cw, true, burstSize
 	} else {
-		return cw, false
+		return cw, false, burstSize
 	}
 }
 
