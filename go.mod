@@ -5,7 +5,6 @@ go 1.20
 require (
 	github.com/DataDog/sketches-go v1.4.1
 	github.com/aclements/go-moremath v0.0.0-20210112150236-f10218a38794
-	github.com/arberiii/random-regular-graphs v0.0.0-20200617090053-f7459570a34d
 	github.com/aws/aws-sdk-go v1.43.38
 	github.com/dchest/siphash v1.2.2
 	github.com/vultr/govultr v1.1.1
