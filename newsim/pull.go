@@ -35,19 +35,19 @@ func (c *pull) forwardTransaction(tx riblt.HashedSymbol[transaction]) {
 	c.outbox = append(c.outbox, announce{tx.Hash})
 }
 
-func (c *pull) handleMessage(msg any) (int, []riblt.HashedSymbol[transaction]) {
+func (c *pull) handleMessage(msg any) []riblt.HashedSymbol[transaction] {
 	switch m := msg.(type) {
 	case announce:
 		if _, there := c.known[m.hash]; !there {
 			c.outbox = append(c.outbox, request{m.hash})
 		}
-		return 0, nil
+		return nil
 	case request:
 		c.outbox = append(c.outbox, response{c.known[m.hash]})
-		return 0, nil
+		return nil
 	case response:
 		c.known[m.payload.Hash] = m.payload
-		return 1, []riblt.HashedSymbol[transaction]{m.payload}
+		return []riblt.HashedSymbol[transaction]{m.payload}
 	default:
 		panic("unknown message type")
 	}

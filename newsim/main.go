@@ -89,7 +89,7 @@ func main() {
 		return float64(srv.duplicateTransactions) / (s.Time() - *warmupDuration).Seconds()
 	}))
 	fmt.Println("# overhead", collectMoments(servers, func(s *server) float64 {
-		return float64(s.receivedCodewords) / float64(s.decodedTransactions)
+		return float64(s.receivedBytes) / float64(s.decodedTransactions) / TXSIZE
 	}))
 	fmt.Println("# latency p5", collectMoments(servers, func(s *server) float64 {
 		return s.latencySketch.getQuantiles([]float64{0.05})[0]

@@ -52,18 +52,18 @@ func (c coding) forwardTransaction(tx riblt.HashedSymbol[transaction]) {
 	c.receiver.onTransaction(tx)
 }
 
-func (c coding) handleMessage(msg any) (int, []riblt.HashedSymbol[transaction]) {
+func (c coding) handleMessage(msg any) []riblt.HashedSymbol[transaction] {
 	switch m := msg.(type) {
 	case codeword:
 		remote, decoded := c.onCodeword(m)
 		if decoded {
-			return 1, remote
+			return remote
 		} else {
-			return 1, nil
+			return nil
 		}
 	case ack:
 		decoded := c.onAck(m)
-		return len(decoded), decoded
+		return decoded
 	default:
 		panic("unknown message type")
 	}

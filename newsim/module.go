@@ -11,14 +11,14 @@ type serverMetric struct {
 	decodedTransactions   int
 	receivedTransactions  int
 	duplicateTransactions int
-	receivedCodewords     int
+	receivedBytes int
 }
 
 func (s *serverMetric) resetMetric() {
 	s.decodedTransactions = 0
 	s.receivedTransactions = 0
 	s.duplicateTransactions = 0
-	s.receivedCodewords = 0
+	s.receivedBytes = 0
 }
 
 type serverConfig struct {
@@ -29,7 +29,7 @@ type serverConfig struct {
 type algorithm interface {
 	collectOutgoingMessages(peer des.Module, delay time.Duration, outbox []des.OutgoingMessage) []des.OutgoingMessage
 	forwardTransaction(tx riblt.HashedSymbol[transaction])
-	handleMessage(msg any) (int, []riblt.HashedSymbol[transaction])
+	handleMessage(msg any) []riblt.HashedSymbol[transaction]
 }
 
 type peer struct {
@@ -99,7 +99,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
 	} else {
 		n := s.handlers[from]
-		size, decoded := n.handleMessage(payload)
+		decoded := n.handleMessage(payload)
 		for _, tx := range decoded {
 			if _, there := s.received[tx.Symbol.idx]; !there {
 				s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
@@ -111,7 +111,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 				s.duplicateTransactions += 1
 			}
 		}
-		s.receivedCodewords += size
+		s.receivedBytes += payload.(message).size()
 	}
 	outbox = s.collectOutgoingMessages(outbox)
 	return outbox
