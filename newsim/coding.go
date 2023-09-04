@@ -1,8 +1,73 @@
 package main
 
 import (
+	"github.com/yangl1996/rateless-set-reconcile/des"
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
+	"time"
 )
+
+func connectCodingServers(a, b *server, delay time.Duration, config senderConfig) {
+	a.handlers[b] = peer{coding{
+		sender: &sender{
+			Encoder:       &riblt.Encoder[transaction]{},
+			senderConfig:  config,
+			sendWindow:    1, // otherwise tryFillSendWindow always returns
+			shardSchedule: RNG.Perm(config.numShards),
+		},
+		receiver: nil,
+	}, delay}
+	a.peers = append(a.peers, b)
+	b.handlers[a] = peer{coding{
+		sender: nil,
+		receiver: &receiver{
+			Decoder: &riblt.Decoder[transaction]{},
+		},
+	}, delay}
+	b.peers = append(b.peers, a)
+}
+
+type coding struct {
+	*sender
+	*receiver
+}
+
+func (c coding) collectOutgoingMessages(peer des.Module, delay time.Duration, outbox []des.OutgoingMessage) []des.OutgoingMessage {
+	if c.sender != nil {
+		for _, msg := range c.sender.outbox {
+			outbox = append(outbox, des.OutgoingMessage{msg, peer, delay})
+		}
+		c.sender.outbox = c.sender.outbox[:0]
+	}
+	if c.receiver != nil {
+		for _, msg := range c.receiver.outbox {
+			outbox = append(outbox, des.OutgoingMessage{msg, peer, delay})
+		}
+		c.receiver.outbox = c.receiver.outbox[:0]
+	}
+	return outbox
+}
+
+func (c coding) forwardTransaction(tx riblt.HashedSymbol[transaction]) {
+	c.sender.onTransaction(tx)
+	c.receiver.onTransaction(tx)
+}
+
+func (c coding) handleMessage(msg any) (int, []riblt.HashedSymbol[transaction]) {
+	switch m := msg.(type) {
+	case codeword:
+		remote, decoded := c.onCodeword(m)
+		if decoded {
+			return 1, remote
+		} else {
+			return 1, nil
+		}
+	case ack:
+		decoded := c.onAck(m)
+		return len(decoded), decoded
+	default:
+		panic("unknown message type")
+	}
+}
 
 type senderConfig struct {
 	controlOverhead float64

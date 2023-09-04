@@ -20,3 +20,11 @@ type ack struct {
 type blockArrival struct {
 	n int
 }
+
+type plain struct {
+	payload transaction
+}
+
+type hash struct {
+	hash uint64
+}

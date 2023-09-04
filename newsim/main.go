@@ -30,26 +30,26 @@ func main() {
 
 	RNG = rand.New(rand.NewSource(1))
 
-	config := serverConfig{
+	serverConfig := serverConfig{
 		// Rate parameter for the block arrival interval distribution.
 		// Transactions arrive in bursts to simulate the burstiness in decoding
 		// (of transactions from other, unsimulated peers).
 		blockArrivalIntv:  *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
 		blockArrivalBurst: *arrivalBurstSize,
-		senderConfig: senderConfig{
-			controlOverhead: *controlOverhead,
-			numShards:       *numShards,
-		},
+	}
+	senderConfig := senderConfig{
+		controlOverhead: *controlOverhead,
+		numShards:       *numShards,
 	}
 
 	topo, N := loadTopology(*topologyFile)
 	s := &des.Simulator{}
-	servers := newServers(s, N, config)
+	servers := newServers(s, N, serverConfig)
 	for _, s := range servers {
 		s.latencySketch = newDistributionSketch(*warmupDuration)
 	}
 	for _, conn := range topo {
-		connectServers(servers[conn.a], servers[conn.b], conn.delay)
+		connectCodingServers(servers[conn.a], servers[conn.b], conn.delay, senderConfig)
 	}
 	fmt.Println("#", N, "nodes, node 0 num peers", len(servers[0].handlers))
 

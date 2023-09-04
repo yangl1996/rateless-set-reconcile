@@ -24,17 +24,16 @@ func (s *serverMetric) resetMetric() {
 type serverConfig struct {
 	blockArrivalIntv  float64
 	blockArrivalBurst int
-
-	senderConfig
 }
 
-type handler struct {
-	*sender
-	*receiver
+type algorithm interface {
+	collectOutgoingMessages(peer des.Module, delay time.Duration, outbox []des.OutgoingMessage) []des.OutgoingMessage
+	forwardTransaction(tx riblt.HashedSymbol[transaction])
+	handleMessage(msg any) (int, []riblt.HashedSymbol[transaction])
 }
 
 type peer struct {
-	*handler
+	algorithm
 	delay time.Duration
 }
 
@@ -49,26 +48,6 @@ type server struct {
 	serverMetric
 
 	received map[uint64]struct{}
-}
-
-func connectServers(a, b *server, delay time.Duration) {
-	a.handlers[b] = peer{&handler{
-		sender: &sender{
-			Encoder:       &riblt.Encoder[transaction]{},
-			senderConfig:  a.senderConfig,
-			sendWindow:    1, // otherwise tryFillSendWindow always returns
-			shardSchedule: RNG.Perm(a.senderConfig.numShards),
-		},
-		receiver: nil,
-	}, delay}
-	a.peers = append(a.peers, b)
-	b.handlers[a] = peer{&handler{
-		sender: nil,
-		receiver: &receiver{
-			Decoder: &riblt.Decoder[transaction]{},
-		},
-	}, delay}
-	b.peers = append(b.peers, a)
 }
 
 func newServers(simulator *des.Simulator, n int, config serverConfig) []*server {
@@ -91,18 +70,7 @@ func newServers(simulator *des.Simulator, n int, config serverConfig) []*server 
 func (s *server) collectOutgoingMessages(outbox []des.OutgoingMessage) []des.OutgoingMessage {
 	for _, peer := range s.peers {
 		handler := s.handlers[peer]
-		if handler.sender != nil {
-			for _, msg := range handler.sender.outbox {
-				outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
-			}
-			handler.sender.outbox = handler.sender.outbox[:0]
-		}
-		if handler.receiver != nil {
-			for _, msg := range handler.receiver.outbox {
-				outbox = append(outbox, des.OutgoingMessage{msg, peer, handler.delay})
-			}
-			handler.receiver.outbox = handler.receiver.outbox[:0]
-		}
+		outbox = handler.collectOutgoingMessages(peer, handler.delay, outbox)
 	}
 	return outbox
 }
@@ -111,8 +79,7 @@ func (s *server) forwardTransaction(tx riblt.HashedSymbol[transaction], exclude 
 	for _, peer := range s.peers {
 		handler := s.handlers[peer]
 		if peer != exclude {
-			handler.sender.onTransaction(tx)
-			handler.receiver.onTransaction(tx)
+			handler.forwardTransaction(tx)
 		}
 	}
 }
@@ -132,40 +99,19 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
 	} else {
 		n := s.handlers[from]
-		switch m := payload.(type) {
-		case codeword:
-			remote, decoded := n.onCodeword(m)
-			if decoded {
-				for _, tx := range remote {
-					if _, there := s.received[tx.Symbol.idx]; !there {
-						s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
-						s.forwardTransaction(tx, from)
-						s.received[tx.Symbol.idx] = struct{}{}
-						s.decodedTransactions += 1
-						s.receivedTransactions += 1
-					} else {
-						s.duplicateTransactions += 1
-					}
-				}
+		size, decoded := n.handleMessage(payload)
+		for _, tx := range decoded {
+			if _, there := s.received[tx.Symbol.idx]; !there {
+				s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
+				s.forwardTransaction(tx, from)
+				s.received[tx.Symbol.idx] = struct{}{}
+				s.decodedTransactions += 1
+				s.receivedTransactions += 1
+			} else {
+				s.duplicateTransactions += 1
 			}
-			s.receivedCodewords += 1
-		case ack:
-			remote := n.onAck(m)
-			for _, tx := range remote {
-				s.receivedCodewords += 1
-				if _, there := s.received[tx.Symbol.idx]; !there {
-					s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
-					s.forwardTransaction(tx, from)
-					s.received[tx.Symbol.idx] = struct{}{}
-					s.decodedTransactions += 1
-					s.receivedTransactions += 1
-				} else {
-					s.duplicateTransactions += 1
-				}
-			}
-		default:
-			panic("unknown message type")
 		}
+		s.receivedCodewords += size
 	}
 	outbox = s.collectOutgoingMessages(outbox)
 	return outbox
