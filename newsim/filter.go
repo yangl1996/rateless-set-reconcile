@@ -35,4 +35,3 @@ func (d *difference[T]) get() T {
 	d.lastRead = d.current
 	return diff
 }
-

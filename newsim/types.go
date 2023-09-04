@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/binary"
 	"github.com/DataDog/sketches-go/ddsketch"
-	"time"
 	"github.com/dchest/siphash"
 	"math"
+	"time"
 )
 
 type degseq struct {
@@ -28,7 +28,7 @@ func (t *degseq) NextThreshold() uint64 {
 
 type transaction struct {
 	idx uint64
-	ts time.Duration
+	ts  time.Duration
 }
 
 func (d transaction) XOR(t2 transaction) transaction {

@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/yangl1996/rateless-set-reconcile/des"
-	"time"
 	"github.com/aclements/go-moremath/stats"
-	"sort"
-	"math/rand"
+	"github.com/yangl1996/rateless-set-reconcile/des"
 	"log"
+	"math/rand"
 	"os"
+	"sort"
+	"time"
 )
 
 var txgen = &transactionGenerator{}
@@ -30,15 +30,15 @@ func main() {
 
 	RNG = rand.New(rand.NewSource(1))
 
-	config := serverConfig {
+	config := serverConfig{
 		// Rate parameter for the block arrival interval distribution.
 		// Transactions arrive in bursts to simulate the burstiness in decoding
 		// (of transactions from other, unsimulated peers).
-		blockArrivalIntv: *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
+		blockArrivalIntv:  *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
 		blockArrivalBurst: *arrivalBurstSize,
 		senderConfig: senderConfig{
 			controlOverhead: *controlOverhead,
-			numShards: *numShards,
+			numShards:       *numShards,
 		},
 	}
 
@@ -69,7 +69,7 @@ func main() {
 			}
 		}
 
-		L.Printf("%.2fs %d queued %.2f ev/s sim %.2f ev/s real %.2fx speed up\n", s.Time().Seconds(), s.EventsQueued(), float64(s.EventsDelivered() - numEvents) / (s.Time()-lastSimTime).Seconds(), float64(s.EventsDelivered() - numEvents) / time.Now().Sub(lastRealTime).Seconds(), (s.Time()-lastSimTime).Seconds()/time.Now().Sub(lastRealTime).Seconds())
+		L.Printf("%.2fs %d queued %.2f ev/s sim %.2f ev/s real %.2fx speed up\n", s.Time().Seconds(), s.EventsQueued(), float64(s.EventsDelivered()-numEvents)/(s.Time()-lastSimTime).Seconds(), float64(s.EventsDelivered()-numEvents)/time.Now().Sub(lastRealTime).Seconds(), (s.Time()-lastSimTime).Seconds()/time.Now().Sub(lastRealTime).Seconds())
 		numEvents = s.EventsDelivered()
 		lastSimTime = s.Time()
 		lastRealTime = time.Now()

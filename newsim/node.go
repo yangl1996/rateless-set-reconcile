@@ -6,18 +6,18 @@ import (
 
 type senderConfig struct {
 	controlOverhead float64
-	numShards int
+	numShards       int
 }
 
 type sender struct {
-	buffer       []riblt.HashedSymbol[transaction]
+	buffer []riblt.HashedSymbol[transaction]
 	*riblt.Encoder[transaction]
 
 	// send window
-	sendWindow float64
-	inFlight   int
-	encodingCurrentBlock bool
-	currentBlockAckCount int
+	sendWindow            float64
+	inFlight              int
+	encodingCurrentBlock  bool
+	currentBlockAckCount  int
 	receivingCurrentBlock bool
 
 	// outgoing msgs
@@ -25,7 +25,7 @@ type sender struct {
 
 	senderConfig
 	shardSchedule []int
-	nextShard int
+	nextShard     int
 }
 
 func (n *sender) onAck(ack ack) []riblt.HashedSymbol[transaction] {
@@ -88,44 +88,44 @@ func (n *sender) tryProduceCodeword() (codeword, bool, int) {
 	}
 	cw := codeword{}
 	burstSize := 0
-	if (!n.encodingCurrentBlock) {
+	if !n.encodingCurrentBlock {
 		// NOTE: here we start the next block (shard) no matter whether there is content for that shard
 		// on sender's side. This is because the receiver might have content, which can then be transmitted
 		// to the sender. This opportunity is lost when the sender chooses not to initiate reconciliation.
 		//if len(n.buffer) > 0 {
-			// move to the next block
-			cw.newBlock = true
-			shardSize := ((1<<64) - 1) / uint64(len(n.shardSchedule))
-			cw.startHash = uint64(n.shardSchedule[n.nextShard]) * shardSize 
-			cw.endHash = uint64((n.shardSchedule[n.nextShard] + 1) % len(n.shardSchedule)) * shardSize
-			// move buffer into block
+		// move to the next block
+		cw.newBlock = true
+		shardSize := ((1 << 64) - 1) / uint64(len(n.shardSchedule))
+		cw.startHash = uint64(n.shardSchedule[n.nextShard]) * shardSize
+		cw.endHash = uint64((n.shardSchedule[n.nextShard]+1)%len(n.shardSchedule)) * shardSize
+		// move buffer into block
 		//	okay := false
-			n.Encoder.Reset()
-			tidx := 0
-			for tidx < len(n.buffer) {
-				v := n.buffer[tidx]
-				if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
-					n.Encoder.AddHashedSymbol(v)
-					l := len(n.buffer)-1
-					n.buffer[tidx] = n.buffer[l]
-					n.buffer = n.buffer[:l]
-		//			okay = true
-				} else {
-					tidx += 1
-				}
+		n.Encoder.Reset()
+		tidx := 0
+		for tidx < len(n.buffer) {
+			v := n.buffer[tidx]
+			if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
+				n.Encoder.AddHashedSymbol(v)
+				l := len(n.buffer) - 1
+				n.buffer[tidx] = n.buffer[l]
+				n.buffer = n.buffer[:l]
+				//			okay = true
+			} else {
+				tidx += 1
 			}
+		}
 		//	if !okay {
 		//		return cw, false
 		//	}
 		burstSize = n.currentBlockAckCount * 2 / 3
-			n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
-			n.encodingCurrentBlock = true
-			n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
-			if n.sendWindow < 1 {
-				n.sendWindow = 1
-			}
-			n.currentBlockAckCount = 0
-			n.inFlight = 0
+		n.nextShard = (n.nextShard + 1) % len(n.shardSchedule)
+		n.encodingCurrentBlock = true
+		n.sendWindow = float64(n.currentBlockAckCount) * n.controlOverhead
+		if n.sendWindow < 1 {
+			n.sendWindow = 1
+		}
+		n.currentBlockAckCount = 0
+		n.inFlight = 0
 		//} else {
 		//	return cw, false
 		//}
@@ -143,11 +143,11 @@ func (n *sender) tryProduceCodeword() (codeword, bool, int) {
 
 type receiver struct {
 	*riblt.Decoder[transaction]
-	buffer       []riblt.HashedSymbol[transaction]
+	buffer []riblt.HashedSymbol[transaction]
 
 	currentBlockReceived bool
-	currentBlockSize int
-	currentBlockCount int
+	currentBlockSize     int
+	currentBlockCount    int
 
 	// outgoing msgs
 	outbox []any
@@ -170,7 +170,7 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 			v := n.buffer[tidx]
 			if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
 				n.Decoder.AddHashedSymbol(v)
-				l := len(n.buffer)-1
+				l := len(n.buffer) - 1
 				n.buffer[tidx] = n.buffer[l]
 				n.buffer = n.buffer[:l]
 			} else {
@@ -181,7 +181,7 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 	n.Decoder.AddCodedSymbol(cw.CodedSymbol)
 	n.Decoder.TryDecode()
 	n.currentBlockCount += 1
-	if n.Decoder.Decoded()  {
+	if n.Decoder.Decoded() {
 		n.currentBlockReceived = true
 		ack.ackBlock = true
 		for _, tx := range n.Local() {
@@ -202,7 +202,7 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 
 func (n *receiver) onTransaction(tx riblt.HashedSymbol[transaction]) {
 	if n == nil {
-		return 
+		return
 	}
 	//n.Decoder.AddHashedSymbol(tx)
 	n.buffer = append(n.buffer, tx)

@@ -6,18 +6,17 @@ import (
 
 type codeword struct {
 	riblt.CodedSymbol[transaction]
-	newBlock bool
+	newBlock  bool
 	startHash uint64
-	endHash uint64
+	endHash   uint64
 }
 
 type ack struct {
 	ackBlock bool
 	ackStart bool
-	txs []riblt.HashedSymbol[transaction]
+	txs      []riblt.HashedSymbol[transaction]
 }
 
 type blockArrival struct {
 	n int
 }
-

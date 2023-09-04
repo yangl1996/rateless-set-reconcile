@@ -1,17 +1,17 @@
 package main
 
 import (
-	"github.com/yangl1996/rateless-set-reconcile/riblt"
 	"github.com/yangl1996/rateless-set-reconcile/des"
+	"github.com/yangl1996/rateless-set-reconcile/riblt"
 	"math/rand"
 	"time"
 )
 
 type serverMetric struct {
-	decodedTransactions int
-	receivedTransactions int
+	decodedTransactions   int
+	receivedTransactions  int
 	duplicateTransactions int
-	receivedCodewords    int
+	receivedCodewords     int
 }
 
 func (s *serverMetric) resetMetric() {
@@ -22,7 +22,7 @@ func (s *serverMetric) resetMetric() {
 }
 
 type serverConfig struct {
-	blockArrivalIntv float64
+	blockArrivalIntv  float64
 	blockArrivalBurst int
 
 	senderConfig
@@ -40,8 +40,8 @@ type peer struct {
 
 type server struct {
 	handlers map[des.Module]peer
-	peers []des.Module
-	rng *rand.Rand
+	peers    []des.Module
+	rng      *rand.Rand
 
 	serverConfig
 
@@ -53,32 +53,32 @@ type server struct {
 
 func connectServers(a, b *server, delay time.Duration) {
 	a.handlers[b] = peer{&handler{
-        sender: &sender{
-            Encoder: &riblt.Encoder[transaction]{},
-            senderConfig: a.senderConfig,
-            sendWindow: 1,  // otherwise tryFillSendWindow always returns
-            shardSchedule: RNG.Perm(a.senderConfig.numShards),
-        },
+		sender: &sender{
+			Encoder:       &riblt.Encoder[transaction]{},
+			senderConfig:  a.senderConfig,
+			sendWindow:    1, // otherwise tryFillSendWindow always returns
+			shardSchedule: RNG.Perm(a.senderConfig.numShards),
+		},
 		receiver: nil,
-    }, delay}
+	}, delay}
 	a.peers = append(a.peers, b)
 	b.handlers[a] = peer{&handler{
-        sender: nil,
+		sender: nil,
 		receiver: &receiver{
 			Decoder: &riblt.Decoder[transaction]{},
 		},
-    }, delay}
+	}, delay}
 	b.peers = append(b.peers, a)
 }
 
 func newServers(simulator *des.Simulator, n int, config serverConfig) []*server {
 	res := []*server{}
 	for i := 0; i < n; i++ {
-		s := &server {
-			handlers: make(map[des.Module]peer),
+		s := &server{
+			handlers:     make(map[des.Module]peer),
 			serverConfig: config,
-			rng: rand.New(rand.NewSource(int64(i))),
-			received: make(map[uint64]struct{}),
+			rng:          rand.New(rand.NewSource(int64(i))),
+			received:     make(map[uint64]struct{}),
 		}
 		intv := time.Duration(s.rng.ExpFloat64() / s.blockArrivalIntv)
 		newBa := blockArrival{s.blockArrivalBurst}
@@ -170,4 +170,3 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 	outbox = s.collectOutgoingMessages(outbox)
 	return outbox
 }
-

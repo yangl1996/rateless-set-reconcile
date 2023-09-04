@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"time"
-	"os"
 	"bufio"
+	"fmt"
+	"os"
+	"time"
 )
 
 type connection struct {
-	a int
-	b int
+	a     int
+	b     int
 	delay time.Duration
 }
 
@@ -42,5 +42,5 @@ func loadTopology(path string) ([]connection, int) {
 	if err := s.Err(); err != nil {
 		panic(err)
 	}
-	return res, maxIdx+1
+	return res, maxIdx + 1
 }
