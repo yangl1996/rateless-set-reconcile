@@ -15,7 +15,7 @@ type codeword struct {
 	endHash   uint64
 }
 
-const TXSIZE = 256
+var TXSIZE int
 
 func (c codeword) size() int {
 	return 8 + TXSIZE + 8 + 8

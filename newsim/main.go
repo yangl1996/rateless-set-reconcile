@@ -21,6 +21,7 @@ var L = log.New(os.Stderr, "", 0)
 func main() {
 	arrivalBurstSize := flag.Int("b", 1, "transaction arrival burst size")
 	transactionRate := flag.Float64("txgen", 5, "per-node transaction generation per second")
+	transactionSize := flag.Int("txsize", 256, "transaction size for overhead accounting")
 	simDuration := flag.Duration("dur", 100*time.Second, "simulation duration")
 	warmupDuration := flag.Duration("w", 20*time.Second, "warm-up duration")
 	controlOverhead := flag.Float64("c", 0.10, "control overhead (ratio between the max number of codewords sent after a block is decoded and the block size)")
@@ -29,6 +30,7 @@ func main() {
 	algorithm := flag.String("a", "coding", "algorithm to use, options are coding and pull")
 	flag.Parse()
 
+	TXSIZE = *transactionSize
 	RNG = rand.New(rand.NewSource(1))
 
 	serverConfig := serverConfig{
@@ -89,7 +91,7 @@ func main() {
 		return float64(srv.duplicateTransactions) / (s.Time() - *warmupDuration).Seconds()
 	}))
 	fmt.Println("# overhead", collectMoments(servers, func(s *server) float64 {
-		return float64(s.receivedBytes) / float64(s.decodedTransactions) / TXSIZE
+		return float64(s.receivedBytes) / float64(s.decodedTransactions) / float64(TXSIZE)
 	}))
 	fmt.Println("# latency p5", collectMoments(servers, func(s *server) float64 {
 		return s.latencySketch.getQuantiles([]float64{0.05})[0]
