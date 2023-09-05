@@ -62,3 +62,11 @@ type request struct {
 func (r request) size() int {
 	return 32
 }
+
+type initialBroadcast struct {
+	payload riblt.HashedSymbol[transaction]
+}
+
+func (i initialBroadcast) size() int {
+	return TXSIZE
+}

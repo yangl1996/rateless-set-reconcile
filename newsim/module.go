@@ -89,7 +89,10 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 	if ba, isBa := payload.(blockArrival); isBa {
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
-			s.forwardTransaction(riblt.HashedSymbol[transaction]{tx, tx.Hash()}, nil)
+			hashed := riblt.HashedSymbol[transaction]{tx, tx.Hash()}
+			for _, peer := range s.peers {
+				outbox = append(outbox, des.OutgoingMessage{initialBroadcast{hashed}, peer, s.handlers[peer].delay})
+			}
 			s.received[tx.idx] = struct{}{}
 			s.receivedTransactions += 1
 		}
@@ -98,9 +101,8 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 		newBa := blockArrival{s.blockArrivalBurst}
 		outbox = append(outbox, des.OutgoingMessage{newBa, nil, intv})
 	} else {
-		n := s.handlers[from]
-		decoded := n.handleMessage(payload)
-		for _, tx := range decoded {
+		if ib, isIb := payload.(initialBroadcast); isIb {
+			tx := ib.payload
 			if _, there := s.received[tx.Symbol.idx]; !there {
 				s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
 				s.forwardTransaction(tx, from)
@@ -108,7 +110,21 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 				s.decodedTransactions += 1
 				s.receivedTransactions += 1
 			} else {
-				s.duplicateTransactions += 1
+				panic("receiving duplicate tx in initial broadcast")
+			}
+		} else {
+			n := s.handlers[from]
+			decoded := n.handleMessage(payload)
+			for _, tx := range decoded {
+				if _, there := s.received[tx.Symbol.idx]; !there {
+					s.latencySketch.recordTxLatency(tx.Symbol, timestamp)
+					s.forwardTransaction(tx, from)
+					s.received[tx.Symbol.idx] = struct{}{}
+					s.decodedTransactions += 1
+					s.receivedTransactions += 1
+				} else {
+					s.duplicateTransactions += 1
+				}
 			}
 		}
 		s.receivedBytes += payload.(message).size()
