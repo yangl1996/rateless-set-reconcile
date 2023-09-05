@@ -7,12 +7,14 @@ import (
 )
 
 func connectCodingServers(a, b *server, delay time.Duration, config senderConfig) {
+	randomizer := RNG.Uint64()
 	a.handlers[b] = peer{coding{
 		sender: &sender{
 			Encoder:       &riblt.Encoder[transaction]{},
 			senderConfig:  config,
 			sendWindow:    1, // otherwise tryFillSendWindow always returns
 			shardSchedule: RNG.Perm(config.numShards),
+			shardRandomizer: randomizer,
 		},
 		receiver: nil,
 	}, delay}
@@ -21,6 +23,7 @@ func connectCodingServers(a, b *server, delay time.Duration, config senderConfig
 		sender: nil,
 		receiver: &receiver{
 			Decoder: &riblt.Decoder[transaction]{},
+			shardRandomizer: randomizer,
 		},
 	}, delay}
 	b.peers = append(b.peers, a)
@@ -90,6 +93,7 @@ type sender struct {
 
 	senderConfig
 	shardSchedule []int
+	shardRandomizer uint64
 	nextShard     int
 }
 
@@ -169,7 +173,8 @@ func (n *sender) tryProduceCodeword() (codeword, bool, int) {
 		tidx := 0
 		for tidx < len(n.buffer) {
 			v := n.buffer[tidx]
-			if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
+			shardHash := v.Hash * n.shardRandomizer
+			if (cw.startHash < cw.endHash && shardHash >= cw.startHash && shardHash < cw.endHash) || (cw.startHash >= cw.endHash && (shardHash >= cw.startHash || shardHash < cw.endHash)) {
 				n.Encoder.AddHashedSymbol(v)
 				l := len(n.buffer) - 1
 				n.buffer[tidx] = n.buffer[l]
@@ -213,6 +218,7 @@ type receiver struct {
 	currentBlockReceived bool
 	currentBlockSize     int
 	currentBlockCount    int
+	shardRandomizer uint64
 
 	// outgoing msgs
 	outbox []any
@@ -233,7 +239,8 @@ func (n *receiver) onCodeword(cw codeword) ([]riblt.HashedSymbol[transaction], b
 		tidx := 0
 		for tidx < len(n.buffer) {
 			v := n.buffer[tidx]
-			if (cw.startHash < cw.endHash && v.Hash >= cw.startHash && v.Hash < cw.endHash) || (cw.startHash >= cw.endHash && (v.Hash >= cw.startHash || v.Hash < cw.endHash)) {
+			shardHash := v.Hash * n.shardRandomizer
+			if (cw.startHash < cw.endHash && shardHash >= cw.startHash && shardHash < cw.endHash) || (cw.startHash >= cw.endHash && (shardHash >= cw.startHash || shardHash < cw.endHash)) {
 				n.Decoder.AddHashedSymbol(v)
 				l := len(n.buffer) - 1
 				n.buffer[tidx] = n.buffer[l]
