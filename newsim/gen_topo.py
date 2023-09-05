@@ -45,6 +45,8 @@ for a, b in graph.edges():
         dst = a
     if src in latency and dst in latency[src]:
         l = int(latency[src][dst])
+        if l < 1:
+            l = 1
     else:
         l = 80
     print(edgeTemplate.format(node1=a, node2=b, delay=l))
