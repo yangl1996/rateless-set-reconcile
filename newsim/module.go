@@ -115,7 +115,7 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 				s.decodedTransactions += 1
 				s.receivedTransactions += 1
 			} else {
-				panic("receiving duplicate tx in initial broadcast")
+				s.duplicateTransactions += 1
 			}
 		} else {
 			n := s.handlers[from]
