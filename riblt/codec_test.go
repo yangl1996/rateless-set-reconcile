@@ -103,15 +103,19 @@ func TestEncodeAndDecode(t *testing.T) {
 }
 
 func BenchmarkEncoding(b *testing.B) {
-	enc := Encoder[*testSymbol]{}
-    b.ResetTimer()
-	n := uint64(10000)
+	n := 10000
 	m := 15000
+	enc := Encoder[*testSymbol]{}
+	data := []*testSymbol{}
+	for j := 0; j < n; j++ {
+		s := newTestSymbol(uint64(j))
+		data = append(data, s)
+	}
+    b.ResetTimer()
     for i := 0; i < b.N; i++ {
 		enc.Reset()
-		for j := uint64(0); j < n; j++ {
-			s := newTestSymbol(j)
-			enc.AddSymbol(s)
+		for j := 0; j < n; j++ {
+			enc.AddSymbol(data[j])
 		}
 		for j := 0; j < m; j++ {
 			enc.ProduceNextCodedSymbol()
