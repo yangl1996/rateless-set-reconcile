@@ -28,6 +28,7 @@ func main() {
 	topologyFile := flag.String("topo", "", "topology file")
 	numShards := flag.Int("s", 64, "number of shards to use")
 	algorithm := flag.String("a", "coding", "algorithm to use, options are coding and pull")
+	initialFlood := flag.Bool("flood", false, "flood the transaction for the first hop")
 	flag.Parse()
 
 	TXSIZE = *transactionSize
@@ -39,6 +40,7 @@ func main() {
 		// (of transactions from other, unsimulated peers).
 		blockArrivalIntv:  *transactionRate / float64(*arrivalBurstSize) / float64(time.Second),
 		blockArrivalBurst: *arrivalBurstSize,
+		initialFlood: *initialFlood,
 	}
 	senderConfig := senderConfig{
 		controlOverhead: *controlOverhead,

@@ -24,6 +24,7 @@ func (s *serverMetric) resetMetric() {
 type serverConfig struct {
 	blockArrivalIntv  float64
 	blockArrivalBurst int
+	initialFlood bool
 }
 
 type algorithm interface {
@@ -89,9 +90,13 @@ func (s *server) HandleMessage(payload any, from des.Module, timestamp time.Dura
 	if ba, isBa := payload.(blockArrival); isBa {
 		for i := 0; i < ba.n; i++ {
 			tx := txgen.generate(timestamp)
-			hashed := riblt.HashedSymbol[transaction]{tx, tx.Hash()}
-			for _, peer := range s.peers {
-				outbox = append(outbox, des.OutgoingMessage{initialBroadcast{hashed}, peer, s.handlers[peer].delay})
+			if s.initialFlood {
+				hashed := riblt.HashedSymbol[transaction]{tx, tx.Hash()}
+				for _, peer := range s.peers {
+					outbox = append(outbox, des.OutgoingMessage{initialBroadcast{hashed}, peer, s.handlers[peer].delay})
+				}
+			} else {
+				s.forwardTransaction(riblt.HashedSymbol[transaction]{tx, tx.Hash()}, nil)
 			}
 			s.received[tx.idx] = struct{}{}
 			s.receivedTransactions += 1
