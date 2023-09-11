@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-const testSymbolSize = 256
+const testSymbolSize = 4
 
 type testSymbol [testSymbolSize]byte
 
@@ -30,7 +30,7 @@ func testSymbols(n int) []testSymbol {
 	fmt.Println("allocating memory")
 	data := make([]testSymbol, n)
 	for i := 0; i < n; i++ {
-		binary.LittleEndian.PutUint64(data[i][0:8], uint64(i))
+		binary.LittleEndian.PutUint32(data[i][0:4], uint32(i))
 		if i % 10000 == 0 {
 			fmt.Println(i, "symbols created")
 		}
@@ -43,7 +43,8 @@ func main() {
 	dec := riblt.Decoder[*testSymbol]{}
 
 	nlocal := 0
-	nremote := 384010
+	//nremote := 384010
+	nremote := 200
 	//ncommon := 240000000
 	ncommon := 0
 
