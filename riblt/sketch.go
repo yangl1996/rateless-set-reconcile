@@ -5,7 +5,10 @@ type Sketch[T Symbol[T]] []CodedSymbol[T]
 func (s Sketch[T]) AddHashedSymbol(t HashedSymbol[T]) {
 	m := randomMapping{t.Hash, 0}
 	for int(m.lastIdx) < len(s) {
-		s[m.lastIdx] = s[m.lastIdx].apply(t, add)
+		idx := m.lastIdx
+		s[idx].sum = s[idx].sum.XOR(t.Symbol)
+		s[idx].count += 1
+		s[idx].checksum ^= t.Hash
 		m.nextIndex()
 	}
 }

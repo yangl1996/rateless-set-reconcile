@@ -1,0 +1,44 @@
+diff --git a/benchmark/main.go b/benchmark/main.go
+index 77bf005..2469bb5 100644
+--- a/benchmark/main.go
++++ b/benchmark/main.go
+@@ -8,6 +8,8 @@ import (
+ 	"fmt"
+ 	"flag"
+ 	"unsafe"
++	"runtime/pprof"
++	"os"
+ )
+ 
+ const testSymbolSize = 8
+@@ -93,11 +95,19 @@ func main() {
+ 
+ 	var encDur, decDur time.Duration
+ 	var codewords riblt.Sketch[testSymbol] 
++	profiled := false
+ 	for testIdx := 0; testIdx < *test; testIdx++ {
+ 		codewords = make([]riblt.CodedSymbol[testSymbol], ncw)
+ 
+ 		nextId := 0
+ 		start := time.Now()
++		if !profiled {
++			f, err := os.Create("cpu.pprof")
++			if err != nil {
++				panic(err)
++			}
++			pprof.StartCPUProfile(f)
++		}
+ 		for i := 0; i < nremote; i++ {
+ 			codewords.AddHashedSymbol(hashedData[nextId])
+ 			nextId += 1
+@@ -106,6 +116,10 @@ func main() {
+ 			codewords.AddHashedSymbol(hashedData[nextId])
+ 			nextId += 1
+ 		}
++		if !profiled {
++			pprof.StopCPUProfile()
++			profiled = true
++		}
+ 		dur := time.Now().Sub(start)
+ 		encDur += dur
+ 	}
