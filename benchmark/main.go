@@ -34,6 +34,14 @@ func testSymbols(n int) []testSymbol {
 	return data
 }
 
+func hashSymbols(in []testSymbol) []riblt.HashedSymbol[testSymbol] {
+	res := []riblt.HashedSymbol[testSymbol]{}
+	for _, v := range in {
+		res = append(res, riblt.HashedSymbol[testSymbol]{v, v.Hash()})
+	}
+	return res
+}
+
 func main() {
 	diff := flag.Int("d", 0, "number of differences")
 	set := flag.Int("s", 0, "size of set")
@@ -50,6 +58,7 @@ func main() {
 
 	fmt.Println("preparing data")
 	data := testSymbols(nlocal + nremote + ncommon)
+	hashedData := hashSymbols(data)
 
 	fmt.Println("determining number of symbols to generate")
 	ncw := 0
@@ -58,16 +67,16 @@ func main() {
 		dec := riblt.Decoder[testSymbol]{}
 		nextId := 0
 		for i := 0; i < nlocal; i++ {
-			dec.AddSymbol(data[nextId])
+			dec.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 		for i := 0; i < nremote; i++ {
-			enc.AddSymbol(data[nextId])
+			enc.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 		for i := 0; i < ncommon; i++ {
-			enc.AddSymbol(data[nextId])
-			dec.AddSymbol(data[nextId])
+			enc.AddHashedSymbol(hashedData[nextId])
+			dec.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 
@@ -83,21 +92,19 @@ func main() {
 	fmt.Println("running")
 
 	var encDur, decDur time.Duration
+	var codewords riblt.Sketch[testSymbol] 
 	for testIdx := 0; testIdx < *test; testIdx++ {
-		enc := riblt.Encoder[testSymbol]{}
+		codewords = make([]riblt.CodedSymbol[testSymbol], ncw)
+
 		nextId := 0
+		start := time.Now()
 		for i := 0; i < nremote; i++ {
-			enc.AddSymbol(data[nextId])
+			codewords.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 		for i := 0; i < ncommon; i++ {
-			enc.AddSymbol(data[nextId])
+			codewords.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
-		}
-
-		start := time.Now()
-		for i := 0; i < ncw; i++ {
-			enc.ProduceNextCodedSymbol()
 		}
 		dur := time.Now().Sub(start)
 		encDur += dur
@@ -107,16 +114,16 @@ func main() {
 		dec := riblt.Decoder[testSymbol]{}
 		nextId := 0
 		for i := 0; i < nlocal; i++ {
-			dec.AddSymbol(data[nextId])
+			dec.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 		for i := 0; i < nremote; i++ {
-			enc.AddSymbol(data[nextId])
+			enc.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 		for i := 0; i < ncommon; i++ {
-			enc.AddSymbol(data[nextId])
-			dec.AddSymbol(data[nextId])
+			enc.AddHashedSymbol(hashedData[nextId])
+			dec.AddHashedSymbol(hashedData[nextId])
 			nextId += 1
 		}
 
