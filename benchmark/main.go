@@ -99,11 +99,11 @@ func main() {
 		nextId := 0
 		start := time.Now()
 		for i := 0; i < nremote; i++ {
-			codewords.AddHashedSymbol(hashedData[nextId])
+			codewords.AddSymbol(data[nextId])
 			nextId += 1
 		}
 		for i := 0; i < ncommon; i++ {
-			codewords.AddHashedSymbol(hashedData[nextId])
+			codewords.AddSymbol(data[nextId])
 			nextId += 1
 		}
 		dur := time.Now().Sub(start)
