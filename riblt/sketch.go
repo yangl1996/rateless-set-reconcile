@@ -12,11 +12,7 @@ func (s Sketch[T]) AddHashedSymbol(t HashedSymbol[T]) {
 
 func (s Sketch[T]) AddSymbol(t T) {
 	hs := HashedSymbol[T]{t, t.Hash()}
-	m := randomMapping{hs.Hash, 0}
-	for int(m.lastIdx) < len(s) {
-		s[m.lastIdx] = s[m.lastIdx].apply(hs, add)
-		m.nextIndex()
-	}
+	s.AddHashedSymbol(hs)
 }
 
 func (s Sketch[T]) Subtract(s2 Sketch[T]) Sketch[T] {
@@ -32,3 +28,11 @@ func (s Sketch[T]) Subtract(s2 Sketch[T]) Sketch[T] {
 	return s
 }
 
+func (s Sketch[T]) Decode() ([]HashedSymbol[T], []HashedSymbol[T], bool) {
+	dec := Decoder[T]{}
+	for _, c := range s {
+		dec.AddCodedSymbol(c)
+	}
+	dec.TryDecode()
+	return dec.Remote(), dec.Local(), dec.Decoded()
+}
