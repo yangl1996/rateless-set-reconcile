@@ -7,6 +7,7 @@ import (
 	"time"
 	"fmt"
 	"flag"
+	"unsafe"
 )
 
 const testSymbolSize = 8
@@ -14,9 +15,9 @@ const testSymbolSize = 8
 type testSymbol [testSymbolSize]byte
 
 func (d testSymbol) XOR(t2 testSymbol) testSymbol {
-	for i := 0; i < testSymbolSize; i++ {
-		d[i] ^= t2[i]
-	}
+	dw := (*uint64)(unsafe.Pointer(&d))
+	t2w := (*uint64)(unsafe.Pointer(&t2))
+	*dw = *dw ^ *t2w
 	return d
 }
 
