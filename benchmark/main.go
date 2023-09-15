@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"encoding/binary"
 	"github.com/dchest/siphash"
 	"github.com/yangl1996/rateless-set-reconcile/riblt"
@@ -25,11 +26,19 @@ func (d testSymbol) Hash() uint64 {
 	return siphash.Hash(567, 890, d[:])
 }
 
-func testSymbols(n int) []testSymbol {
-	fmt.Println("allocating memory")
+func testSymbols(n int, from int) []testSymbol {
 	data := make([]testSymbol, n)
 	for i := 0; i < n; i++ {
-		binary.LittleEndian.PutUint32(data[i][0:4], uint32(i))
+		binary.LittleEndian.PutUint64(data[i][0:8], uint64(i)+uint64(from))
+	}
+	return data
+}
+
+func randomTestSymbols(n int, from int) []testSymbol {
+	src := rand.Perm(n)
+	data := make([]testSymbol, n)
+	for i := 0; i < n; i++ {
+		binary.LittleEndian.PutUint64(data[i][0:8], uint64(src[i])+uint64(from))
 	}
 	return data
 }
@@ -51,93 +60,79 @@ func main() {
 		panic("diff not an even number")
 	}
 	nlocal := *diff / 2
-	//nremote := 384010
 	nremote := *diff / 2
-	//ncommon := 240000000
 	ncommon := *set - *diff/2
 
-	fmt.Println("preparing data")
-	data := testSymbols(nlocal + nremote + ncommon)
-	hashedData := hashSymbols(data)
+	totalCw := 0
 
-	fmt.Println("determining number of symbols to generate")
-	ncw := 0
-	{
-		enc := riblt.Encoder[testSymbol]{}
-		dec := riblt.Decoder[testSymbol]{}
-		nextId := 0
-		for i := 0; i < nlocal; i++ {
-			dec.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
-		}
-		for i := 0; i < nremote; i++ {
-			enc.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
-		}
-		for i := 0; i < ncommon; i++ {
-			enc.AddHashedSymbol(hashedData[nextId])
-			dec.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
+	var encDur, decDur time.Duration
+	for testIdx := 0; testIdx < *test; testIdx += 1 {
+		symbolBegin := rand.Int()
+		diffData := randomTestSymbols(*diff, symbolBegin)
+		hashedDiff := hashSymbols(diffData)
+		commonData := testSymbols(ncommon, *diff+symbolBegin)
+		//hashedCommon := hashSymbols(commonData)
+		// probe number of symbols
+		ncw := 0
+		{
+			enc := riblt.Encoder[testSymbol]{}
+			dec := riblt.Decoder[testSymbol]{}
+			for i := 0; i < nlocal; i++ {
+				dec.AddHashedSymbol(hashedDiff[i])
+			}
+			for i := nlocal; i < nlocal+nremote; i++ {
+				enc.AddHashedSymbol(hashedDiff[i])
+			}
+			for {
+				dec.AddCodedSymbol(enc.ProduceNextCodedSymbol())
+				ncw += 1
+				dec.TryDecode()
+				if dec.Decoded() {
+					break
+				}
+			}
+			totalCw += ncw
 		}
 
-		for {
-			dec.AddCodedSymbol(enc.ProduceNextCodedSymbol())
-			ncw += 1
+		// benchmark encode
+		{
+			var codewords riblt.Sketch[testSymbol] 
+			codewords = make([]riblt.CodedSymbol[testSymbol], ncw)
+			start := time.Now()
+			for i := nlocal; i < nlocal+nremote; i++ {
+				codewords.AddSymbol(diffData[i])
+			}
+			for i := 0; i < ncommon; i++ {
+				codewords.AddSymbol(commonData[i])
+			}
+			dur := time.Now().Sub(start)
+			encDur += dur
+		}
+
+		// benchmark decode
+		{
+			enc := riblt.Encoder[testSymbol]{}
+			dec := riblt.Decoder[testSymbol]{}
+			// first fill the decoder
+			for i := 0; i < nlocal; i++ {
+				dec.AddHashedSymbol(hashedDiff[i])
+			}
+			for i := nlocal; i < nlocal+nremote; i++ {
+				enc.AddHashedSymbol(hashedDiff[i])
+			}
+			for i := 0; i < ncw; i++ {
+				dec.AddCodedSymbol(enc.ProduceNextCodedSymbol())
+			}
+			start := time.Now()
 			dec.TryDecode()
-			if dec.Decoded() {
-				break
+			dur := time.Now().Sub(start)
+			decDur += dur
+			if !dec.Decoded() {
+				panic("fail to decode")
 			}
 		}
 	}
-	fmt.Println("running")
 
-	var encDur, decDur time.Duration
-	var codewords riblt.Sketch[testSymbol] 
-	for testIdx := 0; testIdx < *test; testIdx++ {
-		codewords = make([]riblt.CodedSymbol[testSymbol], ncw)
-
-		nextId := 0
-		start := time.Now()
-		for i := 0; i < nremote; i++ {
-			codewords.AddSymbol(data[nextId])
-			nextId += 1
-		}
-		for i := 0; i < ncommon; i++ {
-			codewords.AddSymbol(data[nextId])
-			nextId += 1
-		}
-		dur := time.Now().Sub(start)
-		encDur += dur
-	}
-	for testIdx := 0; testIdx < *test; testIdx++ {
-		enc := riblt.Encoder[testSymbol]{}
-		dec := riblt.Decoder[testSymbol]{}
-		nextId := 0
-		for i := 0; i < nlocal; i++ {
-			dec.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
-		}
-		for i := 0; i < nremote; i++ {
-			enc.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
-		}
-		for i := 0; i < ncommon; i++ {
-			enc.AddHashedSymbol(hashedData[nextId])
-			dec.AddHashedSymbol(hashedData[nextId])
-			nextId += 1
-		}
-
-		for i := 0; i < ncw; i++ {
-			dec.AddCodedSymbol(enc.ProduceNextCodedSymbol())
-		}
-		start := time.Now()
-		dec.TryDecode()
-		dur := time.Now().Sub(start)
-		decDur += dur
-		if !dec.Decoded() {
-			panic("fail to decode")
-		}
-	}
-	fmt.Printf("%d codewords, %.2f overhead, enc %.2f diff/s, dec %.2f diff/s\n", ncw, float64(ncw)/float64(nremote + nlocal), float64(nremote + nlocal)*float64(*test) / encDur.Seconds(), float64(*test)*float64(nremote+nlocal)/decDur.Seconds())
+	fmt.Printf("%.2f overhead, enc %.2f diff/s, dec %.2f diff/s\n", float64(totalCw)/float64(*test)/float64(*diff), float64(*diff)*float64(*test) / encDur.Seconds(), float64(*test)*float64(*diff)/decDur.Seconds())
 }
 
