@@ -5,6 +5,12 @@ type receivedSymbol[T Symbol[T]] struct {
 	dirty bool
 }
 
+// TODO: the current decoder is optimized for rateless decoding. For the cases
+// where we receive all coded symbols before attempting decoding, we can remove
+// support for adding coded symbols after decoding has started. In particular,
+// we no longer need to insert symbol mappings for local and remote into the
+// heaps, which should save us some time.
+
 type Decoder[T Symbol[T]] struct {
 	cs []receivedSymbol[T]	// coded symbols received so far
 	local codingWindow[T]
