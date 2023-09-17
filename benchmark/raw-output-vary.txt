@@ -1,0 +1,6 @@
+1000 1.38 overhead, enc 3372654.54 diff/s, dec 1215483.50 diff/s
+10000 1.38 overhead, enc 339182.66 diff/s, dec 1213414.31 diff/s
+100000 1.38 overhead, enc 34005.93 diff/s, dec 1220498.74 diff/s
+1000000 1.38 overhead, enc 3397.99 diff/s, dec 1212840.19 diff/s
+10000000 1.37 overhead, enc 339.20 diff/s, dec 1190798.56 diff/s
+100000000 1.36 overhead, enc 34.14 diff/s, dec 1119856.57 diff/s
