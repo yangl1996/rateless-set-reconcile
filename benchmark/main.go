@@ -133,6 +133,6 @@ func main() {
 		}
 	}
 
-	fmt.Printf("%.2f overhead, enc %.2f diff/s, dec %.2f diff/s\n", float64(totalCw)/float64(*test)/float64(*diff), float64(*diff)*float64(*test) / encDur.Seconds(), float64(*test)*float64(*diff)/decDur.Seconds())
+	fmt.Printf("coded symbols %.2f, overhead %.2f, enc %.2f diff/s, dec %.2f diff/s\n", float64(totalCw)/float64(*test), float64(totalCw)/float64(*test)/float64(*diff), float64(*diff)*float64(*test) / encDur.Seconds(), float64(*test)*float64(*diff)/decDur.Seconds())
 }
 
